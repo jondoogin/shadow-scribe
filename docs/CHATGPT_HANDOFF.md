@@ -1,6 +1,6 @@
 # Shadow Scribe — Project Handoff
-**Last updated:** 2026-05-06  
-**Stack:** React 19 · Vite 8 · Tailwind CSS v4 · No backend
+**Last updated:** 2026-05-06 (Session 5)  
+**Stack:** React 19 · Vite 8 · Tailwind CSS v4 · localStorage persistence · No backend
 
 ---
 
@@ -10,26 +10,28 @@
 Shadow Scribe is a **reading companion app** — a single-page React application that lets readers track books they're actively reading. It sits somewhere between a reading journal, a spoiler-safe chapter tracker, and a literary notebook. The design philosophy is deliberate: it should feel like a *thoughtful presence* alongside the reader, not a productivity tool or a social platform.
 
 ### Overall architecture
-Pure frontend SPA. No router library — view switching is handled by a `view` state variable (`'library' | 'dashboard' | 'create'`). No backend, no auth, no persistence — all state lives in React `useState` and resets on refresh.
+Pure frontend SPA. No router library — view switching is handled by a `view` state variable (`'library' | 'dashboard' | 'create'`). No backend, no auth. Books persist via `localStorage` (key: `shadowscribe_books`).
 
 ```
-App (root, owns all state)
-├── TopNav (persistent, fixed, z-30)
-└── [view-enter transition wrapper]
-    ├── Library (view = 'library')
-    ├── CreateCompanion (view = 'create')
-    └── BookDashboard (view = 'dashboard')
-        ├── CompanionHeader
-        ├── CompanionInsights
-        ├── sticky tab bar
-        ├── [tab content — key-remounted on tab change]
-        │   ├── ProgressTab
-        │   ├── CharactersTab → RelationshipMap
-        │   ├── PlotTab
-        │   ├── NotesTab
-        │   ├── MysteriesTab
-        │   └── DiscussionTab
-        └── ChapterUpdateModal (portal-like, fixed overlay)
+App
+└── BooksProvider (context: books[], updateBook, createBook, resetToDemo)
+    └── AppShell (view + selectedId state)
+        ├── TopNav (persistent, fixed, z-30)
+        └── [view-enter transition wrapper]
+            ├── Library (view = 'library') — reads books from context
+            ├── CreateCompanion (view = 'create')
+            └── BookDashboard (view = 'dashboard', prop: bookId)
+                ├── CompanionHeader
+                ├── CompanionInsights
+                ├── sticky tab bar
+                ├── [tab content — key-remounted on tab change]
+                │   ├── ProgressTab
+                │   ├── CharactersTab → RelationshipMap
+                │   ├── PlotTab
+                │   ├── NotesTab
+                │   ├── MysteriesTab
+                │   └── DiscussionTab
+                └── ChapterUpdateModal (portal-like, fixed overlay)
 ```
 
 ### Implemented functionality
@@ -70,13 +72,31 @@ shadow-scribe/
 ├── public/
 │   └── vite.svg
 ├── src/
-│   ├── main.jsx                   ← entry point, renders <App />
-│   ├── App.jsx                    ← entire application (single file, ~1580 lines)
-│   ├── App.css                    ← empty (leftover from Vite scaffold)
-│   ├── data.js                    ← INITIAL_BOOKS, STATUS_CONFIG, TAG_CONFIG
-│   ├── index.css                  ← Tailwind import, @theme tokens, keyframes, helpers
+│   ├── main.jsx
+│   ├── App.jsx                    ← root: BooksProvider + AppShell (view/nav state only)
+│   ├── App.css                    ← empty
+│   ├── index.css                  ← Tailwind import, @theme tokens, keyframes, data-mood
+│   ├── context/BooksContext.jsx   ← books[], updateBook, createBook, resetToDemo
+│   ├── hooks/useBooks.js          ← re-export of useBooks()
+│   ├── utils/
+│   │   ├── storage.js             ← loadBooks, saveBooks, resetBooks (localStorage)
+│   │   ├── date.js                ← fmtDate, calcStreak
+│   │   ├── progress.js            ← getProgress
+│   │   └── insights.js            ← generateInsights
+│   ├── data/
+│   │   ├── books.js               ← INITIAL_BOOKS (5 mock books)
+│   │   └── config.js              ← STATUS_CONFIG, TAG_CONFIG
+│   ├── components/
+│   │   ├── layout/TopNav.jsx
+│   │   ├── library/Library.jsx + BookCard.jsx + CreateCompanion.jsx
+│   │   ├── dashboard/BookDashboard.jsx + CompanionHeader.jsx + CompanionInsights.jsx
+│   │   │             ReadingMomentum.jsx + RelationshipMap.jsx
+│   │   ├── modals/ChapterUpdateModal.jsx
+│   │   └── shared/ (8 files: icons, ProgressBar, StatusBadge, NoteTag,
+│   │               BookCover, SectionLabel, SectionHeading, EmptyState)
+│   ├── tabs/ (6 files: ProgressTab, CharactersTab, PlotTab,
+│   │          NotesTab, MysteriesTab, DiscussionTab)
 │   └── assets/
-│       └── react.svg
 ├── index.html
 ├── vite.config.js
 ├── package.json

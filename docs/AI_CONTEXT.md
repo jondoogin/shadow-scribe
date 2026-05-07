@@ -1,5 +1,5 @@
 # Shadow Scribe — AI Context
-**Last updated:** 2026-05-06
+**Last updated:** 2026-05-06 (Session 5)
 
 This file is for AI assistants (Claude, ChatGPT, etc.) working on this project. Read it before touching any code.
 
@@ -21,8 +21,8 @@ Shadow Scribe is a **reading companion app**. It is a personal, literary, reflec
 | Vite | 8.x | Dev server on port 5173 |
 | Tailwind CSS | v4 | `@import "tailwindcss"` — NOT v3 syntax |
 | No router | — | View switching via `view` state in root `App` |
-| No state library | — | All state in root `App`, passed as props |
-| No backend | — | All data in memory; `INITIAL_BOOKS` in `data.js` |
+| `BooksContext` | — | Global state via React Context; `useBooks()` hook |
+| `localStorage` | — | Books persisted under key `shadowscribe_books`; see `src/utils/storage.js` |
 
 ---
 
@@ -48,11 +48,26 @@ Unlayered rules always beat `@layer utilities` rules regardless of specificity. 
 
 ```
 src/
-├── App.jsx          ← ENTIRE application (~1,580 lines, single file)
-├── data.js          ← INITIAL_BOOKS array + STATUS_CONFIG + TAG_CONFIG
-├── index.css        ← @theme tokens, keyframes, CSS helpers
-├── main.jsx         ← entry point
-└── App.css          ← empty, ignore
+├── App.jsx                          ← root: BooksProvider + AppShell (view/nav state only)
+├── context/BooksContext.jsx         ← books[], updateBook, createBook, resetToDemo
+├── hooks/useBooks.js                ← re-export of useBooks() for convenience
+├── utils/storage.js                 ← loadBooks(), saveBooks(), resetBooks()
+├── utils/date.js                    ← fmtDate(), calcStreak()
+├── utils/progress.js                ← getProgress()
+├── utils/insights.js                ← generateInsights()
+├── data/books.js                    ← INITIAL_BOOKS (5 mock books)
+├── data/config.js                   ← STATUS_CONFIG, TAG_CONFIG
+├── components/
+│   ├── layout/TopNav.jsx
+│   ├── library/Library.jsx + BookCard.jsx + CreateCompanion.jsx
+│   ├── dashboard/BookDashboard.jsx + CompanionHeader.jsx + CompanionInsights.jsx
+│   │             ReadingMomentum.jsx + RelationshipMap.jsx
+│   ├── modals/ChapterUpdateModal.jsx
+│   └── shared/  ← icons, ProgressBar, StatusBadge, NoteTag, BookCover,
+│                   SectionLabel, SectionHeading, EmptyState
+├── tabs/  ← ProgressTab, CharactersTab, PlotTab, NotesTab, MysteriesTab, DiscussionTab
+├── index.css                        ← @theme tokens, keyframes, data-mood theming
+└── main.jsx
 ```
 
 ---
@@ -120,7 +135,8 @@ Always use `var(--ca, #B8860B)` (with gold fallback) for accent-colored UI eleme
   mysteries: [{ id, text, status, chapter, resolved }],
   notes: [{ id, text, tag, date }],
              // tag: 'theory' | 'favorite' | 'confusing' | 'theme' | 'character' | 'quote'
-  discussionQuestions: string[]
+  discussionQuestions: string[],      // curated questions (pre-authored per book)
+  userDiscussionQuestions: string[]   // user-added questions (persisted via BooksContext)
 }
 ```
 
@@ -128,29 +144,29 @@ Always use `var(--ca, #B8860B)` (with gold fallback) for accent-colored UI eleme
 
 ## Updating book state
 
-All updates go through the `updateBook` pattern in root `App`:
+All updates go through `BooksContext`. In any component:
 ```js
-const updateBook = useCallback((id, changes) => {
-  setBooks(bs => bs.map(b => b.id === id ? { ...b, ...changes } : b))
-}, [])
+const { books, updateBook, createBook, resetToDemo } = useBooks()
 ```
 
-Components receive `onUpdateBook={changes => updateBook(selectedBook.id, changes)}`. Call it with a partial object — it shallow-merges. For nested arrays (chapters, notes, mysteries), always spread the full array:
+`updateBook(id, changes)` shallow-merges. For nested arrays (chapters, notes, mysteries), always replace the full array:
 ```js
-onUpdateBook({ notes: [...book.notes, newNote] })
+updateBook(book.id, { notes: [...book.notes, newNote] })
 ```
+
+Inside `BookDashboard` and its children, the pattern is:
+```js
+const onUpdateBook = changes => updateBook(bookId, changes)
+```
+Tabs receive `onUpdateBook` as a prop and call it with a partial changes object.
 
 ---
 
 ## Key known issues
 
-1. **No persistence** — state resets on reload. Add `localStorage` before anything else.
-2. **No routing** — no back button, no deep links. `react-router-dom` needed.
-3. **`spoilerMode` is decorative** — field exists but UI ignores it.
-4. **`DiscussionTab` questions are local state** — they disappear on tab switch.
-5. **`CreateCompanion` doesn't set `mood`** — all new books default to `'gold'`.
-6. **`App.jsx` is monolithic** — 1,580 lines, everything in one file.
-7. **ESC doesn't close `ChapterUpdateModal`** — add a `useEffect` with `keydown` listener.
+1. **No routing** — no back button, no deep links. `react-router-dom` needed.
+2. **`spoilerMode` is decorative** — field exists but UI ignores it.
+3. **`CreateCompanion` doesn't set `mood`** — all new books default to `'gold'`.
 
 ---
 

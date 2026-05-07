@@ -3,6 +3,62 @@ Reverse-chronological log of what was built, fixed, and decided in each working 
 
 ---
 
+## Session 6 — 2026-05-06
+**Theme:** P0 baseline stability fixes
+
+### Built
+- **`DiscussionTab` persistence** — user-added questions now stored in `book.userDiscussionQuestions` (new field, separate from curated `book.discussionQuestions`). `onUpdateBook` prop added to the tab; `BookDashboard` updated to pass it. `|| []` fallback handles books without the field (existing localStorage data, seed books). `CreateCompanion` updated to include `userDiscussionQuestions: []` on new books.
+- **ESC closes `ChapterUpdateModal`** — `useEffect` adds a `keydown` listener on `document` that calls `onClose()` on Escape; cleaned up on unmount.
+
+### Fixed
+- `BookDashboard` was not passing `onUpdateBook` to `DiscussionTab` — the prop was present in the tab's signature but never wired from the dashboard.
+
+---
+
+## Session 5 — 2026-05-06
+**Theme:** localStorage persistence
+
+### Built
+- **`src/utils/storage.js`** — three exported functions:
+  - `loadBooks()` — reads `shadowscribe_books` from localStorage, parses JSON, falls back to `INITIAL_BOOKS` if missing, empty, or corrupted
+  - `saveBooks(books)` — writes books array to localStorage; swallows quota/private-mode errors silently
+  - `resetBooks()` — removes the localStorage key, returns `INITIAL_BOOKS`
+- **`BooksContext` updated** — `useState(loadBooks)` (lazy initializer), `useEffect(() => saveBooks(books), [books])`, new `resetToDemo` exported value that calls `resetBooks()` and resets state
+- **Dev-only "Reset demo data" in TopNav** — rendered only when `import.meta.env.DEV` is true; appears at the bottom of the hamburger dropdown; calls `resetToDemo()` then navigates to library
+
+### Architecture note
+`BooksContext` is the only place that touches localStorage. No component or tab knows about it. The `resetToDemo` value is exposed on the context so `TopNav` can trigger it without prop threading.
+
+---
+
+## Session 4 — 2026-05-06
+**Theme:** Architecture refactor (monolith → component tree)
+
+### Built
+Broke `src/App.jsx` (~1,580 lines) into 29 files across a structured `src/` tree. Full file list:
+
+**Utils:** `date.js`, `progress.js`, `insights.js`  
+**Data:** `books.js`, `config.js`  
+**Context:** `BooksContext.jsx` (React Context: books, updateBook, createBook)  
+**Hooks:** `useBooks.js`  
+**Components/layout:** `TopNav.jsx`  
+**Components/library:** `Library.jsx`, `BookCard.jsx`, `CreateCompanion.jsx`  
+**Components/dashboard:** `BookDashboard.jsx`, `CompanionHeader.jsx`, `CompanionInsights.jsx`, `ReadingMomentum.jsx`, `RelationshipMap.jsx`  
+**Components/modals:** `ChapterUpdateModal.jsx`  
+**Components/shared:** `icons.jsx`, `ProgressBar.jsx`, `StatusBadge.jsx`, `NoteTag.jsx`, `BookCover.jsx`, `SectionLabel.jsx`, `SectionHeading.jsx`, `EmptyState.jsx`  
+**Tabs:** `ProgressTab.jsx`, `CharactersTab.jsx`, `PlotTab.jsx`, `NotesTab.jsx`, `MysteriesTab.jsx`, `DiscussionTab.jsx`
+
+### Architecture decisions
+- `BooksContext` provides `{ books, updateBook, createBook }` to entire tree
+- `Library` reads books from context directly (no prop drilling)
+- `BookDashboard` receives only `bookId`, fetches book from context, passes `book` + `onUpdateBook` down to tabs
+- Navigation state (`view`, `selectedId`) stays in `AppShell`
+
+### Fixed
+- `CreateCompanion` was missing `relationships: []` in the `characters` object — would have caused `RelationshipMap` to crash on newly created books
+
+---
+
 ## Session 3 — 2026-05-06
 **Theme:** Living companion layer
 

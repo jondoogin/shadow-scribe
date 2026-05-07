@@ -35,7 +35,7 @@ export default function CreateCompanion({ onCreate, onCancel }) {
         num:i+1, title:`Chapter ${i+1}`, completed:false, summary:null, reflection:null, important:false,
       })),
       characters:{ main:[], secondary:[], relationships:[] },
-      mysteries:[], notes:[], discussionQuestions:[],
+      mysteries:[], notes:[], discussionQuestions:[], userDiscussionQuestions:[],
     }
     onCreate(newBook)
   }

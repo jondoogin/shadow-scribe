@@ -2,13 +2,13 @@ import { useState } from 'react'
 import { Ico } from '../components/shared/icons.jsx'
 import SectionLabel from '../components/shared/SectionLabel.jsx'
 
-export default function DiscussionTab({ book }) {
-  const [added, setAdded] = useState([])
+export default function DiscussionTab({ book, onUpdateBook }) {
   const [input, setInput] = useState('')
+  const userQuestions = book.userDiscussionQuestions || []
 
   const addQ = () => {
     if (!input.trim()) return
-    setAdded(a => [...a, input.trim()])
+    onUpdateBook({ userDiscussionQuestions: [...userQuestions, input.trim()] })
     setInput('')
   }
 
@@ -38,9 +38,9 @@ export default function DiscussionTab({ book }) {
         </div>
       )}
 
-      {added.length > 0 && (
+      {userQuestions.length > 0 && (
         <div className="space-y-3 mb-6">
-          {added.map((q, i) => (
+          {userQuestions.map((q, i) => (
             <div key={i} className="bg-sage-bg rounded-xl border border-sage-pale p-4">
               <p className="text-[13px] text-ink-700 leading-relaxed">{q}</p>
               <p className="text-[10px] text-sage mt-2 font-medium">Your question</p>

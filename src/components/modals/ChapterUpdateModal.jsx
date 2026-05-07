@@ -12,6 +12,12 @@ export default function ChapterUpdateModal({ book, onClose, onUpdateBook }) {
 
   useEffect(() => { ref.current?.focus() }, [])
 
+  useEffect(() => {
+    const fn = e => { if (e.key === 'Escape') onClose() }
+    document.addEventListener('keydown', fn)
+    return () => document.removeEventListener('keydown', fn)
+  }, [onClose])
+
   const detect = text => {
     const m = text.match(/chapter\s+(\d+)|ch\.?\s*(\d+)|part\s+(\d+)|pt\.?\s*(\d+)|#(\d+)/i)
     return m ? parseInt(m[1]||m[2]||m[3]||m[4]||m[5]) : null

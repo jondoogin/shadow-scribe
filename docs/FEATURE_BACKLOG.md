@@ -7,17 +7,14 @@ Status key: `[ ]` not started · `[~]` in progress · `[x]` done
 
 ## P0 — Critical (do first)
 
-- [ ] **`localStorage` persistence**  
-  Serialize `books` state on every update; hydrate on mount. Single `useEffect` + `useState` initializer. Without this, every note, mystery toggle, and progress update is lost on refresh.  
-  _Effort: ~20 lines_
+- [x] **`localStorage` persistence**  
+  `src/utils/storage.js` — `loadBooks()`, `saveBooks()`, `resetBooks()`. `BooksContext` initializes from localStorage (falls back to `INITIAL_BOOKS`), writes on every `books` change via `useEffect`. Dev-only "Reset demo data" in TopNav menu. Safe error handling for corrupted data.
 
-- [ ] **Wire `DiscussionTab` questions into book state**  
-  User-added questions currently live in local component state and disappear on tab switch. Add to `book.discussionQuestions` via `onUpdateBook`.  
-  _Effort: ~10 lines_
+- [x] **Wire `DiscussionTab` questions into book state**  
+  User-added questions stored in `book.userDiscussionQuestions` (separate from curated `book.discussionQuestions`). Persists across tab switches and refreshes via BooksContext/localStorage. `|| []` fallback handles existing books without the field.
 
-- [ ] **ESC key closes `ChapterUpdateModal`**  
-  Standard accessibility expectation. Copy `useEffect` keydown pattern from `TopNav`.  
-  _Effort: 5 lines_
+- [x] **ESC key closes `ChapterUpdateModal`**  
+  `useEffect` with `keydown` listener on `document`, cleaned up on unmount.
 
 ---
 

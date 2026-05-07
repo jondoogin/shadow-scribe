@@ -1,7 +1,11 @@
 import { useState, useEffect, useRef } from 'react'
 import { Ico } from '../shared/icons.jsx'
+import { useBooks } from '../../context/BooksContext.jsx'
+
+const IS_DEV = import.meta.env.DEV
 
 export default function TopNav({ view, onLibrary, onCreateNew }) {
+  const { resetToDemo } = useBooks()
   const [open, setOpen] = useState(false)
   const ref = useRef()
 
@@ -80,6 +84,19 @@ export default function TopNav({ view, onLibrary, onCreateNew }) {
                   Keep your reading rich, your memory long, and your theories safe.
                 </p>
               </div>
+              {IS_DEV && (
+                <>
+                  <div className="border-t border-ink-100 mx-3" />
+                  <div className="p-2">
+                    <button
+                      onClick={() => { resetToDemo(); onLibrary(); setOpen(false) }}
+                      className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-[12px] text-ink-400 hover:bg-ink-100 hover:text-ink-600 transition-colors"
+                    >
+                      <Ico.Refresh /> Reset demo data
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
           )}
         </div>

@@ -59,7 +59,7 @@ export default function BookDashboard({ bookId }) {
         {tab === 'plot'       && <PlotTab       book={book} onUpdateBook={onUpdateBook} />}
         {tab === 'notes'      && <NotesTab      book={book} onUpdateBook={onUpdateBook} />}
         {tab === 'mysteries'  && <MysteriesTab  book={book} onUpdateBook={onUpdateBook} />}
-        {tab === 'discussion' && <DiscussionTab book={book} />}
+        {tab === 'discussion' && <DiscussionTab book={book} onUpdateBook={onUpdateBook} />}
       </main>
 
       {showUpdate && (
