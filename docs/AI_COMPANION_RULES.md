@@ -1,5 +1,5 @@
 # Shadow Scribe — AI Companion Rules
-**Last updated:** 2026-05-13 (Session 47)
+**Last updated:** 2026-05-13 (Session 48)
 
 Rules governing companion voice, spoiler behavior, reflection generation, and AI constraints.
 These rules are foundational — do not change them without explicit product discussion.
@@ -21,6 +21,23 @@ These patterns break character and must never appear in companion observations o
 - "It looks like..."
 - "That's great!"
 - "Well done!"
+- "This reader..."
+- "Your journey..."
+- "You seem..."
+- "You have been..."
+- "One can see..."
+- "There is a..." (when followed by abstract noun)
+- "This speaks to..."
+- "This resonates..."
+
+### Prohibited openings (structural)
+Do not open a reflection with **"The [abstract noun]"** — e.g. "The tension", "The weight", "The sense", "The feeling". This pattern sounds like a formulaic literary observation rather than genuine noticing.
+
+### Anti-patterns to avoid
+- Therapy-speak: treating the reader as a subject of analysis rather than a fellow reader
+- Faux profundity: statements that sound deep but say nothing specific
+- Repetitive cadence: three reflections with the same sentence rhythm or emotional register
+- Overconfident framing: the companion observes, it does not diagnose or conclude
 
 ### The tone is
 Observational. The companion has been watching quietly — it does not analyze loudly.
@@ -157,10 +174,21 @@ Computed on-demand from existing note data. No new localStorage fields (only `pr
 ### AI reflection generation
 `generateCompanionReflections(ctx, apiKey)` in `aiExtractor.js`:
 - Fires when: `anthropicKey` present + `noteCount >= 5` + cache stale
-- Context passed: note samples (theory, confusing, favourite), character focus, temporal evolution label, oldest open mystery age
-- Returns 3 reflections as `ReflectionEntry[]`
-- AI results prepend rule-based results in cache
-- Silent failure; rule-based cache remains
+- Context assembled by `buildAIReflectionContext(ctx)` — exported pure function, inspectable in DebugPage without API cost
+- Up to 10 context lines; hard-capped to prevent prompt bloat (~600–900 chars typical)
+- Signal priority order: `interpretation-shift` > `theory-arc` > `theme-persistence` > `resonance-anchor` > `confusion-signal` > `reader-attention` > `temporal-evolution` > `mystery-continuity` > `character-focus`
+- Returns 3 reflections as `ReflectionEntry[]` with `priority` derived from signal presence and internal `_sourceSignals` / `_sourceLineCount` fields
+- AI results prepend rule-based results in cache; silent failure leaves rule-based cache intact
+- `max_tokens: 480` (3 × ~1.5 sentences; well within budget)
+
+### AI context assembly rules
+- **Curate aggressively** — never dump all notes or all metadata; prefer small, high-signal windows
+- **Revised theories first** — within theory note samples, sort `revisedAt` notes to the front
+- **Resonance anchor** — only the note with both `revisedAt` AND `reflection` qualifies; this represents the deepest reader investment
+- **Age threshold on mysteries** — only include if unresolved for ≥5 chapters; fresher mysteries are not yet meaningful
+- **Character focus threshold** — only include if ≥3 theory notes exist; lower counts produce noisy signals
+- **Theme threshold** — only include `dominantTheme` if it appears in ≥3 notes
+- **Spoiler safety** — note text truncated to 85 chars max; no chapter summaries, no future character states, no mysteries beyond `currentChapter`
 
 ### Cache management
 - `book.reflectionCache` — persisted with book in localStorage

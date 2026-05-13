@@ -1,18 +1,18 @@
 # Shadow Scribe — Roadmap
-**Last updated:** 2026-05-13 (Session 47)
+**Last updated:** 2026-05-13 (Session 48)
 
 ---
 
 ## Active Milestone Queue
 
-### Milestone: Companion Intelligence Layer v4 — AI Note Intelligence
-Use the API to enhance note intelligence signals when conditions allow (key present + ≥8 notes).
+### Milestone: Companion Intelligence Layer v5 — Reflection Quality + Deduplication
+Audit and improve the full reflection pipeline end-to-end.
 
 **Planned work:**
-- Pass theme distribution, interpretation shifts, and high-resonance note texts to the AI reflection call
-- Let the AI generate an `interpretation-shift` type reflection from richer language than the rule-based SHIFT_TEXT map allows
-- Improve AI reflection prompting to mention which themes and characters the reader has been tracking
-- Deduplicate AI + rule-based reflections by semantic proximity (hash or embedding)
+- Deduplicate AI + rule-based reflections by text similarity (Jaccard or short-string distance; no embeddings)
+- Suppress rule-based entries that are semantically covered by an AI entry
+- Reader-facing reflection feedback (suppress button visible on long-press / hover)
+- Audit reflection pool over time: surface less frequently when pool is well-surfaced
 
 ---
 
@@ -87,3 +87,4 @@ These require a backend and are out of scope for the current localStorage-only a
 | Six-feature enhancement pass | 45 | AI discussion questions, re-extraction, character editing, notes search, chapter rename, dark mode |
 | Companion Intelligence Layer v1 | 46 | `reflectionEngine.js`, AI reflections, voice pass, DebugPage Reflection Inspector |
 | Companion Intelligence Layer v2+v3 | 47 | `markReflectionSurfaced` wired, chapter/return reflection surfaces, Discussion Tab continuity header, note intelligence layer (themes/shifts/resonance/clusters), DebugPage Note Intelligence panel |
+| Companion Intelligence Layer v4 | 48 | `buildAIReflectionContext` (exported, pure), upgraded AI reflection prompt (voice + diversity), signal-derived priority, `_sourceSignals`/`_sourceLineCount` attribution, DebugPage AI context inspector |

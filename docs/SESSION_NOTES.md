@@ -3,6 +3,50 @@ Reverse-chronological log of what was built, fixed, and decided in each working 
 
 ---
 
+## Session 48 — 2026-05-13
+**Theme:** Companion Intelligence Layer v4 — AI Note Intelligence
+
+### Modified
+
+- **`src/utils/aiExtractor.js`** — `generateCompanionReflections` upgraded; `buildAIReflectionContext` extracted and exported.
+
+  **`buildAIReflectionContext(ctx)`** (new exported function):
+  - Assembles a compact, high-signal context block from the assembled reflection context without calling the API.
+  - 9 input signals (in priority order): `theory-arc`, `interpretation-shift`, `theme-persistence`, `resonance-anchor`, `confusion-signal`, `reader-attention`, `temporal-evolution`, `mystery-continuity`, `character-focus`.
+  - Each signal has a threshold before inclusion: interpretation shifts require the character to appear in early AND late notes; mystery continuity requires age ≥5 chapters; character focus requires ≥3 theory notes.
+  - Hard cap of 10 context lines — no prompt bloat.
+  - Returns `{ lines: string[], signals: string[], estimatedChars: number }`.
+  - Used by `generateCompanionReflections` and exported for DebugPage inspection.
+
+  **`generateCompanionReflections(ctx, apiKey)` changes**:
+  - Context assembly now delegates to `buildAIReflectionContext` instead of inline logic.
+  - Theory note selection now sorts revised notes first (returned-to = stronger signal).
+  - Resonance anchor now explicitly selects the note with both `revisedAt` AND `reflection` (deepest investment).
+  - `max_tokens` reduced from 500 → 480 (3 × ~1.5 sentences = well within budget).
+  - Prompt rewritten:
+    - Removed "You are the reading companion" framing (assistant-like).
+    - Added diversity instruction: "Each reflection notices something different: vary the angle across character, pattern, emotional register, or interpretive shift."
+    - Expanded prohibited phrase list: added "This reader", "Your journey", "You seem", "You have been", "One can see", "There is a", "This speaks to", "This resonates".
+    - Added structural prohibition: "Do not open with 'The [abstract noun]'" (catches "The tension", "The weight", etc.).
+    - Added explicit anti-patterns: "No therapy-speak. No faux profundity. No chatbot wisdom."
+  - Priority derivation from signal presence: `interpretation-shift` → p3; `resonance-anchor` or `theme-persistence` → p2; otherwise p1. Assigned as `[topPriority, max(topPriority-1, 1), 1]` across the 3 reflections.
+  - Added internal QA fields: `_sourceSignals: string[]`, `_sourceLineCount: number` (underscore-prefixed; not rendered in UI; stored in localStorage with reflection cache).
+
+- **`src/pages/DebugPage.jsx`** — AI context inspector added to `ReflectionPanel`.
+  - Added `buildAIReflectionContext` import from `aiExtractor.js`.
+  - Added `[aiCtxOpen, setAiCtxOpen]` toggle state.
+  - New collapsible "AI context payload" section in `ReflectionPanel`: shows context line count, estimated char count, detected signals (colour-coded badges: sienna=interpretation-shift, sage=resonance-anchor/theme-persistence, ink=others), and the full set of context lines in monospace.
+  - Reflection list rows now show `_sourceSignals` badges and `_sourceLineCount` beneath AI entries (indented, secondary).
+
+### Architecture decisions
+
+- **`buildAIReflectionContext` is pure and exported** — the same function used by the live generation path is inspectable in DebugPage without any API call. "What the AI would receive" is always visible without burning tokens.
+- **Signal-derived priority** — AI reflections don't get a flat priority. The richness of the context that produced them determines how often they resurface. An interpretation-shift-grounded reflection (priority 3) will rotate to the front of the carousel faster than a low-signal reflection (priority 1).
+- **`_source*` fields are stored but not rendered** — kept in `reflectionCache.reflections` for QA auditability; small enough (array of strings + int) to be negligible storage cost.
+- **Prompt spoiler safety** — the context assembly never includes chapter summaries, future character states, or mysteries beyond `currentChapter`. Note text is truncated to 85 chars max to reduce risk of accidentally including spoiler-adjacent reader commentary.
+
+---
+
 ## Session 47 — 2026-05-13
 **Theme:** Companion Intelligence Layer v2 + v3 — Continuity Surface, Note Intelligence, Emotional Continuity
 

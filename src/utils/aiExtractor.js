@@ -297,14 +297,111 @@ Return ONLY a JSON array of strings — no markdown, no explanation:
   return questions.filter(q => typeof q === 'string' && q.trim()).map(q => q.trim())
 }
 
+// ── AI reflection context assembly ───────────────────────────────────────────
+
+/**
+ * Assembles a compact, high-signal context block for AI reflection generation.
+ * Exported for DebugPage inspection — does NOT call the API.
+ *
+ * Curates aggressively: never dumps all notes or all metadata.
+ * Favors specific, grounded signals over volume.
+ * Spoiler-safe by construction: reads only notes, open mysteries, and session
+ * data — never chapter summaries, future character states, or any data beyond
+ * book.currentChapter.
+ *
+ * @param {Object} ctx  Output of assembleReflectionContext()
+ * @returns {{ lines: string[], signals: string[], estimatedChars: number }}
+ */
+export function buildAIReflectionContext(ctx) {
+  const lines   = []
+  const signals = []
+
+  // 1. Theory patterns — revised theories first (returned-to = stronger signal)
+  if (ctx.theoryNotes.length >= 2) {
+    const sorted  = [...ctx.theoryNotes].sort((a, b) => (b.revisedAt ? 1 : 0) - (a.revisedAt ? 1 : 0))
+    const samples = sorted.slice(0, 2).map(n => `"${n.text.slice(0, 85)}"`)
+    const revNote = ctx.revisedTheories.length ? `, ${ctx.revisedTheories.length} revised` : ''
+    lines.push(`Theory notes (${ctx.theoryNotes.length}${revNote}): ${samples.join(' / ')}`)
+    signals.push('theory-arc')
+  }
+
+  // 2. Interpretation shift — most specific grounding signal; always include if present
+  if (ctx.interpretationShifts.length > 0) {
+    const s = ctx.interpretationShifts[0]
+    lines.push(`Shifting view of ${s.name}: early notes felt ${s.earlyValence}; recent notes feel ${s.lateValence} (${s.noteCount} notes)`)
+    signals.push('interpretation-shift')
+  }
+
+  // 3. Dominant recurring theme (only when 3+ notes carry it)
+  if (ctx.dominantTheme && (ctx.themeCount[ctx.dominantTheme] || 0) >= 3) {
+    const label = ctx.dominantTheme === 'obsession' ? 'fixation' : ctx.dominantTheme
+    lines.push(`Recurring theme across notes: ${label} (${ctx.themeCount[ctx.dominantTheme]} notes)`)
+    signals.push('theme-persistence')
+  }
+
+  // 4. Highest-resonance note: revised AND reflected = deepest reader investment
+  const deepNote = ctx.highResonanceNotes.find(n => n.revisedAt && n.reflection)
+  if (deepNote) {
+    lines.push(`Most-revisited note: "${deepNote.text.slice(0, 85)}" (revised and reflected on)`)
+    signals.push('resonance-anchor')
+  }
+
+  // 5. Confusion signal (2+ notes)
+  if (ctx.confusingNotes.length >= 2) {
+    const sample = `"${ctx.confusingNotes[0].text.slice(0, 70)}"`
+    lines.push(`Confusing passages (${ctx.confusingNotes.length}): ${sample}`)
+    signals.push('confusion-signal')
+  }
+
+  // 6. Favourite passages — count only (text already surfaced via resonance)
+  if (ctx.favoriteNotes.length >= 2) {
+    lines.push(`Favourite passages marked: ${ctx.favoriteNotes.length}`)
+    signals.push('reader-attention')
+  }
+
+  // 7. Temporal arc
+  if (ctx.temporalEvolution) {
+    const label = {
+      'confusion-to-theory': 'early notes confused; recent notes interpretive',
+      'sustained-theory':    'theorising consistently throughout',
+      'late-favorites':      'favourite passages accumulating in the second half',
+    }[ctx.temporalEvolution]
+    lines.push(`Reading arc: ${label}`)
+    signals.push('temporal-evolution')
+  }
+
+  // 8. Oldest open mystery — only if aged ≥5 chapters (otherwise too fresh)
+  if (ctx.longestOpenMystery) {
+    const age = ctx.currentChapter - (ctx.longestOpenMystery.chapter || 0)
+    if (age >= 5) {
+      lines.push(`Oldest open question (${age} chapters): "${ctx.longestOpenMystery.text?.slice(0, 75)}"`)
+      signals.push('mystery-continuity')
+    }
+  }
+
+  // 9. Recurring character in theories — only when theory count is strong
+  if (ctx.theoryCharFocus.length > 0 && ctx.theoryNotes.length >= 3) {
+    lines.push(`Character recurring in theories: ${ctx.theoryCharFocus[0]}`)
+    signals.push('character-focus')
+  }
+
+  const bounded = lines.slice(0, 10)   // hard cap — no prompt bloat
+  return {
+    lines:          bounded,
+    signals,
+    estimatedChars: bounded.join('\n').length,
+  }
+}
+
 // ── Companion reflection generation ──────────────────────────────────────────
 
 /**
- * Generate AI-synthesized companion reflections from an assembled reflection
- * context (produced by reflectionEngine.assembleReflectionContext).
+ * Generate AI-synthesized companion reflections grounded in the reader's
+ * actual engagement patterns: recurring themes, interpretation shifts,
+ * high-resonance notes, and unresolved emotional tensions.
  *
- * Returns an array of ReflectionEntry-shaped objects ready to be stored in
- * book.reflectionCache.reflections.
+ * Returns ReflectionEntry-shaped objects with `priority` (derived from signal
+ * strength) and `_sourceSignals` / `_sourceLineCount` (internal QA metadata).
  *
  * @param {Object} ctx     Output of assembleReflectionContext()
  * @param {string} apiKey  Anthropic API key
@@ -314,65 +411,32 @@ export async function generateCompanionReflections(ctx, apiKey) {
   if (!apiKey?.trim()) throw new Error('No API key provided')
   if (ctx.noteCount < 5) throw new Error('Not enough notes for AI reflection')
 
-  // Build a compact, spoiler-safe context block
-  const lines = []
+  const { lines, signals } = buildAIReflectionContext(ctx)
+  if (lines.length === 0) return []
 
-  if (ctx.theoryNotes.length) {
-    const samples = ctx.theoryNotes.slice(0, 3).map(n => `"${n.text.slice(0, 90)}"`)
-    lines.push(`Theory notes (${ctx.theoryNotes.length}): ${samples.join(' / ')}`)
-  }
-  if (ctx.confusingNotes.length) {
-    const samples = ctx.confusingNotes.slice(0, 2).map(n => `"${n.text.slice(0, 70)}"`)
-    lines.push(`Confusing passages noted (${ctx.confusingNotes.length}): ${samples.join(' / ')}`)
-  }
-  if (ctx.favoriteNotes.length) {
-    const samples = ctx.favoriteNotes.slice(0, 2).map(n => `"${n.text.slice(0, 70)}"`)
-    lines.push(`Favourite passages (${ctx.favoriteNotes.length}): ${samples.join(' / ')}`)
-  }
-  if (ctx.characterNotes.length) {
-    lines.push(`Character notes (${ctx.characterNotes.length})${ctx.focusedCharacters.length ? `, recurring name: ${ctx.focusedCharacters[0]}` : ''}`)
-  }
-  if (ctx.revisedNotes.length) {
-    lines.push(`Notes revised since first written: ${ctx.revisedNotes.length}`)
-  }
-  if (ctx.reflectedNotes.length) {
-    lines.push(`Notes with a later reflection added: ${ctx.reflectedNotes.length}`)
-  }
-  if (ctx.temporalEvolution) {
-    const label = {
-      'confusion-to-theory': 'early notes were confused; later notes are interpretive',
-      'sustained-theory':    'consistent theorising throughout',
-      'late-favorites':      'favourite passages appearing more in the second half',
-    }[ctx.temporalEvolution]
-    lines.push(`Reading pattern: ${label}`)
-  }
-  if (ctx.longestOpenMystery) {
-    const age = ctx.currentChapter - (ctx.longestOpenMystery.chapter || 0)
-    lines.push(`Oldest open mystery (${age} chapters unresolved): "${ctx.longestOpenMystery.text?.slice(0, 80)}"`)
-  }
-  if (ctx.theoryCharFocus.length) {
-    lines.push(`Character appearing most in theories: ${ctx.theoryCharFocus[0]}`)
-  }
+  const bookRef = `"${ctx.title}"${ctx.author ? ` by ${ctx.author}` : ''}`
 
-  const prompt = `You are the reading companion for a reader of "${ctx.title}"${ctx.author ? ` by ${ctx.author}` : ''}. They are ${ctx.pct}% through the book (chapter ${ctx.currentChapter} of ${ctx.totalChapters}).
+  const prompt = `You are writing 3 companion reflections for a reader of ${bookRef}. They are ${ctx.pct}% through (chapter ${ctx.currentChapter} of ${ctx.totalChapters}).
 
-Here is what you know about their reading so far:
+What you know about how they have been reading:
 ${lines.join('\n')}
 
-Write 3 short companion reflections. These are NOT summaries. They notice patterns in the reader's own engagement — what they keep returning to, how their understanding shifts, what they keep circling.
+Write 3 short companion reflections. These notice patterns in how this reader has been engaging — what they keep returning to, how their understanding has shifted, what remains unresolved. Not summaries of the book.
 
-Strict rules:
-- Each reflection is 1–2 sentences maximum
-- Tone: literary, restrained, quietly perceptive — NOT chatbot, NOT therapist, NOT writing coach
-- Do NOT quote the reader's notes directly
-- Do NOT reference future chapters or events
-- Do NOT use phrases like "I notice", "It seems", "You might", "It appears", "As a reader"
-- Write as if the companion has been watching quietly — not analysing loudly
-- Vary sentence rhythm — avoid starting consecutive reflections the same way
+Requirements:
+- 1–2 sentences each. No longer.
+- Literary, restrained, quietly perceptive.
+- Each reflection notices something different: vary the angle across character, pattern, emotional register, or interpretive shift.
+- Do NOT quote the reader's notes directly.
+- Do NOT reference future chapters or events past chapter ${ctx.currentChapter}.
+- Prohibited phrases: "I notice", "It seems", "You might", "It appears", "As a reader", "This reader", "Your journey", "You seem", "You have been", "One can see", "There is a", "This speaks to", "This resonates".
+- Do not open a reflection with "The [abstract noun]" (e.g. "The tension", "The weight", "The sense").
+- No therapy-speak. No faux profundity. No chatbot wisdom.
+- Write as if watching quietly — not analysing loudly.
 
-Return ONLY a JSON array of 3 strings. No other text.`
+Return ONLY a JSON array of 3 strings. No markdown, no explanation.`
 
-  const raw = await callClaude(apiKey, prompt, 500)
+  const raw = await callClaude(apiKey, prompt, 480)
 
   let arr
   try {
@@ -383,17 +447,28 @@ Return ONLY a JSON array of 3 strings. No other text.`
 
   if (!Array.isArray(arr)) return []
 
+  // Derive priority from which signals were present in context
+  // Higher-signal context → higher priority → surfaces sooner in rotation
+  const topPriority = signals.includes('interpretation-shift') ? 3
+    : (signals.includes('resonance-anchor') || signals.includes('theme-persistence')) ? 2
+    : 1
+  const priorities = [topPriority, Math.max(topPriority - 1, 1), 1]
+
   const ts = Date.now()
   return arr
     .filter(s => typeof s === 'string' && s.trim().length > 10)
-    .slice(0, 4)
+    .slice(0, 3)
     .map((text, i) => ({
-      id:           `ai_${ts}_${i}`,
-      text:         text.trim(),
-      type:         'ai',
-      surfaceCount:  0,
-      lastSurfaced:  null,
-      suppressed:    false,
-      generatedAt:   new Date().toISOString(),
+      id:                `ai_${ts}_${i}`,
+      text:              text.trim(),
+      type:              'ai',
+      priority:          priorities[i] ?? 1,
+      surfaceCount:      0,
+      lastSurfaced:      null,
+      suppressed:        false,
+      generatedAt:       new Date().toISOString(),
+      // Internal QA metadata — dev/debug only, not rendered in UI
+      _sourceSignals:    signals,
+      _sourceLineCount:  lines.length,
     }))
 }

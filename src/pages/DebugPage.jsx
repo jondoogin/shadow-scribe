@@ -25,6 +25,7 @@ import {
   computeResonanceWeights,
   MIN_RESURFACE_MS,
 } from '../utils/reflectionEngine.js'
+import { buildAIReflectionContext } from '../utils/aiExtractor.js'
 
 function Badge({ children, color = 'ink' }) {
   const colors = {
@@ -208,7 +209,10 @@ function ReflectionPanel({ book, settings, onUpdateBook }) {
   const cache       = book.reflectionCache
   const stale       = shouldRegenerate(book, hash)
   const reflections = cache?.reflections ?? []
-  const [preview, setPreview] = useState(null)
+  const [preview,     setPreview]     = useState(null)
+  const [aiCtxOpen,   setAiCtxOpen]   = useState(false)
+
+  const aiCtx = aiCtxOpen ? buildAIReflectionContext(ctx) : null
 
   const handlePreview = () => {
     const r = generateRuleBasedReflections(ctx, settings.insightStyle)
@@ -279,6 +283,45 @@ function ReflectionPanel({ book, settings, onUpdateBook }) {
           </p>
         )}
 
+        {/* AI context inspector */}
+        <div className="border border-ink-100 rounded-xl overflow-hidden">
+          <button
+            onClick={() => setAiCtxOpen(v => !v)}
+            className="w-full flex items-center justify-between px-3 py-2 bg-cream-50 hover:bg-cream-200 text-left transition-colors">
+            <span className="text-[11px] font-semibold text-ink-500 uppercase tracking-widest">AI context payload</span>
+            <span className="text-[10px] text-ink-300">{aiCtxOpen ? '▲' : '▼'}</span>
+          </button>
+          {aiCtxOpen && aiCtx && (
+            <div className="px-3 py-2.5 space-y-2.5 bg-white">
+              <div className="flex items-center gap-2 text-[11px]">
+                <span className="text-ink-400">Lines:</span>
+                <span className="font-medium text-ink-700">{aiCtx.lines.length}</span>
+                <span className="text-ink-300">·</span>
+                <span className="text-ink-400">~{aiCtx.estimatedChars} chars</span>
+                <span className="text-ink-300">·</span>
+                <span className="text-ink-400">Signals:</span>
+                <div className="flex gap-1 flex-wrap">
+                  {aiCtx.signals.map(s => (
+                    <Badge key={s} color={s === 'interpretation-shift' ? 'sienna' : s === 'resonance-anchor' || s === 'theme-persistence' ? 'sage' : 'ink'}>{s}</Badge>
+                  ))}
+                  {aiCtx.signals.length === 0 && <span className="text-ink-300 italic">none</span>}
+                </div>
+              </div>
+              {aiCtx.lines.length > 0 ? (
+                <div className="space-y-1">
+                  {aiCtx.lines.map((line, i) => (
+                    <p key={i} className="text-[11px] text-ink-600 leading-relaxed font-mono bg-ink-50 rounded px-2 py-1">
+                      {line}
+                    </p>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-[11px] text-ink-300 italic">No context lines — insufficient note signal</p>
+              )}
+            </div>
+          )}
+        </div>
+
         {/* Cached reflections */}
         {reflections.length > 0 && (
           <div className="space-y-2">
@@ -289,19 +332,32 @@ function ReflectionPanel({ book, settings, onUpdateBook }) {
             {reflections.map(r => {
               const cooling = r.lastSurfaced && (Date.now() - new Date(r.lastSurfaced).getTime() < MIN_RESURFACE_MS)
               return (
-                <div key={r.id} className={`flex items-start gap-2.5 text-[12px] ${cooling ? 'opacity-40' : ''}`}>
-                  <span className="text-ink-300 flex-shrink-0 tabular-nums mt-0.5">×{r.surfaceCount ?? 0}</span>
-                  <p className="text-ink-600 italic leading-relaxed flex-1">"{r.text}"</p>
-                  <div className="flex flex-col items-end gap-1 flex-shrink-0">
-                    <div className="flex items-center gap-1">
-                      <Badge color={r.type === 'ai' ? 'gold' : 'ink'}>{r.type === 'ai' ? 'AI' : 'rule'}</Badge>
-                      <Badge color={r.priority === 3 ? 'sienna' : r.priority === 2 ? 'sage' : 'ink'}>p{r.priority ?? 1}</Badge>
+                <div key={r.id} className={`space-y-1 pb-2 border-b border-ink-50 last:border-0 last:pb-0 ${cooling ? 'opacity-40' : ''}`}>
+                  <div className="flex items-start gap-2.5 text-[12px]">
+                    <span className="text-ink-300 flex-shrink-0 tabular-nums mt-0.5">×{r.surfaceCount ?? 0}</span>
+                    <p className="text-ink-600 italic leading-relaxed flex-1">"{r.text}"</p>
+                    <div className="flex flex-col items-end gap-1 flex-shrink-0">
+                      <div className="flex items-center gap-1">
+                        <Badge color={r.type === 'ai' ? 'gold' : 'ink'}>{r.type === 'ai' ? 'AI' : 'rule'}</Badge>
+                        <Badge color={r.priority === 3 ? 'sienna' : r.priority === 2 ? 'sage' : 'ink'}>p{r.priority ?? 1}</Badge>
+                      </div>
+                      {r.lastSurfaced && (
+                        <span className="text-[10px] text-ink-300">{fmtDate(r.lastSurfaced.split('T')[0])}</span>
+                      )}
+                      {cooling && <span className="text-[10px] text-ink-300">cooling</span>}
                     </div>
-                    {r.lastSurfaced && (
-                      <span className="text-[10px] text-ink-300">{fmtDate(r.lastSurfaced.split('T')[0])}</span>
-                    )}
-                    {cooling && <span className="text-[10px] text-ink-300">cooling</span>}
                   </div>
+                  {r._sourceSignals?.length > 0 && (
+                    <div className="flex items-center gap-1 pl-7 flex-wrap">
+                      <span className="text-[10px] text-ink-300">grounded in:</span>
+                      {r._sourceSignals.map(s => (
+                        <Badge key={s} color="ink">{s}</Badge>
+                      ))}
+                      {r._sourceLineCount != null && (
+                        <span className="text-[10px] text-ink-300 ml-1">{r._sourceLineCount} ctx lines</span>
+                      )}
+                    </div>
+                  )}
                 </div>
               )
             })}

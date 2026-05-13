@@ -1,5 +1,5 @@
 # Shadow Scribe — Architecture
-**Last updated:** 2026-05-13 (Session 47)
+**Last updated:** 2026-05-13 (Session 48)
 
 ---
 
@@ -275,9 +275,21 @@ headers: {
 ```
 
 Capabilities:
-1. **EPUB re-extraction** — `aiExtractNarrative()`: characters + chapter summaries + mysteries from EPUB text
-2. **Discussion questions** — `generateDiscussionQuestions()`: 6–8 tailored questions from book context
-3. **Companion reflections** — `generateCompanionReflections()`: 3 retrospective observations from reader behavior signals
+1. **EPUB re-extraction** — `aiExtractNarrative()`: characters + chapter summaries + mysteries from EPUB text (max_tokens: 6000)
+2. **Discussion questions** — `generateDiscussionQuestions()`: 6–8 tailored questions from book context (max_tokens: 1500)
+3. **Companion reflections** — `generateCompanionReflections()`: 3 grounded retrospective observations (max_tokens: 480)
+
+### AI reflection context assembly
+`buildAIReflectionContext(ctx)` — exported pure function; assembled from `assembleReflectionContext` output.
+- Curates aggressively: max 10 lines, ~600–900 chars
+- 9 signals in priority order: theory-arc, interpretation-shift, theme-persistence, resonance-anchor, confusion-signal, reader-attention, temporal-evolution, mystery-continuity, character-focus
+- Each signal has a minimum threshold before inclusion
+- Spoiler-safe: note text truncated to 85 chars; no summaries or future states
+
+### AI reflection metadata (`ReflectionEntry` fields added by AI path)
+- `priority: 1|2|3` — derived from signals present in context (interpretation-shift → p3; resonance-anchor/theme-persistence → p2; otherwise p1)
+- `_sourceSignals: string[]` — which signals were included in the context (internal/dev)
+- `_sourceLineCount: number` — how many context lines were sent (internal/dev)
 
 Key stored in `settings.anthropicKey` (via SettingsContext → `shadowscribe_settings`). Never committed to repo.
 

@@ -1,5 +1,5 @@
 # Shadow Scribe — Current State Briefing
-**Last updated:** 2026-05-13 (Session 47)
+**Last updated:** 2026-05-13 (Session 48)
 
 This is a **lightweight current-state briefing** for external AI collaboration (ChatGPT, etc.).
 For full technical depth, read the modular docs: ARCHITECTURE.md, AI_COMPANION_RULES.md, DESIGN_SYSTEM.md, PRODUCT_FOUNDATION.md, ROADMAP.md.
@@ -14,37 +14,29 @@ A personal reading companion app. Literary, reflective, spoiler-aware. Not a pro
 
 ---
 
-## Where We Are (Session 47)
+## Where We Are (Session 48)
 
-### Recently completed — Companion Intelligence Layer v2 + v3
-The reflection engine now has a **full note intelligence layer** and surfaces reflections at **meaningful moments**:
+### Recently completed — Companion Intelligence Layer v4: AI Note Intelligence
 
-**Note intelligence (v3):**
-- `inferNoteThemes` / `analyzeNoteThemes` — 11-theme keyword inference; `dominantTheme`, `recurringThemes`
-- `detectInterpretationShifts` — detects character valence changes between early and late notes
-- `buildNoteLinkClusters` — groups notes by shared theme or character mention
-- `computeResonanceWeights` — scores notes by revision depth, reflection, tag, and recurrence
-- 3 new signal types: `interpretation-shift` (p3), `theme-persistence` (p2), `resonance-anchor` (p2)
+AI reflections are now **grounded in the reader's actual engagement patterns** — not just raw note samples:
 
-**Continuity surfaces (v2):**
-- `markReflectionSurfaced` wired into the `CompanionInsights` carousel (session-dedup, ref pattern)
-- `pickCompletionReflection` / `pickReturnReflection` in `ChapterUpdateModal` — companion speaks at chapter milestones and after 7+ day absences
-- `persistentReflection` continuity header in `DiscussionTab` — a thread the companion has been tracking
-- Priority system (`priority: 1|2|3`) on all `ReflectionEntry` objects; 8h minimum resurfacing window
+- **`buildAIReflectionContext(ctx)`** (exported, pure) — assembles up to 10 high-signal context lines from: revised theories, interpretation shifts, dominant theme, highest-resonance note, confusion/favourite counts, temporal arc, oldest mystery, recurring character. Exported for DebugPage inspection without API cost.
+- **Signal-derived priority** — if `interpretation-shift` is in context → p3; `resonance-anchor` or `theme-persistence` → p2; otherwise p1. Each AI reflection gets a different tier.
+- **`_sourceSignals` / `_sourceLineCount`** — internal attribution metadata stored on each `ReflectionEntry` (underscore-prefixed, not rendered in UI, visible in DebugPage).
+- **Upgraded prompt** — diversity instruction, expanded prohibited-phrase list, structural prohibition on "The [abstract noun]" openings, no therapy-speak.
+- **DebugPage AI context inspector** — collapsible panel in Reflection Engine tab shows context lines, signal badges, and char count. AI reflection rows show source signals below the text.
 
-DebugPage has a third panel — "Note Intelligence" — showing themes, shifts, resonance scores, and clusters per book.
-
-### Previously completed (Sessions 44–46)
-- Mystery + discussion question deletion, AI EPUB re-extraction, AI discussion questions
-- Character name/tier editing, notes search, chapter inline rename, dark mode
+### Previously completed (Sessions 44–47)
+- v2+v3: note intelligence layer, continuity surfaces, carousel surfacing, chapter/return reflections, Discussion Tab header
+- Mystery + discussion question deletion, AI EPUB re-extraction, AI discussion questions, character editing, notes search, dark mode
 
 ---
 
 ## Immediate Next Step
 
-**Companion Intelligence Layer v4: AI Note Intelligence**
+**Companion Intelligence Layer v5: Reflection Quality + Deduplication**
 
-Feed the richer note intelligence signals into the AI reflection call — themes, character shifts, high-resonance note texts — so AI reflections can reference what the companion has learned.
+Deduplicate AI vs rule-based reflections by text similarity. Add reader-facing suppression. Audit pool health over time.
 
 See ROADMAP.md for full milestone queue.
 
