@@ -84,6 +84,14 @@ export default function TopNav() {
                 >
                   <Ico.Plus /> New Companion
                 </button>
+                <button
+                  onClick={() => navigate('/settings')}
+                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors ${
+                    location.pathname === '/settings' ? 'bg-gold-bg text-gold' : 'text-ink-700 hover:bg-cream-200'
+                  }`}
+                >
+                  <Ico.Settings /> Settings
+                </button>
               </nav>
               <div className="border-t border-ink-100 mx-3" />
               <div className="p-4">
