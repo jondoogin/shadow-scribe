@@ -24,7 +24,7 @@ const ARC_OBS = {
   observational: [
     "The first page hasn't been turned yet. Everything remains possible.",
     "You're in the very opening movements — the world is still finding its shape.",
-    "The foundations are being laid. Pay attention to what the author establishes early.",
+    "The foundations are being laid. What's established early in a story tends to matter.",
     "Characters are finding their footing. The story is deciding what it cares about.",
     "The first tensions are crystallising. The novel is beginning to show its hand.",
     "You're approaching the story's emotional centre — where its true question sharpens.",
@@ -171,16 +171,16 @@ function readerObs(notes, important, pct, style) {
   const out = []
 
   if (style === 'analytical') {
-    if (theoryNotes.length >= 3)                      out.push("Your theories are accumulating — that's a sign you're reading ahead of the text.")
-    else if (theoryNotes.length > 0 && themeNotes.length > 0) out.push("You're tracking both story and argument simultaneously. That dual attention tends to pay off.")
+    if (theoryNotes.length >= 3)                      out.push("Your theories are accumulating. You've been reading ahead of the text.")
+    else if (theoryNotes.length > 0 && themeNotes.length > 0) out.push("You're tracking both story and argument simultaneously. That dual attention pays off.")
     else if (themeNotes.length >= 2)                  out.push("You've been reading thematically. That kind of attentiveness shifts what you notice.")
     if (confusedNotes.length >= 2)                    out.push("Several passages flagged as confusing — this story may be deliberate about what it withholds.")
     if (quoteNotes.length >= 3)                       out.push("You've been marking language. This book is giving you sentences to carry.")
     if (important.length >= 3)                        out.push("Several chapters starred as pivotal. The pattern reveals where the story's weight actually falls.")
   } else {
-    if (theoryNotes.length >= 3)                      out.push("Your theories are accumulating. Readers often sense the shape of a story before it arrives.")
+    if (theoryNotes.length >= 3)                      out.push(`${theoryNotes.length} theory notes already. That kind of reading usually finds what it's looking for.`)
     else if (theoryNotes.length > 0 && themeNotes.length > 0) out.push("You've been reading both the story and what it means simultaneously.")
-    else if (themeNotes.length >= 2)                  out.push("You've been attending to the thematic layer. That attentiveness tends to pay off.")
+    else if (themeNotes.length >= 2)                  out.push("You've been reading thematically. That attention finds things a more surface reading misses.")
     if (confusedNotes.length >= 2)                    out.push("You've flagged several passages as confusing — this story may be deliberate in what it withholds.")
     if (quoteNotes.length >= 3)                       out.push("You've been collecting lines. This book is giving you language to carry.")
     if (favoriteNotes.length >= 2 && pct < 60)        out.push("You've already marked several favourite moments — and you're not even halfway.")
@@ -205,13 +205,13 @@ function notePatternObs(notes, style) {
   if (theoryNotes.length >= 2 && confusedNotes.length >= 2) {
     if (style === 'analytical')
       return "You're forming theories and flagging confusion simultaneously — that's what a deliberately ambiguous story produces."
-    return "You've been both theorizing and unsettled at the same time. This story seems to invite both at once."
+    return "You've been both theorising and unsettled at the same time. Some stories demand both at once."
   }
   // Recurring attention to characters
   if (charNotes.length >= 3) {
     if (style === 'analytical')
-      return `${charNotes.length} notes about characters. Your reading is character-centred — that focus will pay off.`
-    return "Your attention keeps returning to the characters. That's often where this kind of story is most alive."
+      return `${charNotes.length} notes about characters. The reading is character-centred — that focus tends to find the story's real argument.`
+    return "Your attention keeps returning to the characters. They're carrying something."
   }
   if (charNotes.length >= 2) {
     if (style === 'analytical') return "Your notes keep coming back to the characters."
@@ -240,11 +240,11 @@ function interpretationObs(notes, mysteries, style) {
     if (refinedMyst.length >= 2)
       return `${refinedMyst.length} of your mystery threads have been reframed as your reading developed.`
     if (revisedNotes.length >= 3)
-      return "Your notes have been revised as you've moved through the story. The companion is tracking your changes of mind."
+      return "Your notes have been revised as you've moved through the story — a reading that's still in motion."
     if (reflectedNotes.length >= 2 && withObservation.length >= 2)
       return "You've been adding second thoughts to notes and threads alike. This is close reading."
     if (withObservation.length >= 2)
-      return `${withObservation.length} open threads have your current thinking attached. The companion is more than a list.`
+      return `${withObservation.length} open threads have your current thinking attached. The companion has been accumulating layers.`
     if (reflectedNotes.length >= 2)
       return "You've added later reflections to earlier notes. The story is accumulating more layers for you."
     if (theoriesRevised.length >= 1)

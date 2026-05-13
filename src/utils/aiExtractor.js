@@ -296,3 +296,104 @@ Return ONLY a JSON array of strings — no markdown, no explanation:
 
   return questions.filter(q => typeof q === 'string' && q.trim()).map(q => q.trim())
 }
+
+// ── Companion reflection generation ──────────────────────────────────────────
+
+/**
+ * Generate AI-synthesized companion reflections from an assembled reflection
+ * context (produced by reflectionEngine.assembleReflectionContext).
+ *
+ * Returns an array of ReflectionEntry-shaped objects ready to be stored in
+ * book.reflectionCache.reflections.
+ *
+ * @param {Object} ctx     Output of assembleReflectionContext()
+ * @param {string} apiKey  Anthropic API key
+ * @returns {Array}        ReflectionEntry[]
+ */
+export async function generateCompanionReflections(ctx, apiKey) {
+  if (!apiKey?.trim()) throw new Error('No API key provided')
+  if (ctx.noteCount < 5) throw new Error('Not enough notes for AI reflection')
+
+  // Build a compact, spoiler-safe context block
+  const lines = []
+
+  if (ctx.theoryNotes.length) {
+    const samples = ctx.theoryNotes.slice(0, 3).map(n => `"${n.text.slice(0, 90)}"`)
+    lines.push(`Theory notes (${ctx.theoryNotes.length}): ${samples.join(' / ')}`)
+  }
+  if (ctx.confusingNotes.length) {
+    const samples = ctx.confusingNotes.slice(0, 2).map(n => `"${n.text.slice(0, 70)}"`)
+    lines.push(`Confusing passages noted (${ctx.confusingNotes.length}): ${samples.join(' / ')}`)
+  }
+  if (ctx.favoriteNotes.length) {
+    const samples = ctx.favoriteNotes.slice(0, 2).map(n => `"${n.text.slice(0, 70)}"`)
+    lines.push(`Favourite passages (${ctx.favoriteNotes.length}): ${samples.join(' / ')}`)
+  }
+  if (ctx.characterNotes.length) {
+    lines.push(`Character notes (${ctx.characterNotes.length})${ctx.focusedCharacters.length ? `, recurring name: ${ctx.focusedCharacters[0]}` : ''}`)
+  }
+  if (ctx.revisedNotes.length) {
+    lines.push(`Notes revised since first written: ${ctx.revisedNotes.length}`)
+  }
+  if (ctx.reflectedNotes.length) {
+    lines.push(`Notes with a later reflection added: ${ctx.reflectedNotes.length}`)
+  }
+  if (ctx.temporalEvolution) {
+    const label = {
+      'confusion-to-theory': 'early notes were confused; later notes are interpretive',
+      'sustained-theory':    'consistent theorising throughout',
+      'late-favorites':      'favourite passages appearing more in the second half',
+    }[ctx.temporalEvolution]
+    lines.push(`Reading pattern: ${label}`)
+  }
+  if (ctx.longestOpenMystery) {
+    const age = ctx.currentChapter - (ctx.longestOpenMystery.chapter || 0)
+    lines.push(`Oldest open mystery (${age} chapters unresolved): "${ctx.longestOpenMystery.text?.slice(0, 80)}"`)
+  }
+  if (ctx.theoryCharFocus.length) {
+    lines.push(`Character appearing most in theories: ${ctx.theoryCharFocus[0]}`)
+  }
+
+  const prompt = `You are the reading companion for a reader of "${ctx.title}"${ctx.author ? ` by ${ctx.author}` : ''}. They are ${ctx.pct}% through the book (chapter ${ctx.currentChapter} of ${ctx.totalChapters}).
+
+Here is what you know about their reading so far:
+${lines.join('\n')}
+
+Write 3 short companion reflections. These are NOT summaries. They notice patterns in the reader's own engagement — what they keep returning to, how their understanding shifts, what they keep circling.
+
+Strict rules:
+- Each reflection is 1–2 sentences maximum
+- Tone: literary, restrained, quietly perceptive — NOT chatbot, NOT therapist, NOT writing coach
+- Do NOT quote the reader's notes directly
+- Do NOT reference future chapters or events
+- Do NOT use phrases like "I notice", "It seems", "You might", "It appears", "As a reader"
+- Write as if the companion has been watching quietly — not analysing loudly
+- Vary sentence rhythm — avoid starting consecutive reflections the same way
+
+Return ONLY a JSON array of 3 strings. No other text.`
+
+  const raw = await callClaude(apiKey, prompt, 500)
+
+  let arr
+  try {
+    arr = JSON.parse(extractJSON(raw))
+  } catch {
+    return []
+  }
+
+  if (!Array.isArray(arr)) return []
+
+  const ts = Date.now()
+  return arr
+    .filter(s => typeof s === 'string' && s.trim().length > 10)
+    .slice(0, 4)
+    .map((text, i) => ({
+      id:           `ai_${ts}_${i}`,
+      text:         text.trim(),
+      type:         'ai',
+      surfaceCount:  0,
+      lastSurfaced:  null,
+      suppressed:    false,
+      generatedAt:   new Date().toISOString(),
+    }))
+}
