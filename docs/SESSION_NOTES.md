@@ -3,6 +3,77 @@ Reverse-chronological log of what was built, fixed, and decided in each working 
 
 ---
 
+## Session 46 — 2026-05-13
+**Theme:** Companion Intelligence Layer v1 — Reflection Engine, Voice Pass, QA Tooling
+
+### Created
+
+- **`src/utils/reflectionEngine.js`** — Companion reflection engine (~370 lines). Core module for synthesized, retrospective observations that complement the existing `generatePresence` immediate/contextual layer.
+  - `assembleReflectionContext(book, settings)` — builds a rich context object: categorized note arrays (`theoryNotes`, `confusingNotes`, `favoriteNotes`, `characterNotes`, etc.), `revisedNotes`, `reflectedNotes`, `openMysteries`, `longestOpenMystery`, `focusedCharacters`, `theoryCharFocus`, `temporalEvolution`, session signals, and progress metadata. Spoiler-safe: never reads chapter summaries, future character states, or mysteries beyond current chapter.
+  - `hashContext(ctx)` — 8-field ':'-joined fingerprint for cheap cache invalidation.
+  - `shouldRegenerate(book, hash)` — returns true when: no cache, hash mismatch, or cache older than 3 days.
+  - `getActiveReflections(book, limit=3)` — returns unsuppressed reflections sorted unsurfaced-first, newest-first as tiebreaker.
+  - `markReflectionSurfaced(reflections, id)` — increments `surfaceCount`; defined but not yet wired to the carousel.
+  - `generateRuleBasedReflections(ctx, insightStyle)` — synchronous, <1ms, up to 5 entries. 9 signal types: `theory-arc`, `character-focus` (2 variants), `temporal-evolution` (3 variants), `interpretation-evolution`, `mystery-continuity`, `reader-attention` (3 variants), `confusion-signal`. Deduped by type; highest-weight wins.
+  - `analyzeTemporalEvolution(notes)` — internal: splits notes at midpoint, compares early/late tag distributions, returns `'confusion-to-theory' | 'sustained-theory' | 'late-favorites' | null`.
+  - `extractNameMentions(texts)` — internal: extracts capitalized proper nouns appearing ≥2×, filtered by 30-word stoplist. Powers theory character focus detection.
+
+### Modified
+
+- **`src/utils/aiExtractor.js`** — Added `generateCompanionReflections(ctx, apiKey)`.
+  - Builds compact context block from: theory note samples, confusing note samples, favourite note samples, character note count + focused character, revised/reflected counts, temporal evolution label, oldest open mystery age+text, and theory character focus.
+  - Prompt enforces literary voice: 1–2 sentences max; no "I notice", "It seems", "You might", "As a reader"; no direct note quotes; no future chapter references.
+  - Returns `ReflectionEntry[]` ready for `book.reflectionCache.reflections`.
+
+- **`src/components/dashboard/CompanionInsights.jsx`** — Major rewrite. Now a two-layer companion system.
+  - Added imports: `generateCompanionReflections` (static, not dynamic — Vite warned about the dynamic import pattern since `aiExtractor.js` is already statically imported elsewhere), all reflection engine functions.
+  - Added `useBooks` for direct `updateBook` access (cache save).
+  - `cachedReflections` memo: reads `getActiveReflections(book, 3)`, deps on `book.reflectionCache?.contextHash` and `book.reflectionCache?.reflections?.length`.
+  - `observations` memo: weaves cached reflections into the presence pool at positions 1 and 4 (after arc observation, and mid-way through).
+  - Generation `useEffect`: assembles context, checks threshold (≥3 notes OR ≥2 open mysteries), checks hash via `shouldRegenerate`, saves rule-based synchronously, fires AI path silently in background. **Critically: `book.reflectionCache` excluded from dep array to prevent save→trigger loop.** Deps: `[book.id, book.notes?.length, book.currentChapter, book.readingLog?.length, book.mysteries?.length, settings.insightStyle]`.
+
+- **`src/utils/companionPresence.js`** — Companion voice pass. Eight targeted phrase replacements to eliminate assistant-like or instructional language:
+  - "Pay attention to what the author establishes early." → "What's established early in a story tends to matter."
+  - Generic "attentiveness tends to pay off" language → specific reader-addressed observations.
+  - "that's a sign you're reading ahead of the text" → "You've been reading ahead of the text."
+  - "seems to invite both at once" → "demand both at once."
+  - "They're often carrying the most weight." → "They're carrying something."
+  - "The companion is tracking your changes of mind." → "a reading that's still in motion."
+  - "The companion is more than a list." → "The companion has been accumulating layers."
+  - Theory note branch: added contextual count reference when theoryNotes present.
+
+- **`src/pages/DebugPage.jsx`** — Reflection Inspector panel.
+  - Renamed heading: "Narrative Extraction Inspector" → "Companion Inspector".
+  - Added `useSettings`, all reflection engine imports, `updateBook` destructure from `useBooks`.
+  - Added `[reflPanel, setReflPanel]` toggle state; pill buttons switch between "Narrative Extraction" and "Reflection Engine" sections.
+  - `ReflectionPanel` component: context signal grid (6 counts), current vs cached hash comparison, temporal evolution signal, cached reflections list with surface count and type badge (AI/rule), preview mode (generates fresh rule-based without saving), force-regenerate button, clear-cache button (ember destructive). Spoiler boundary section: mode, chapter, visible vs total mystery count.
+  - Extraction section wrapped in `{!reflPanel && (<> ... </>)}`.
+
+### Architecture decisions
+- **Two-tier reflection system.** `generatePresence` (13 lenses) = immediate/contextual; `generateRuleBasedReflections` + `generateCompanionReflections` = retrospective/synthesized. Same display strip, different pools, different generation cadence. Reflections are woven into the presence pool at fixed positions rather than appended.
+- **Theory continuity without a memory graph.** Achieved via `extractNameMentions` (tracks which character names recur in theory notes) and `analyzeTemporalEvolution` (detects how the reading arc has shifted), not stored note history.
+- **Save→trigger loop prevention.** `book.reflectionCache` is intentionally excluded from the `useEffect` dep array in `CompanionInsights`. The `shouldRegenerate` check provides correctness; the excluded dep prevents infinite re-firing after each cache save.
+- **AI reflections prepend, rule-based serve as fallback.** AI path fires silently after the rule-based cache is already saved. On success, AI results are prepended. On failure, the rule-based cache remains untouched.
+- **Static import instead of dynamic.** `aiExtractor.js` is already statically imported by `CompanionHeader`, `EpubImportReview`, and `DiscussionTab`. Using a dynamic import in `CompanionInsights` generated a Vite warning ("dynamically imported but also statically imported — will not move into another chunk"). Fixed by using `Promise.resolve().then(() => fn())` pattern with a static import.
+
+### Book data model additions
+- **`book.reflectionCache`** — `{ contextHash: string, generatedAt: ISO string, reflections: ReflectionEntry[], aiEnhanced: boolean }`. Written by `CompanionInsights` effect; read by `getActiveReflections`.
+
+### ReflectionEntry shape
+```ts
+{
+  id: string           // 'rule_${ts}_${i}' or 'ai_${ts}_${i}'
+  text: string
+  type: 'rule-based' | 'ai'
+  surfaceCount: number
+  lastSurfaced: string | null
+  suppressed: boolean
+  generatedAt: string  // ISO
+}
+```
+
+---
+
 ## Session 45 — 2026-05-12
 **Theme:** Six-Feature Enhancement Pass + Settings Nav Fix
 

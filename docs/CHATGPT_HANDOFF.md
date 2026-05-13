@@ -1,5 +1,5 @@
 # Shadow Scribe — Project Handoff
-**Last updated:** 2026-05-12 (Session 45)  
+**Last updated:** 2026-05-13 (Session 46)  
 **Stack:** React 19 · Vite 8 · Tailwind CSS v4 · React Router v7 · localStorage persistence · No backend
 
 ---
@@ -46,14 +46,14 @@ BrowserRouter
 - **Notes tab** — free-text notes with 6 tag types (theory, favorite, confusing, theme, character, quote); tag filtering; full-text search (covers note body and reflections)
 - **Mysteries tab** — open question tracker with 6 statuses (open / suspected / evolving / hinted / dormant / resolved); toggle resolution; spoiler-gated by chapter visibility; inline deletion with ember confirmation
 - **Discussion tab** — curated discussion questions per book; add-your-own questions (with inline deletion); AI-generated discussion questions via "✦ Generate with Claude" (requires Anthropic API key)
-- **Companion Insights strip** — rotating literary observations from `generatePresence(book, settings)` (13 lenses: arc, finished-book, mystery, lingering mystery, character, character ownership, reader notes, note pattern, interpretation evolution, session rhythm, session stop, pacing, momentum + duration); boundary-aware (never reveals future deaths or invisible mysteries); auto-rotates every 7s
+- **Companion Insights strip** — two-layer observation system. (1) **Presence layer** (`generatePresence`, 13 lenses): immediate/contextual observations — arc, finished-book, mystery, lingering mystery, character, character ownership, reader notes, note pattern, interpretation evolution, session rhythm, session stop, pacing, momentum + duration. Boundary-aware; never reveals future deaths or invisible mysteries. (2) **Reflection layer** (`reflectionEngine.js`): retrospective/synthesized observations about the reader's own patterns. Rule-based (sync, always available) + AI-assisted (async, haiku, fires only when key present + 5+ notes + cache stale). Reflections are woven into the presence pool at positions 1 and 4. Cache stored in `book.reflectionCache`. Auto-rotates every 7s with manual dot navigation.
 - **Reading Momentum** — streak/session counter below the update button
 - **Relationship Map** — SVG constellation (protagonist centered, others in ring); dashed lines color-coded by relationship type
 - **Chapter Update Modal** — natural-language chapter input + quick-select buttons; optional duration picker (brief / steady / immersed); creates `SessionEntry` objects on each update; success state with milestone detection, newly-encountered characters, chapter recap, newly-opened mysteries
 - **Create Companion** — 3-step wizard: book details + ISBN cover → chapter structure + series → spoiler settings. EPUB import affordance at top of step 1 routes to a parallel 3-step review wizard pre-filled from the parsed file.
 - **Per-companion accent theming** — `data-mood` on the dashboard wrapper sets CSS custom properties (`--ca`, `--ca-bg`, `--ca-border`) that cascade to all children. Changing mood also updates `book.coverBg` so the cover gradient stays in sync.
 - **Dark mode** — `html.dark` overrides all `--color-cream-*` and `--color-ink-*` CSS custom properties with a warm dark palette. Since Tailwind v4 compiles utilities to `var(--color-*)` at runtime, the entire palette flips without touching component markup. Toggled via Settings → Appearance → Dark Mode; persisted in `shadowscribe_settings`.
-- **AI-assisted features** — requires an Anthropic API key stored in Settings. Direct browser → `api.anthropic.com` calls using `anthropic-dangerous-direct-browser-access: true` header. Model: `claude-3-5-haiku-20241022`. Two capabilities: (1) re-extract any companion from a fresh EPUB upload ("✦ Re-extract with Claude…" in the `···` menu); (2) generate tailored discussion questions from book context ("✦ Generate with Claude" in Discussion tab). All logic in `src/utils/aiExtractor.js`.
+- **AI-assisted features** — requires an Anthropic API key stored in Settings. Direct browser → `api.anthropic.com` calls using `anthropic-dangerous-direct-browser-access: true` header. Model: `claude-3-5-haiku-20241022`. Three capabilities: (1) re-extract any companion from a fresh EPUB upload ("✦ Re-extract with Claude…" in the `···` menu); (2) generate tailored discussion questions from book context ("✦ Generate with Claude" in Discussion tab); (3) AI companion reflections — synthesized retrospective observations generated silently in background when key is set + 5+ notes. All logic in `src/utils/aiExtractor.js`.
 
 ### Design philosophy
 - **Companion voice, not app voice** — microcopy is literary and observational ("Tell the companion where you are", "Return to the companion ✦", "The chronicle begins when you do")
@@ -91,7 +91,8 @@ shadow-scribe/
 │   │   ├── spoiler.js             ← full graduated visibility system (see §Spoiler System below)
 │   │   ├── chapterHelpers.js      ← getChapterLabel, getChapterWeight, getWeightedProgress, isSpecialChapter
 │   │   ├── companionPresence.js   ← generatePresence(book, settings) — 13-lens presence engine
-│   │   └── aiExtractor.js         ← callClaude(), aiExtractNarrative(), generateDiscussionQuestions()
+│   │   ├── reflectionEngine.js    ← assembleReflectionContext, hashContext, shouldRegenerate, generateRuleBasedReflections, getActiveReflections, markReflectionSurfaced
+│   │   └── aiExtractor.js         ← callClaude(), aiExtractNarrative(), generateDiscussionQuestions(), generateCompanionReflections()
 │   ├── data/
 │   │   ├── books.js               ← INITIAL_BOOKS (5 mock books)
 │   │   └── config.js              ← STATUS_CONFIG, TAG_CONFIG, MOOD_CONFIG, CHAPTER_TYPES, STRUCTURE_TYPES
@@ -114,7 +115,7 @@ shadow-scribe/
     └── launch.json                ← dev server config for Claude Preview tool
 ```
 
-**Notable:** `utils/epubParser.js` is a pure async utility for in-browser EPUB parsing (no React). `utils/chapterHelpers.js` is the central chapter model utility — all chapter label, weight, and progress logic flows through it. `utils/spoiler.js` is the graduated visibility engine — wired to `CharactersTab`, `MysteriesTab`, `ProgressTab`, `WeightedProgressBar`, and `companionPresence.js`. `utils/aiExtractor.js` is the AI integration layer — all calls to the Anthropic API go through `callClaude()` here. `utils/insights.js` was deleted in Session 9 (orphaned).
+**Notable:** `utils/epubParser.js` is a pure async utility for in-browser EPUB parsing (no React). `utils/chapterHelpers.js` is the central chapter model utility — all chapter label, weight, and progress logic flows through it. `utils/spoiler.js` is the graduated visibility engine — wired to `CharactersTab`, `MysteriesTab`, `ProgressTab`, `WeightedProgressBar`, and `companionPresence.js`. `utils/aiExtractor.js` is the AI integration layer — all calls to the Anthropic API go through `callClaude()` here. `utils/reflectionEngine.js` is the companion reflection engine — synthesizes reader behavior signals into retrospective observations; no network calls. `utils/insights.js` was deleted in Session 9 (orphaned).
 
 ---
 
@@ -154,6 +155,11 @@ Veiled characters always have *something* to render — `_veiled: true` triggers
 | `sessionEntries(log)` | Filters a readingLog to proper `SessionEntry` objects (excludes migrated stubs with `startChapter === 0 && endChapter === 0`) |
 | `normalizeReadingLog(log)` | Storage migration: converts legacy `string[]` entries to `{ id, date, startChapter:0, endChapter:0, rereadEra:0 }` stubs |
 | `generatePresence(book, settings)` | Returns up to 8 contextual literary observation strings across 13 lenses; spoiler-boundary-aware |
+| `assembleReflectionContext(book, settings)` | Builds a rich context object for reflection generation: categorized notes, temporal evolution arc, character focus signals, mystery signals, session data. Never reads chapter summaries or future-gated content. |
+| `generateRuleBasedReflections(ctx, insightStyle)` | Synchronous, <1ms. Returns up to 5 `ReflectionEntry[]` from 9 named signal types. Deduped by type. |
+| `hashContext(ctx)` | 8-field ':'-joined fingerprint for `book.reflectionCache` invalidation |
+| `shouldRegenerate(book, hash)` | Returns true when: no cache, hash mismatch, or cache older than 3 days |
+| `getActiveReflections(book, limit)` | Returns unsuppressed reflections sorted unsurfaced-first |
 | `fmtDate(iso)` | Formats ISO date as "Today", "Yesterday", "3d ago", or "May 1" |
 | `getChapterLabel(ch, format)` | Returns display label for a chapter (e.g. "Ch. 5", "Pt. 3", "Prologue") |
 | `getEffectiveMode(book, settings)` | Resolves spoiler mode: `book.spoilerMode ?? settings.spoilerMode ?? 'relaxed'` |
@@ -246,7 +252,7 @@ updateBook(book.id, { notes: [...book.notes, newNote] })
 - `MysteriesTab` owns: `showing` (active/resolved/all), `statusPickerId`, `observingId`, `observeText`, `refiningId`, `refineText`
 - `DiscussionTab` owns: `input`
 - `ChapterUpdateModal` owns: `input`, `done`, `prevCh`, `newCh`
-- `CompanionInsights` owns: `idx`, `fade`
+- `CompanionInsights` owns: `idx`, `fade` (reflection generation is side-effected via `updateBook`, not local state)
 - `TopNav` owns: `open` (dropdown)
 - `CharCard` (inside CharactersTab) owns: `open` (expanded)
 - `SettingsPage` owns: `shadowMode` (still a placeholder), `confirmReset`, `showKey`, `keyDraft`, `keySaved`, `importMsg`; real settings (including `darkMode`) read/write through `SettingsContext`
@@ -456,7 +462,16 @@ All data lives in `src/data.js` as `INITIAL_BOOKS: Book[]`. Currently 5 books.
   completedAt?: string              // ISO date when status → 'finished'
   archived?: boolean
   rereadCount?: number              // increments on each restart
+  reflectionCache?: {               // persisted reflection cache (written by CompanionInsights)
+    contextHash: string             // 8-field fingerprint; change triggers regeneration
+    generatedAt: string             // ISO date — cache expires after 3 days
+    reflections: ReflectionEntry[]  // rule-based prepended by AI results on AI success
+    aiEnhanced: boolean
+  }
 }
+// ReflectionEntry shape:
+// { id: string, text: string, type: 'rule-based'|'ai', surfaceCount: number,
+//   lastSurfaced: string|null, suppressed: boolean, generatedAt: string }
 // DiscussionQuestion shape:
 // { text: string, chapter?: number, visibilityThreshold?: number, alternatePrompt?: string }
 ```
@@ -564,6 +579,9 @@ Streak calculation uses `new Date()` without timezone awareness. A user who read
 ### Vite `.bin/vite` is not a real symlink
 In this project, `node_modules/.bin/vite` is a copied file rather than a symlink. All builds must use `node node_modules/vite/bin/vite.js build` directly. Do not attempt to run `vite build` or `npx vite build`.
 
+### `markReflectionSurfaced` is defined but not yet wired
+`markReflectionSurfaced(reflections, id)` exists in `reflectionEngine.js` and increments `surfaceCount` — but the carousel in `CompanionInsights` does not call it when displaying a reflection. Surface counts stay at 0 permanently. Rotation still works (unsurfaced-first sort produces correct behavior at 0), but counts won't accumulate meaningfully. Wiring it requires `updateBook` in the interval tick, which has a minor perf cost (one localStorage write per 7s rotation). Low priority but worth completing before v2.
+
 ---
 
 ## 9. Recommended Next Steps
@@ -589,11 +607,9 @@ In this project, `node_modules/.bin/vite` is a copied file rather than a symlink
 13. **Generated chapter summaries**  
     After a user marks a chapter complete, offer to generate a spoiler-safe summary (if the user hasn't written one). Requires API call — keep it optional and lazy.
 
-14. **AI-powered `generateInsights`**  
-    The current `generateInsights` function is rule-based. Replace or augment with an LLM call that reads the actual chapter summaries and notes to generate genuinely contextual observations. The function signature is already clean for this.
+14. **AI-powered companion reflections** ✅ — Completed in Session 46. The reflection engine now has both rule-based and AI tiers. The AI tier (`generateCompanionReflections` in `aiExtractor.js`) fires silently in background when a key is present and ≥5 notes exist.
 
-15. **Discussion question generation**  
-    Auto-generate discussion questions per book using the book's title, author, and collected notes/theories. Currently all questions are hand-authored in `data.js`.
+15. **Discussion question generation** ✅ — Completed in Session 45. `generateDiscussionQuestions` in `aiExtractor.js`; "✦ Generate with Claude" button in DiscussionTab.
 
 16. **Natural-language chapter entry improvement**  
     Pass the textarea input through a lightweight LLM to extract chapter number from any phrasing ("almost done", "just started the second act", "finished the prologue"), then confirm with the user before updating.
