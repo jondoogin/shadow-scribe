@@ -18,4 +18,6 @@ export const Ico = {
   Refresh: (p) => <svg {...sp} strokeWidth="1.8" className="w-4 h-4"   {...p}><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg>,
   Menu:    (p) => <svg {...sp} strokeWidth="2"   className="w-4 h-4"   {...p}><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>,
   Library: (p) => <svg {...sp} strokeWidth="1.8" className="w-4 h-4"   {...p}><path d="M2 3h6a4 4 0 014 4v14a3 3 0 00-3-3H2z"/><path d="M22 3h-6a4 4 0 00-4 4v14a3 3 0 013-3h7z"/></svg>,
+  Dots:    (p) => <svg {...sp} strokeWidth="2"   className="w-4 h-4"   {...p}><circle cx="5" cy="12" r="1" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1" fill="currentColor" stroke="none"/><circle cx="19" cy="12" r="1" fill="currentColor" stroke="none"/></svg>,
+  Trash:   (p) => <svg {...sp} strokeWidth="1.8" className="w-4 h-4"   {...p}><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>,
 }

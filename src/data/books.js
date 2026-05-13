@@ -12,7 +12,11 @@ export const INITIAL_BOOKS = [
     lastUpdated: '2026-05-04',
     coverBg: 'linear-gradient(160deg,#3A6647 0%,#2D5038 60%,#1E3828 100%)',
     mood: 'sage',
-    readingLog: ['2026-05-02', '2026-05-03', '2026-05-04'],
+    readingLog: [
+      { id:'s_utwb_1', date:'2026-05-02', startChapter:0,  endChapter:6,  durationEstimate:'brief',    rereadEra:0 },
+      { id:'s_utwb_2', date:'2026-05-03', startChapter:6,  endChapter:12, durationEstimate:'steady',   rereadEra:0 },
+      { id:'s_utwb_3', date:'2026-05-04', startChapter:12, endChapter:18, durationEstimate:'immersed', rereadEra:0 },
+    ],
     series: null,
     chapters: [
       { num:1,  title:"In Which Wallace Price Dies",          completed:true,  summary:"Wallace Price, a coldly efficient lawyer, dies suddenly mid-deposition. He wakes to find himself in an afterlife he didn't expect, greeted by Hugo—a warm, gentle ferryman—and his cat-obsessed trainee Mei.",              reflection:"The irony of a man who spent his life arguing is immediately rendered speechless.", important:false },
@@ -33,17 +37,17 @@ export const INITIAL_BOOKS = [
       { num:16, title:"Undone",                               completed:true,  summary:"Hugo makes a small but significant breach of ferryman rules, showing Wallace tenderness that crosses a professional line.",                                                                                               reflection:"Hugo breaks a rule for Wallace. This feels enormous.", important:true  },
       { num:17, title:"Something Grows",                      completed:true,  summary:"A new plant appears in Hugo's garden unbidden. Charon notices. Mei teases. The feeling between Hugo and Wallace can no longer be ignored.",                                                                               reflection:null, important:false },
       { num:18, title:"The Weight of Staying",                completed:true,  summary:"Wallace actively chooses to stay rather than cross over. He doesn't know how much longer he can hold on. Hugo quietly accepts his choice.",                                                                               reflection:null, important:true  },
-      { num:19, title:"Consequences",          completed:false, summary:null, reflection:null, important:false },
-      { num:20, title:"What Hugo Carries",     completed:false, summary:null, reflection:null, important:false },
-      { num:21, title:"Mei Crosses a Line",    completed:false, summary:null, reflection:null, important:false },
-      { num:22, title:"The Manager Returns",   completed:false, summary:null, reflection:null, important:false },
-      { num:23, title:"Wallace's Decision",    completed:false, summary:null, reflection:null, important:false },
-      { num:24, title:"Love in the Margins",   completed:false, summary:null, reflection:null, important:false },
-      { num:25, title:"The Breach",            completed:false, summary:null, reflection:null, important:false },
-      { num:26, title:"What We Fight For",     completed:false, summary:null, reflection:null, important:false },
-      { num:27, title:"Hugo's Choice",         completed:false, summary:null, reflection:null, important:false },
-      { num:28, title:"The Other Side of the Door", completed:false, summary:null, reflection:null, important:false },
-      { num:29, title:"Epilogue: Still",       completed:false, summary:null, reflection:null, important:false },
+      { num:19, title:"Consequences",               alternateSummary:"Something shifts.",                     completed:false, summary:null, reflection:null, important:false },
+      { num:20, title:"What Hugo Carries",          alternateSummary:"A burden, named.",                      completed:false, summary:null, reflection:null, important:false },
+      { num:21, title:"Mei Crosses a Line",         alternateSummary:"A rule is tested.",                     completed:false, summary:null, reflection:null, important:false },
+      { num:22, title:"The Manager Returns",        alternateSummary:"An authority arrives.",                 completed:false, summary:null, reflection:null, important:false },
+      { num:23, title:"Wallace's Decision",         alternateSummary:"A difficult choice.",                   completed:false, summary:null, reflection:null, important:false },
+      { num:24, title:"Love in the Margins",        alternateSummary:"Something tender.",                     completed:false, summary:null, reflection:null, important:false },
+      { num:25, title:"The Breach",                 alternateSummary:"A line crossed.",                       completed:false, summary:null, reflection:null, important:false },
+      { num:26, title:"What We Fight For",          alternateSummary:"What matters, clarified.",              completed:false, summary:null, reflection:null, important:false },
+      { num:27, title:"Hugo's Choice",              alternateSummary:"An irreversible act.",                  completed:false, summary:null, reflection:null, important:false },
+      { num:28, title:"The Other Side of the Door", alternateSummary:"What waits on the other side.",        completed:false, summary:null, reflection:null, important:false },
+      { num:29, title:"Epilogue: Still",            alternateSummary:"An epilogue.",                          completed:false, summary:null, reflection:null, important:false, type:'epilogue' },
     ],
     characters: {
       main: [
@@ -83,6 +87,8 @@ export const INITIAL_BOOKS = [
       "What does Charon's Crossing represent as a physical space? Why a tea shop specifically?",
       "TJ Klune uses humor throughout even in scenes of deep grief. How does that tonal balance affect the reading experience?",
       "Is Hugo's love for Wallace a breach of duty or a fulfillment of it?",
+      { text: "Wallace makes a choice near the end that can't be undone. What does that decision reveal about who he became?", visibilityThreshold: 23, alternatePrompt: "Is there a choice in this story you think will cost someone everything?" },
+      { text: "How does the novel handle the idea that some love is only possible because it ends?", visibilityThreshold: 25, alternatePrompt: "What does this book suggest about love that exists under impossible constraints?" },
     ],
   },
 
@@ -99,7 +105,11 @@ export const INITIAL_BOOKS = [
     lastUpdated: '2026-04-28',
     coverBg: 'linear-gradient(160deg,#2C2C2C 0%,#1A1A1A 60%,#0F0F0F 100%)',
     mood: 'ember',
-    readingLog: ['2026-04-22', '2026-04-25', '2026-04-28'],
+    readingLog: [
+      { id:'s_mn_1', date:'2026-04-22', startChapter:0,  endChapter:8,  durationEstimate:'steady',   rereadEra:0 },
+      { id:'s_mn_2', date:'2026-04-25', startChapter:8,  endChapter:16, durationEstimate:'immersed', rereadEra:0 },
+      { id:'s_mn_3', date:'2026-04-28', startChapter:16, endChapter:22, durationEstimate:'brief',    rereadEra:0 },
+    ],
     series: null,
     chapters: [
       { num:1, title:"Editor's Note",               completed:true, summary:"Vonnegut as editor introduces Howard W. Campbell Jr.'s memoir, setting up the moral frame: we are what we pretend to be.",                              reflection:"The warning is right there in the preface. Vonnegut doesn't hide it.", important:true  },
@@ -160,7 +170,12 @@ export const INITIAL_BOOKS = [
     lastUpdated: '2026-03-15',
     coverBg: 'linear-gradient(160deg,#7B1C1C 0%,#5A1010 60%,#3D0A0A 100%)',
     mood: 'ember',
-    readingLog: ['2026-03-10', '2026-03-12', '2026-03-14', '2026-03-15'],
+    readingLog: [
+      { id:'s_rot_1', date:'2026-03-10', startChapter:0,  endChapter:7,  durationEstimate:'steady',   rereadEra:0 },
+      { id:'s_rot_2', date:'2026-03-12', startChapter:7,  endChapter:14, durationEstimate:'immersed', rereadEra:0 },
+      { id:'s_rot_3', date:'2026-03-14', startChapter:14, endChapter:21, durationEstimate:'immersed', rereadEra:0 },
+      { id:'s_rot_4', date:'2026-03-15', startChapter:21, endChapter:25, durationEstimate:'brief',    rereadEra:0 },
+    ],
     series: { name: 'Gentleman Bastard Sequence', position: 3, total: 7 },
     chapters: Array.from({ length: 25 }, (_, i) => ({
       num: i + 1, title: `Chapter ${i + 1}`, completed: true,
@@ -210,11 +225,14 @@ export const INITIAL_BOOKS = [
     totalChapters: 26,
     lastUpdated: '2026-05-05',
     coverBg: 'linear-gradient(160deg,#1A2A4A 0%,#0F1F3A 60%,#080F1E 100%)',
-    mood: 'ink',
-    readingLog: ['2026-05-04', '2026-05-05'],
+    mood: 'steel',
+    readingLog: [
+      { id:'s_man_1', date:'2026-05-04', startChapter:0, endChapter:4, durationEstimate:'steady', rereadEra:0 },
+      { id:'s_man_2', date:'2026-05-05', startChapter:4, endChapter:8, durationEstimate:'brief',  rereadEra:0 },
+    ],
     series: null,
     chapters: [
-      { num:1, title:"Prologue: Paul Ehrenfest",      completed:true, summary:"A shattering prologue about physicist Paul Ehrenfest's mental collapse and final act. Labatut establishes his territory: the dark underbelly of brilliant minds.", reflection:"Opens with a murder-suicide. The book announces its theme immediately: what does pure intellect cost?", important:true  },
+      { num:1, title:"Prologue: Paul Ehrenfest",      completed:true, summary:"A shattering prologue about physicist Paul Ehrenfest's mental collapse and final act. Labatut establishes his territory: the dark underbelly of brilliant minds.", reflection:"Opens with a murder-suicide. The book announces its theme immediately: what does pure intellect cost?", important:true, type:'prologue'  },
       { num:2, title:"The Child Prodigy",             completed:true, summary:"Young John von Neumann's uncanny mathematical gifts. Those who witnessed him describe something almost inhuman.",                                                   reflection:null, important:false },
       { num:3, title:"Budapest, 1903",                completed:true, summary:"Von Neumann's upbringing among Budapest's Jewish intellectual elite. The world that produced him.",                                                               reflection:null, important:false },
       { num:4, title:"God's Messenger",               completed:true, summary:"Multiple voices describe von Neumann's mind — the testimonies build a portrait of a man who seemed to exist outside normal limits.",                              reflection:null, important:false },
@@ -232,12 +250,14 @@ export const INITIAL_BOOKS = [
         { id:'man1', name:'John von Neumann',  role:'Subject',         status:'Historical Figure', allegiance:'Mathematics / America / The Future', lastSeen:'Ch. 8', description:"One of the 20th century's greatest minds. Architect of game theory, digital computing, and the hydrogen bomb.", spoilerSafe:true, alive:false },
       ],
       secondary: [
-        { id:'man2', name:'Paul Ehrenfest',    role:'Prologue Figure', status:'Deceased',          allegiance:'Physics / Despair', lastSeen:'Ch. 1', description:"Physicist who could not reconcile quantum mechanics with his own sense of reality.",         spoilerSafe:true, alive:false },
-        { id:'man3', name:'Various Witnesses', role:'Chorus',          status:'Historical',        allegiance:'Memory',            lastSeen:'Ch. 8', description:"Scientists, colleagues, family — their testimonies build the portrait of von Neumann.",       spoilerSafe:true, alive:true  },
+        { id:'man2', name:'Paul Ehrenfest',    role:'Prologue Figure', status:'Deceased',          allegiance:'Physics / Despair',   lastSeen:'Ch. 1',  description:"Physicist who could not reconcile quantum mechanics with his own sense of reality.",                                                 spoilerSafe:true,  alive:false },
+        { id:'man3', name:'Various Witnesses', role:'Chorus',         status:'Historical',        allegiance:'Memory',              lastSeen:'Ch. 8',  description:"Scientists, colleagues, family — their testimonies build the portrait of von Neumann.",                                                  spoilerSafe:true,  alive:true  },
+        { id:'man4', name:'Lee Sedol',         role:'Go Champion',    status:'Alive',             allegiance:'Human Intuition',     lastSeen:'Ch. 22', description:"South Korean Go champion who faced AlphaGo in the 2016 matches. His games become the final reckoning in Labatut's argument.", revealChapter:20, spoilerSafe:false, alive:true  },
       ],
       relationships: [
         { from:'man1', to:'man2', label:'dark precursor',  type:'tension'   },
         { from:'man3', to:'man1', label:'bear witness to', type:'hierarchy' },
+        { from:'man1', to:'man4', label:'long consequence', type:'tension'  },
       ],
     },
     mysteries: [
@@ -253,6 +273,7 @@ export const INITIAL_BOOKS = [
       "Labatut blurs fact and fiction. How does this hybrid form affect your reading of von Neumann as a historical figure?",
       "The book opens with catastrophe and destruction. What does Labatut suggest about the relationship between genius and harm?",
       "How does the digital age we're living in color how you read about the machine's creation?",
+      { text: "Lee Sedol speaks of his loss to AlphaGo as something that changed him permanently. What does that loss mean in Labatut's broader argument about intelligence?", visibilityThreshold: 20, alternatePrompt: "What does it mean for a human to be defeated by something they created?" },
     ],
   },
 
@@ -269,7 +290,11 @@ export const INITIAL_BOOKS = [
     lastUpdated: '2026-02-20',
     coverBg: 'linear-gradient(160deg,#8B4513 0%,#6B3010 60%,#4A1F08 100%)',
     mood: 'gold',
-    readingLog: ['2026-02-17', '2026-02-18', '2026-02-19'],
+    readingLog: [
+      { id:'s_sv_1', date:'2026-02-17', startChapter:0,  endChapter:8,  durationEstimate:'steady',   rereadEra:0 },
+      { id:'s_sv_2', date:'2026-02-18', startChapter:8,  endChapter:16, durationEstimate:'immersed', rereadEra:0 },
+      { id:'s_sv_3', date:'2026-02-19', startChapter:16, endChapter:22, durationEstimate:'immersed', rereadEra:0 },
+    ],
     series: null,
     chapters: Array.from({ length: 22 }, (_, i) => ({
       num: i + 1, title: `Chapter ${i + 1}`, completed: true,

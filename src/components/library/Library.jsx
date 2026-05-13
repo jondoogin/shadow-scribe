@@ -1,12 +1,14 @@
 import { useState } from 'react'
+import { useNavigate, Link } from 'react-router-dom'
 import { Ico } from '../shared/icons.jsx'
 import EmptyState from '../shared/EmptyState.jsx'
 import BookCard from './BookCard.jsx'
 import { useBooks } from '../../context/BooksContext.jsx'
 import { getProgress } from '../../utils/progress.js'
 
-export default function Library({ onSelectBook }) {
+export default function Library() {
   const { books } = useBooks()
+  const navigate = useNavigate()
   const [q,      setQ]      = useState('')
   const [filter, setFilter] = useState('all')
   const [sort,   setSort]   = useState('recent')
@@ -16,15 +18,31 @@ export default function Library({ onSelectBook }) {
     { k:'finished', l:'Finished' }, { k:'paused', l:'Paused' },
   ]
 
-  const filtered = books
+  const matches = (b) =>
+    !q || b.title.toLowerCase().includes(q.toLowerCase()) || b.author.toLowerCase().includes(q.toLowerCase())
+
+  const sortFn = (a, b) => {
+    if (sort === 'recent')   return new Date(b.lastUpdated) - new Date(a.lastUpdated)
+    if (sort === 'title')    return a.title.localeCompare(b.title)
+    if (sort === 'progress') return getProgress(b) - getProgress(a)
+    return 0
+  }
+
+  // Active companions: filter by status + search + sort
+  const filteredActive = books
+    .filter(b => !b.archived)
     .filter(b => filter === 'all' || b.status === filter)
-    .filter(b => !q || b.title.toLowerCase().includes(q.toLowerCase()) || b.author.toLowerCase().includes(q.toLowerCase()))
-    .sort((a, b) => {
-      if (sort === 'recent')   return new Date(b.lastUpdated) - new Date(a.lastUpdated)
-      if (sort === 'title')    return a.title.localeCompare(b.title)
-      if (sort === 'progress') return getProgress(b) - getProgress(a)
-      return 0
-    })
+    .filter(matches)
+    .sort(sortFn)
+
+  // Archived companions: search-only (status filter does not apply), always sorted
+  const filteredArchived = books
+    .filter(b => b.archived)
+    .filter(matches)
+    .sort(sortFn)
+
+  const hasAnyArchived = books.some(b => b.archived)
+  const isEmpty = filteredActive.length === 0 && filteredArchived.length === 0
 
   return (
     <>
@@ -62,22 +80,48 @@ export default function Library({ onSelectBook }) {
       </div>
 
       <main className="max-w-4xl mx-auto px-5 sm:px-8 py-6 pb-16">
-        {filtered.length === 0 ? (
+        {isEmpty ? (
           <EmptyState
             icon={<Ico.Book />}
             title={q ? "Nothing matches that search" : "Your shelf is waiting"}
             body={q ? `No companions found for "${q}". Try a different title or author.` : "Create your first companion and begin tracking the story alongside you."}
+            action={!q ? (
+              <Link to="/new" className="text-[13px] font-semibold transition-opacity hover:opacity-75" style={{ color:'var(--ca, #B8860B)' }}>
+                Begin a companion →
+              </Link>
+            ) : undefined}
           />
         ) : (
           <>
-            <p className="text-[11px] text-ink-400 mb-4 font-medium">
-              {filtered.length} companion{filtered.length !== 1 ? 's' : ''}
-            </p>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {filtered.map(book => (
-                <BookCard key={book.id} book={book} onClick={() => onSelectBook(book.id)} />
-              ))}
-            </div>
+            {/* ── Active companions ── */}
+            {filteredActive.length > 0 && (
+              <>
+                <p className="text-[11px] text-ink-400 mb-4 font-medium">
+                  {filteredActive.length} companion{filteredActive.length !== 1 ? 's' : ''}
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {filteredActive.map(book => (
+                    <BookCard key={book.id} book={book} onClick={() => navigate(`/book/${book.id}`)} />
+                  ))}
+                </div>
+              </>
+            )}
+
+            {/* ── Archived companions ── */}
+            {filteredArchived.length > 0 && (
+              <div className={filteredActive.length > 0 ? 'mt-12 pt-8 border-t border-ink-100' : ''}>
+                <p className="text-[11px] uppercase tracking-wider text-ink-300 mb-4 font-medium">
+                  Archive · {filteredArchived.length}
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {filteredArchived.map(book => (
+                    <div key={book.id} className="opacity-60 hover:opacity-90 transition-opacity duration-200">
+                      <BookCard book={book} onClick={() => navigate(`/book/${book.id}`)} />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </>
         )}
       </main>

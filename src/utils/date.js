@@ -6,12 +6,18 @@ export function fmtDate(iso) {
   return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 }
 
+// Normalise a readingLog that may be string[] or SessionEntry[] → string[]
+export function logDates(readingLog = []) {
+  return (readingLog || []).map(e => (typeof e === 'string' ? e : e?.date)).filter(Boolean)
+}
+
 export function calcStreak(log = []) {
-  if (!log.length) return 0
+  const dates = logDates(log)
+  if (!dates.length) return 0
   const today = new Date()
   const toKey  = d => d.toISOString().split('T')[0]
   const yest   = new Date(today); yest.setDate(yest.getDate() - 1)
-  const sorted = [...new Set(log)].sort().reverse()
+  const sorted = [...new Set(dates)].sort().reverse()
   if (sorted[0] !== toKey(today) && sorted[0] !== toKey(yest)) return 0
   let streak = 1
   for (let i = 1; i < sorted.length; i++) {

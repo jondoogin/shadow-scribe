@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useBooks } from '../../context/BooksContext.jsx'
 import { Ico } from '../shared/icons.jsx'
 import CompanionHeader from './CompanionHeader.jsx'
@@ -26,8 +26,13 @@ export default function BookDashboard({ bookId }) {
 
   const [tab,        setTab]        = useState('progress')
   const [showUpdate, setShowUpdate] = useState(false)
+  const tabRefs = useRef({})
 
   useEffect(() => { window.scrollTo({ top: 0, behavior:'smooth' }) }, [tab])
+
+  useEffect(() => {
+    tabRefs.current[tab]?.scrollIntoView({ behavior: 'smooth', inline: 'nearest', block: 'nearest' })
+  }, [tab])
 
   if (!book) return null
 
@@ -35,14 +40,16 @@ export default function BookDashboard({ bookId }) {
 
   return (
     <div data-mood={book.mood || 'gold'}>
-      <CompanionHeader book={book} onOpenUpdate={() => setShowUpdate(true)} />
+      <CompanionHeader book={book} onOpenUpdate={() => setShowUpdate(true)} onUpdateBook={onUpdateBook} />
       <CompanionInsights book={book} />
 
       <div className="sticky-bar top-14">
-        <div className="max-w-4xl mx-auto px-5 sm:px-8 overflow-x-auto">
+        <div className="max-w-4xl mx-auto px-5 sm:px-8 overflow-x-auto tab-scroll-fade">
           <div className="flex min-w-max">
             {TABS.map(t => (
-              <button key={t.id} onClick={() => setTab(t.id)}
+              <button key={t.id}
+                ref={el => { tabRefs.current[t.id] = el }}
+                onClick={() => setTab(t.id)}
                 className={`tab-btn ${tab === t.id ? 'active' : ''}`}
                 style={tab === t.id ? { color:'var(--ca, #B8860B)', borderColor:'var(--ca, #B8860B)' } : {}}>
                 {t.icon}
@@ -53,14 +60,25 @@ export default function BookDashboard({ bookId }) {
         </div>
       </div>
 
-      <main key={tab} className="max-w-4xl mx-auto px-5 sm:px-8 py-7 pb-16 animate-tab-in">
-        {tab === 'progress'   && <ProgressTab   book={book} onUpdateBook={onUpdateBook} />}
+      <main key={tab} className="max-w-4xl mx-auto px-5 sm:px-8 py-7 pb-28 sm:pb-16 animate-tab-in">
+        {tab === 'progress'   && <ProgressTab   book={book} onUpdateBook={onUpdateBook} onOpenUpdate={() => setShowUpdate(true)} />}
         {tab === 'characters' && <CharactersTab book={book} onUpdateBook={onUpdateBook} />}
         {tab === 'plot'       && <PlotTab       book={book} onUpdateBook={onUpdateBook} />}
         {tab === 'notes'      && <NotesTab      book={book} onUpdateBook={onUpdateBook} />}
         {tab === 'mysteries'  && <MysteriesTab  book={book} onUpdateBook={onUpdateBook} />}
         {tab === 'discussion' && <DiscussionTab book={book} onUpdateBook={onUpdateBook} />}
       </main>
+
+      {/* Sticky mobile action — reading or paused only */}
+      {(book.status === 'reading' || book.status === 'paused') && !book.archived && (
+        <div className="sm:hidden sticky-bottom-bar" data-mood={book.mood || 'gold'}>
+          <button
+            onClick={() => setShowUpdate(true)}
+            className="w-full py-3 rounded-xl font-semibold text-sm btn-accent flex items-center justify-center gap-2">
+            <Ico.Refresh /> Tell the companion where you are
+          </button>
+        </div>
+      )}
 
       {showUpdate && (
         <ChapterUpdateModal book={book} onClose={() => setShowUpdate(false)} onUpdateBook={onUpdateBook} />

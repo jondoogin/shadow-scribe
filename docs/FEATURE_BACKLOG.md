@@ -1,5 +1,5 @@
 # Shadow Scribe — Feature Backlog
-Prioritised list of improvements and new features. Updated 2026-05-06.
+Prioritised list of improvements and new features. Updated 2026-05-07 (Session 9).
 
 Status key: `[ ]` not started · `[~]` in progress · `[x]` done
 
@@ -20,11 +20,11 @@ Status key: `[ ]` not started · `[~]` in progress · `[x]` done
 
 ## P1 — High value
 
-- [ ] **`mood` selection in `CreateCompanion`**  
-  Add a color swatch row (5 mood options) to the wizard. Currently all new books default to `'gold'`.
+- [x] **`mood` selection in `CreateCompanion`**  
+  6 mood swatches (sage/ember/ink/sienna/gold/steel) in Step 1. Includes label + live description. New book's `coverBg` gradient derives from chosen mood.
 
 - [ ] **`spoilerMode` enforcement**  
-  The field is collected but never used. Minimum viable: in `CharactersTab`, blur/hide `lastSeen` and `description` for characters whose `lastSeen` chapter > `book.currentChapter` when `spoilerMode === 'strict'`.
+  `src/utils/spoiler.js` provides the full boundary architecture (`isCharacterSafe`, `getCharacterView`, `getTitleVisibilityBoundary`, etc.). Next step: wire `getCharacterView` into `CharactersTab` and `getTitleVisibilityBoundary` into `ProgressTab` chapter titles.
 
 - [ ] **Edit / delete notes**  
   Notes can be added but not removed or corrected. Add inline edit mode and a delete button.
@@ -42,8 +42,11 @@ Status key: `[ ]` not started · `[~]` in progress · `[x]` done
 
 ## P2 — Medium value
 
-- [ ] **URL routing (`react-router-dom`)**  
-  Routes: `/` (library), `/book/:id` (dashboard → defaults to progress tab), `/book/:id/:tab`, `/new`. Enables browser back button, bookmarkable URLs, direct deep-links.
+- [x] **URL routing (`react-router-dom`)**  
+  Routes: `/` → `/library`, `/library`, `/new`, `/book/:bookId`, `/settings`. Browser back/forward works. Direct deep-links to `/book/:id` work (redirects to library if book not found).
+
+- [x] **Settings page scaffold**  
+  Four sections implemented: Appearance (Dark Mode + Shadow Mode — toggles present, disabled with "Soon" badge), Companion Behavior (Insight Style select), Reading Preferences (Default Format + Spoiler Mode), Data & Privacy (Export/Import placeholders + Reset to Demo Data with confirm). Settings are local state only — not yet wired to context.
 
 - [ ] **Edit book metadata**  
   No way to change title, author, total chapters, format, spoiler mode, or mood after creation. Add a Settings tab or edit modal.
@@ -63,8 +66,8 @@ Status key: `[ ]` not started · `[~]` in progress · `[x]` done
 - [ ] **Keyboard navigation in modals**  
   `ChapterUpdateModal` auto-focuses textarea but doesn't trap focus. Should follow ARIA modal dialog pattern.
 
-- [ ] **Loading shimmer for covers**  
-  `BookCover` has a layout shift while the Open Library image loads. Show a gradient placeholder that fades to the real image.
+- [x] **Loading shimmer for covers**  
+  `BookCover` has a two-source fallback chain (OpenLibrary → Google Books → gradient), shimmer loading state, `naturalWidth` check for 1px "not found" images, and opacity crossfade.
 
 - [ ] **Fix `DiscussionTab` AccordionList for large question sets**  
   Currently renders all questions as a flat list. Should collapse/expand if a book has many questions.

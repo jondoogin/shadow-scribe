@@ -46,31 +46,36 @@
   --color-sienna-bg:   #FDF4EE;
   --color-sienna-pale: #F0D5C0;
 
+  /* ── Steel ── */
+  --color-steel:       #2D4A6B;
+  --color-steel-light: #3D6A9B;
+  --color-steel-bg:    #EEF2F7;
+  --color-steel-pale:  #C8D8EE;
+
   /* ── Elevation ── */
-  --shadow-card:       0 1px 2px rgba(28,25,23,.05), 0 1px 3px rgba(28,25,23,.04);
-  --shadow-card-hover: 0 6px 20px rgba(28,25,23,.09), 0 2px 6px rgba(28,25,23,.05);
-  --shadow-panel:      0 4px 16px rgba(28,25,23,.07);
-  --shadow-modal:      0 24px 64px rgba(28,25,23,.18), 0 4px 16px rgba(28,25,23,.10);
-  --shadow-menu:       0 8px 24px rgba(28,25,23,.12), 0 2px 8px rgba(28,25,23,.06);
+  --shadow-card:       0 1px 2px rgba(28,25,23,.04), 0 1px 4px rgba(28,25,23,.03);
+  --shadow-card-hover: 0 4px 14px rgba(28,25,23,.08), 0 1px 4px rgba(28,25,23,.04);
+  --shadow-panel:      0 4px 16px rgba(28,25,23,.06);
+  --shadow-modal:      0 20px 56px rgba(28,25,23,.16), 0 4px 16px rgba(28,25,23,.08);
+  --shadow-menu:       0 8px 24px rgba(28,25,23,.10), 0 2px 8px rgba(28,25,23,.05);
 
   /* ── Animations ── */
-  --animate-fade-in:    fadeIn    0.20s ease-out;
-  --animate-slide-up:   slideUp   0.25s ease-out;
-  --animate-pop:        pop       0.30s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  --animate-fade-in:    fadeIn    0.22s ease;
+  --animate-slide-up:   slideUp   0.28s ease-out;
+  --animate-pop:        pop       0.28s cubic-bezier(0.2, 0.8, 0.3, 1);
   --animate-celebrate:  celebrate 0.50s ease-out;
   --animate-menu-drop:  menuDrop  0.15s ease-out;
-  --animate-tab-in:     tabIn     0.18s ease-out;
+  --animate-tab-in:     tabIn     0.22s ease;
 }
 
 @keyframes fadeIn      { from { opacity: 0 }                              to { opacity: 1 } }
 @keyframes slideUp     { from { transform: translateY(10px); opacity: 0 } to { transform: translateY(0); opacity: 1 } }
 @keyframes pop         { from { transform: scale(.95); opacity: 0 }       to { transform: scale(1);    opacity: 1 } }
-@keyframes celebrate   { 0%{transform:scale(1)} 40%{transform:scale(1.07)} 75%{transform:scale(.98)} 100%{transform:scale(1)} }
+@keyframes celebrate   { 0%{transform:scale(1)} 40%{transform:scale(1.04)} 75%{transform:scale(.99)} 100%{transform:scale(1)} }
 @keyframes menuDrop    { from { transform: translateY(-6px); opacity: 0 } to { transform: translateY(0); opacity: 1 } }
 @keyframes tabIn       { from { opacity: 0; transform: translateY(4px) }  to { opacity: 1; transform: translateY(0) } }
 @keyframes confetti    { 0%{opacity:1;transform:translateY(0) rotate(0deg)} 100%{opacity:0;transform:translateY(-60px) rotate(360deg)} }
 @keyframes viewIn      { from { opacity: 0; transform: translateY(6px) }  to { opacity: 1; transform: translateY(0) } }
-@keyframes insightFade { 0%{opacity:0;transform:translateY(3px)} 15%{opacity:1;transform:translateY(0)} 85%{opacity:1} 100%{opacity:0} }
 @keyframes pulse-soft  { 0%,100%{opacity:.6} 50%{opacity:1} }
 
 @layer base {
@@ -83,7 +88,7 @@
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
     font-size: 15px;
-    line-height: 1.5;
+    line-height: 1.6;
   }
 
   #root { min-height: 100svh; }
@@ -99,6 +104,9 @@
     border-color: var(--color-gold-light) !important;
   }
   button:focus-visible { outline: 2px solid var(--color-gold); outline-offset: 2px; }
+
+  /* Eliminate 300ms tap delay on touch devices */
+  button, [role="button"], a, input, select, textarea { touch-action: manipulation; }
 }
 
 /* ── Typography helpers ── */
@@ -112,29 +120,37 @@
   border-bottom: 2px solid transparent;
   color: var(--color-ink-500);
   white-space: nowrap;
-  transition: color .15s, border-color .15s;
+  transition: color .2s, border-color .2s;
 }
-.tab-btn:hover  { color: var(--color-ink-700); border-color: var(--color-ink-300); }
+.tab-btn:hover  { color: var(--color-ink-700); border-color: var(--color-ink-200); }
 .tab-btn.active { color: var(--color-gold);    border-color: var(--color-gold); }
 
 /* ── Sticky bars ── */
 .sticky-bar {
   position: sticky;
-  background: rgba(250,248,243,.95);
-  backdrop-filter: blur(8px);
-  border-bottom: 1px solid var(--color-ink-200);
+  background: rgba(250,248,243,.96);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--color-ink-100);
   z-index: 20;
 }
 
 /* ── Card hover lift ── */
 .card-lift {
-  transition: transform .2s ease, box-shadow .2s ease;
+  transition: transform .25s ease, box-shadow .25s ease;
   box-shadow: var(--shadow-card);
 }
 .card-lift:hover {
-  transform: translateY(-2px);
+  transform: translateY(-1px);
   box-shadow: var(--shadow-card-hover);
 }
+
+/* ── Accent-colored primary button — follows companion mood ── */
+.btn-accent {
+  background: var(--ca, var(--color-gold));
+  color: white;
+  transition: background 0.2s ease;
+}
+.btn-accent:hover { background: var(--ca-l, var(--color-gold-light)); }
 
 /* ── Tag pills ── */
 .tag-theory    { background: #EEF4F0; color: #3A6647; border: 1px solid #D4E8DA; }
@@ -168,11 +184,30 @@ body::after {
 [data-mood="ink"]    { --ca: #44403C; --ca-l: #57534E; --ca-bg: #F5F5F4; --ca-border: #E7E5E0; }
 [data-mood="sienna"] { --ca: #8B4513; --ca-l: #A0521A; --ca-bg: #FDF4EE; --ca-border: #F0D5C0; }
 [data-mood="gold"]   { --ca: #B8860B; --ca-l: #D4AF37; --ca-bg: #FDF8EC; --ca-border: #E8D090; }
+[data-mood="steel"]  { --ca: #2D4A6B; --ca-l: #3D6A9B; --ca-bg: #EEF2F7; --ca-border: #C8D8EE; }
 
 /* ── Insight strip ── */
 .insight-strip {
   border-bottom: 1px solid var(--color-ink-100);
-  background: linear-gradient(180deg, var(--color-cream-200) 0%, var(--color-cream) 100%);
+  background: color-mix(in srgb, var(--ca-bg, var(--color-cream-200)) 55%, var(--color-cream-50));
+}
+
+/* ── Ambient page gradient ── */
+body::before {
+  content: '';
+  position: fixed; inset: 0; z-index: 0;
+  pointer-events: none;
+  background: radial-gradient(ellipse 80% 60% at 50% -10%, rgba(184,134,11,.04) 0%, transparent 70%);
+}
+#root { position: relative; z-index: 1; }
+
+/* ── Reduced motion ── */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
 
 /* ── Relationship map ── */
@@ -181,3 +216,53 @@ body::after {
 
 /* ── Momentum strip ── */
 .momentum-dot { animation: pulse-soft 2s ease-in-out infinite; }
+
+/* ── Mobile touch targets ── */
+@media (max-width: 640px) {
+  .tab-btn { height: 48px; padding: 0 14px; }
+
+  /* Chapter checklist rows — comfortable tap target */
+  .chapter-row { min-height: 52px; }
+
+  /* Modal slides up from bottom on mobile with safe-area support */
+  .modal-sheet {
+    border-radius: 20px 20px 0 0;
+  }
+
+  /* Ensure sticky bars don't overlap content on small viewports */
+  .sticky-bar { -webkit-overflow-scrolling: touch; }
+
+  /* Hide scrollbar on the tab strip */
+  .tab-scroll-fade { scrollbar-width: none; }
+  .tab-scroll-fade::-webkit-scrollbar { display: none; }
+}
+
+/* ── Tab scroll fade indicator ── */
+.tab-scroll-fade {
+  position: relative;
+}
+.tab-scroll-fade::after {
+  content: '';
+  position: absolute; right: 0; top: 0; bottom: 0;
+  width: 32px;
+  background: linear-gradient(to right, transparent, var(--color-cream-50));
+  pointer-events: none;
+}
+
+/* ── Modal sheet safe-area padding ── */
+.modal-sheet {
+  padding-bottom: max(1rem, env(safe-area-inset-bottom));
+}
+
+/* ── Sticky bottom action bar (mobile reading shortcut) ── */
+.sticky-bottom-bar {
+  position: fixed;
+  bottom: 0; left: 0; right: 0;
+  z-index: 30;
+  padding: 0.75rem 1.25rem;
+  padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
+  background: rgba(250,248,243,.96);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-top: 1px solid var(--color-ink-100);
+}

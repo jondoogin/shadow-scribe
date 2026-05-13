@@ -1,0 +1,520 @@
+import { useState, useRef, useEffect } from 'react'
+import { Ico } from '../shared/icons.jsx'
+import SectionLabel from '../shared/SectionLabel.jsx'
+import { MOOD_CONFIG, STRUCTURE_TYPES, CHAPTER_TYPES } from '../../data/config.js'
+import { useSettings } from '../../context/SettingsContext.jsx'
+import { extractNarrative } from '../../utils/narrativeExtractor.js'
+
+const MOOD_COLORS = {
+  sage: '#3A6647', ember: '#9B2335', ink: '#44403C',
+  sienna: '#8B4513', gold: '#B8860B', steel: '#2D4A6B',
+}
+
+const TYPE_LABELS = { chapter:'Ch.', part:'Pt.', section:'§', prologue:'Pro.', epilogue:'Epi.', interlude:'Int.' }
+
+const spoilerModes = [
+  { k:'strict',  l:'Strict',        desc:'Never show upcoming chapter info' },
+  { k:'relaxed', l:'Relaxed',       desc:'Show chapter titles, hide plot details' },
+  { k:'full',    l:'Full Spoilers', desc:'Show everything freely' },
+]
+
+// Cycle through chapter types for manual override
+const CYCLE_TYPES = ['chapter', 'part', 'section', 'prologue', 'epilogue', 'interlude']
+function nextType(t) { return CYCLE_TYPES[(CYCLE_TYPES.indexOf(t) + 1) % CYCLE_TYPES.length] }
+
+// ── Transform EPUB import into a Shadow Scribe companion object ──────────────
+function buildBook(epubData, form) {
+  const n = parseInt(form.totalChapters) || epubData.totalChapters || 20
+  const labelPrefix = form.structureType === 'part' ? 'Part' : form.structureType === 'section' ? 'Section' : 'Chapter'
+
+  // Use EPUB-detected chapters if count matches; otherwise regenerate with generic titles
+  let chapters
+  if (form.chapters.length === n) {
+    chapters = form.chapters.map((ch, i) => ({
+      num: i + 1,
+      title: ch.title || `${labelPrefix} ${i + 1}`,
+      type: ch.type || form.structureType,
+      completed: false,
+      summary: null,
+      reflection: null,
+      important: false,
+    }))
+  } else {
+    // User changed the count — pad/trim EPUB chapters, fill gaps with generic titles
+    chapters = Array.from({ length: n }, (_, i) => {
+      const src = form.chapters[i]
+      return {
+        num: i + 1,
+        title: src?.title || `${labelPrefix} ${i + 1}`,
+        type: src?.type || form.structureType,
+        completed: false,
+        summary: null,
+        reflection: null,
+        important: false,
+      }
+    })
+  }
+
+  return {
+    id: `book_${Date.now()}`,
+    title: form.title || 'Untitled',
+    author: form.author || 'Unknown Author',
+    isbn: form.isbn || null,
+    coverData: epubData.coverData || null,
+    format: form.format,
+    spoilerMode: form.spoilerMode,
+    structureType: form.structureType,
+    status: 'reading',
+    currentChapter: 1,
+    totalChapters: n,
+    lastUpdated: new Date().toISOString().split('T')[0],
+    coverBg: `linear-gradient(160deg,${MOOD_COLORS[form.mood]}CC 0%,${MOOD_COLORS[form.mood]}66 100%)`,
+    mood: form.mood,
+    readingLog: [],
+    series: form.hasSeries && form.seriesName
+      ? { name: form.seriesName, position: parseInt(form.seriesPos) || 1, total: parseInt(form.seriesTotal) || 0 }
+      : null,
+    chapters,
+    characters: { main: [], secondary: [], relationships: [] },
+    mysteries: [], notes: [], discussionQuestions: [], userDiscussionQuestions: [],
+  }
+}
+
+// Atmospheric loading phrases shown during extraction
+const EXTRACTION_PHRASES = [
+  'The companion is gathering what it knows…',
+  'Tracing recurring names through the pages…',
+  'The chronicle is taking shape…',
+  'Noting threads that remain unresolved…',
+  'Listening for what the story holds…',
+  'The archive is organizing the chronicle…',
+]
+
+// ── Main component ────────────────────────────────────────────────────────────
+export default function EpubImportReview({ importData, onCreate, onBack }) {
+  const { settings } = useSettings()
+  const [step, setStep] = useState(1)
+  const [editingIdx, setEditingIdx] = useState(null)
+  const [showAllChapters, setShowAllChapters] = useState(false)
+  const [coverErr, setCoverErr] = useState(false)
+  const [extracting, setExtracting] = useState(false)
+  const [extractPhrase, setExtractPhrase] = useState(EXTRACTION_PHRASES[0])
+  const phraseRef = useRef(0)
+
+  const [form, setForm] = useState({
+    title:         importData.title,
+    author:        importData.author,
+    isbn:          importData.isbn || '',
+    format:        settings.defaultFormat ?? 'print',
+    mood:          'gold',
+    spoilerMode:   settings.spoilerMode ?? 'relaxed',
+    structureType: importData.structureType,
+    totalChapters: String(importData.totalChapters),
+    chapters:      importData.chapters.map(ch => ({ ...ch })),
+    hasSeries: false, seriesName: '', seriesPos: '', seriesTotal: '',
+  })
+
+  const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
+
+  const updateChapter = (i, changes) => setForm(f => ({
+    ...f,
+    chapters: f.chapters.map((ch, idx) => idx === i ? { ...ch, ...changes } : ch),
+  }))
+
+  // Rotate loading phrases while extraction runs
+  useEffect(() => {
+    if (!extracting) return
+    const timer = setInterval(() => {
+      phraseRef.current = (phraseRef.current + 1) % EXTRACTION_PHRASES.length
+      setExtractPhrase(EXTRACTION_PHRASES[phraseRef.current])
+    }, 1400)
+    return () => clearInterval(timer)
+  }, [extracting])
+
+  const handleCreate = () => {
+    setExtracting(true)
+    // Yield to React so the loading overlay renders before synchronous extraction
+    setTimeout(() => {
+      try {
+        const book = buildBook(importData, form)
+
+        // Run narrative extraction if chapter content is available
+        if (importData.chapterContents && Object.keys(importData.chapterContents).length > 0) {
+          const { characters, summaries, mysteries, extractionMeta } =
+            extractNarrative(importData.chapterContents, book.chapters)
+
+          // Inject extracted characters (only if we found any)
+          if (characters.main.length > 0 || characters.secondary.length > 0) {
+            book.characters = characters
+          }
+
+          // Inject extracted mysteries (only if we found any)
+          if (mysteries.length > 0) {
+            book.mysteries = mysteries
+          }
+
+          // Inject extracted summaries into chapter objects
+          book.chapters = book.chapters.map(ch => ({
+            ...ch,
+            summary: summaries[ch.num] ?? null,
+          }))
+
+          // Store extraction metadata on the book for the debug panel
+          book.narrativeExtracted = true
+          book.extractionMeta = extractionMeta
+        }
+
+        onCreate(book)
+      } catch {
+        // Extraction failed — create the companion without extracted data
+        setExtracting(false)
+        onCreate(buildBook(importData, form))
+      }
+    }, 150)
+  }
+
+  const inputCls = "w-full border border-ink-200 rounded-xl px-3.5 py-2.5 text-sm text-ink-800 placeholder-ink-400 bg-white transition-all"
+
+  const displayChapters = showAllChapters ? form.chapters : form.chapters.slice(0, 8)
+  const hasMore = form.chapters.length > 8
+
+  const coverSrc = importData.coverData && !coverErr ? importData.coverData
+    : (form.isbn && !coverErr) ? `https://covers.openlibrary.org/b/isbn/${form.isbn}-M.jpg`
+    : null
+
+  return (
+    <>
+      {/* ── Extraction loading overlay ── */}
+      {extracting && (
+        <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-cream-50/95 backdrop-blur-sm animate-fade-in">
+          <div className="text-center max-w-xs px-6">
+            <p className="font-serif text-ink-800 text-[17px] mb-2 leading-snug">{extractPhrase}</p>
+            <p className="text-ink-400 text-[13px] italic">Preparing your companion…</p>
+          </div>
+        </div>
+      )}
+      {/* Progress header */}
+      <div className="border-b border-ink-200 bg-cream-50">
+        <div className="max-w-xl mx-auto px-5 sm:px-8 h-12 flex items-center gap-4">
+          <button onClick={onBack}
+            className="flex items-center gap-1.5 text-ink-500 hover:text-ink-800 text-sm transition-colors flex-shrink-0">
+            <Ico.Left /> Back
+          </button>
+          <div className="flex-1 flex gap-1.5">
+            {[1, 2, 3].map(s => (
+              <div key={s}
+                className={`h-[2px] flex-1 rounded-full transition-all duration-400 ${s <= step ? 'bg-gold' : 'bg-ink-200'}`}
+              />
+            ))}
+          </div>
+          <span className="text-[11px] text-ink-400 font-medium tabular-nums flex-shrink-0">{step} / 3</span>
+        </div>
+      </div>
+
+      <div className="max-w-xl mx-auto px-5 sm:px-8 py-8 pb-16 animate-slide-up">
+
+        {/* ── Step 1: Book details ── */}
+        {step === 1 && (
+          <div>
+            <div className="flex items-center gap-2 mb-5">
+              <span className="text-[10px] font-semibold uppercase tracking-widest px-2 py-0.5 rounded-full bg-sage-bg text-sage border border-sage-pale">
+                From EPUB
+              </span>
+              <span className="text-[11px] text-ink-400 italic">Review and adjust before continuing</span>
+            </div>
+
+            {importData.warnings.length > 0 && (
+              <div className="mb-5 p-3 rounded-xl bg-sienna-bg border border-sienna-pale">
+                {importData.warnings.map((w, i) => (
+                  <p key={i} className="text-[12px] text-sienna leading-relaxed">{w}</p>
+                ))}
+              </div>
+            )}
+
+            <h1 className="font-serif text-2xl font-bold text-ink-900 mb-1">Review your book</h1>
+            <p className="text-sm text-ink-500 mb-7">We extracted what we could — confirm or correct these details.</p>
+
+            <div className="flex gap-5 mb-7">
+              {/* Cover preview */}
+              <div className="flex-shrink-0">
+                {coverSrc ? (
+                  <img src={coverSrc} onError={() => setCoverErr(true)} alt="Cover"
+                    className="w-[72px] h-[108px] rounded-xl object-cover"
+                    style={{ boxShadow: 'var(--shadow-panel)' }} />
+                ) : (
+                  <div className="w-[72px] h-[108px] rounded-xl flex items-center justify-center overflow-hidden"
+                    style={{
+                      background: `linear-gradient(160deg,${MOOD_COLORS[form.mood]}CC 0%,${MOOD_COLORS[form.mood]}66 100%)`
+                    }}>
+                    <p className="text-white font-serif text-center text-[9px] font-semibold px-2 leading-tight"
+                      style={{ textShadow: '0 1px 3px rgba(0,0,0,.35)' }}>
+                      {form.title}
+                    </p>
+                  </div>
+                )}
+                {importData.coverData && !coverErr && (
+                  <p className="text-[10px] text-ink-400 text-center mt-1.5">EPUB cover</p>
+                )}
+              </div>
+
+              <div className="flex-1 space-y-3.5">
+                <div>
+                  <label className="block text-[10px] font-semibold text-ink-500 uppercase tracking-widest mb-1.5">Title *</label>
+                  <input type="text" value={form.title} onChange={e => set('title', e.target.value)}
+                    className={inputCls} />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-semibold text-ink-500 uppercase tracking-widest mb-1.5">Author *</label>
+                  <input type="text" value={form.author} onChange={e => set('author', e.target.value)}
+                    className={inputCls} />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-semibold text-ink-500 uppercase tracking-widest mb-1.5">
+                    ISBN <span className="normal-case font-normal text-ink-400">(for cover art, optional)</span>
+                  </label>
+                  <input type="text" value={form.isbn}
+                    onChange={e => { set('isbn', e.target.value); setCoverErr(false) }}
+                    placeholder="9780756404741" className={inputCls} />
+                </div>
+              </div>
+            </div>
+
+            {/* Format */}
+            <div className="mb-6">
+              <label className="block text-[10px] font-semibold text-ink-500 uppercase tracking-widest mb-3">Format</label>
+              <div className="flex gap-3">
+                {[{ k:'print', l:'Print', icon:'📖' }, { k:'ebook', l:'E-Book', icon:'📱' }, { k:'audiobook', l:'Audiobook', icon:'🎧' }].map(f => (
+                  <button key={f.k} onClick={() => set('format', f.k)}
+                    className={`flex-1 py-3.5 rounded-xl border-2 text-[13px] font-medium transition-all ${
+                      form.format === f.k ? 'border-gold bg-gold-bg text-gold' : 'border-ink-200 text-ink-600 hover:border-ink-300 bg-white'
+                    }`}>
+                    <div className="text-xl mb-1">{f.icon}</div>{f.l}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Mood */}
+            <div className="mb-7">
+              <label className="block text-[10px] font-semibold text-ink-500 uppercase tracking-widest mb-3">Companion mood</label>
+              <div className="flex items-center gap-3 flex-wrap">
+                {Object.entries(MOOD_CONFIG).map(([k, cfg]) => (
+                  <button key={k} onClick={() => set('mood', k)} title={cfg.label}
+                    className={`flex items-center gap-2 px-3 py-2 rounded-xl border-2 text-[12px] font-medium transition-all ${
+                      form.mood === k ? 'border-current bg-white' : 'border-ink-200 text-ink-500 hover:border-ink-300 bg-white'
+                    }`}
+                    style={form.mood === k ? { color: MOOD_COLORS[k], borderColor: MOOD_COLORS[k] } : {}}>
+                    <span className="w-3 h-3 rounded-full flex-shrink-0" style={{ background: MOOD_COLORS[k] }} />
+                    {cfg.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <button onClick={() => form.title && setStep(2)}
+              className={`w-full py-3 rounded-xl font-semibold text-sm transition-all ${
+                form.title ? 'bg-gold text-white hover:bg-gold-light' : 'bg-ink-100 text-ink-400 cursor-not-allowed'
+              }`}>
+              Continue →
+            </button>
+          </div>
+        )}
+
+        {/* ── Step 2: Chapter structure review ── */}
+        {step === 2 && (
+          <div>
+            <h1 className="font-serif text-2xl font-bold text-ink-900 mb-1">Review chapters</h1>
+            <p className="text-sm text-ink-500 mb-7">
+              {form.chapters.length > 0
+                ? `${form.chapters.length} chapter${form.chapters.length !== 1 ? 's' : ''} detected. Adjust if anything looks wrong.`
+                : 'No chapters were detected. Enter the count manually.'}
+            </p>
+
+            <div className="space-y-5 mb-8">
+              {/* Structure type */}
+              <div>
+                <label className="block text-[10px] font-semibold text-ink-500 uppercase tracking-widest mb-2">Structure</label>
+                <div className="space-y-2">
+                  {STRUCTURE_TYPES.map(s => (
+                    <button key={s.k} onClick={() => set('structureType', s.k)}
+                      className={`w-full text-left px-4 py-3 rounded-xl border-2 transition-all ${
+                        form.structureType === s.k ? 'border-gold bg-gold-bg' : 'border-ink-200 bg-white hover:border-ink-300'
+                      }`}>
+                      <div className="flex items-center gap-3">
+                        <div className={`w-3.5 h-3.5 rounded-full border-2 flex-shrink-0 transition-all ${
+                          form.structureType === s.k ? 'border-gold bg-gold' : 'border-ink-300'
+                        }`} />
+                        <span className={`text-[13px] font-semibold ${form.structureType === s.k ? 'text-gold' : 'text-ink-700'}`}>{s.l}</span>
+                        <span className="text-[12px] text-ink-400">{s.desc}</span>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Chapter count */}
+              <div>
+                <label className="block text-[10px] font-semibold text-ink-500 uppercase tracking-widest mb-1.5">
+                  Total {STRUCTURE_TYPES.find(s => s.k === form.structureType)?.l.toLowerCase() ?? 'chapters'}
+                </label>
+                <input type="number" value={form.totalChapters}
+                  onChange={e => set('totalChapters', e.target.value)}
+                  className={inputCls} />
+              </div>
+
+              {/* Chapter preview list */}
+              {form.chapters.length > 0 && (
+                <div>
+                  <label className="block text-[10px] font-semibold text-ink-500 uppercase tracking-widest mb-2">
+                    Detected chapters
+                    <span className="normal-case font-normal text-ink-400 ml-1">— tap type badge to cycle; tap title to edit</span>
+                  </label>
+                  <div className="border border-ink-200 rounded-xl overflow-hidden max-h-[320px] overflow-y-auto">
+                    {displayChapters.map((ch, i) => (
+                      <div key={i} className="flex items-center gap-2 px-3 py-2.5 border-b border-ink-100 last:border-b-0 bg-white hover:bg-cream-50 transition-colors">
+                        {/* Type badge — tap to cycle */}
+                        <button
+                          onClick={() => updateChapter(i, { type: nextType(ch.type) })}
+                          className="flex-shrink-0 text-[10px] font-semibold px-1.5 py-0.5 rounded border text-ink-500 border-ink-200 bg-ink-100 hover:border-ink-400 transition-colors tabular-nums"
+                          title="Tap to change type">
+                          {TYPE_LABELS[ch.type] ?? 'Ch.'}
+                        </button>
+                        {/* Editable title */}
+                        {editingIdx === i ? (
+                          <input
+                            autoFocus
+                            type="text"
+                            value={ch.title}
+                            onChange={e => updateChapter(i, { title: e.target.value })}
+                            onBlur={() => setEditingIdx(null)}
+                            onKeyDown={e => { if (e.key === 'Enter' || e.key === 'Escape') setEditingIdx(null) }}
+                            className="flex-1 text-[13px] text-ink-800 bg-transparent border-b border-gold outline-none py-0.5"
+                          />
+                        ) : (
+                          <button
+                            onClick={() => setEditingIdx(i)}
+                            className="flex-1 text-left text-[13px] text-ink-700 hover:text-ink-900 truncate transition-colors">
+                            {ch.title}
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                    {hasMore && !showAllChapters && (
+                      <button
+                        onClick={() => setShowAllChapters(true)}
+                        className="w-full text-center py-2.5 text-[12px] text-ink-400 hover:text-ink-600 bg-cream-50 border-t border-ink-100 transition-colors">
+                        Show {form.chapters.length - 8} more…
+                      </button>
+                    )}
+                  </div>
+                  <p className="text-[11px] text-ink-400 italic mt-2">
+                    You can also rename chapters later in the Progress tab.
+                  </p>
+                </div>
+              )}
+
+              {/* Series */}
+              <div>
+                <label className="block text-[10px] font-semibold text-ink-500 uppercase tracking-widest mb-2">Series</label>
+                <button
+                  onClick={() => set('hasSeries', !form.hasSeries)}
+                  className={`flex items-center gap-2.5 px-4 py-2.5 rounded-xl border-2 text-[13px] font-medium transition-all ${
+                    form.hasSeries ? 'border-gold bg-gold-bg text-gold' : 'border-ink-200 bg-white text-ink-600 hover:border-ink-300'
+                  }`}>
+                  <div className={`w-4 h-4 rounded border-2 flex items-center justify-center transition-all ${
+                    form.hasSeries ? 'border-gold bg-gold' : 'border-ink-300'
+                  }`}>
+                    {form.hasSeries && <span className="text-white text-[9px] font-bold">✓</span>}
+                  </div>
+                  Part of a series
+                </button>
+                {form.hasSeries && (
+                  <div className="mt-3 space-y-3">
+                    <input type="text" value={form.seriesName} onChange={e => set('seriesName', e.target.value)}
+                      placeholder="Series name" className={inputCls} />
+                    <div className="flex gap-3">
+                      <div className="flex-1">
+                        <label className="block text-[10px] text-ink-400 mb-1.5">Book #</label>
+                        <input type="number" value={form.seriesPos} onChange={e => set('seriesPos', e.target.value)}
+                          placeholder="1" className={inputCls} />
+                      </div>
+                      <div className="flex-1">
+                        <label className="block text-[10px] text-ink-400 mb-1.5">of total</label>
+                        <input type="number" value={form.seriesTotal} onChange={e => set('seriesTotal', e.target.value)}
+                          placeholder="3" className={inputCls} />
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="flex gap-3">
+              <button onClick={() => setStep(1)} className="flex-1 py-3 rounded-xl border border-ink-200 text-sm font-semibold text-ink-600 hover:bg-ink-100 transition-all">← Back</button>
+              <button onClick={() => setStep(3)} className="flex-1 py-3 rounded-xl bg-gold text-white font-semibold text-sm hover:bg-gold-light transition-all">Continue →</button>
+            </div>
+          </div>
+        )}
+
+        {/* ── Step 3: Spoiler settings + confirm ── */}
+        {step === 3 && (
+          <div>
+            <h1 className="font-serif text-2xl font-bold text-ink-900 mb-1">Spoiler settings</h1>
+            <p className="text-sm text-ink-500 mb-7">How careful should Shadow Scribe be about future chapters?</p>
+
+            <div className="space-y-2.5 mb-7">
+              {spoilerModes.map(m => (
+                <button key={m.k} onClick={() => set('spoilerMode', m.k)}
+                  className={`w-full text-left p-4 rounded-xl border-2 transition-all ${
+                    form.spoilerMode === m.k ? 'border-gold bg-gold-bg' : 'border-ink-200 hover:border-ink-300 bg-white'
+                  }`}>
+                  <div className="flex items-center gap-3">
+                    <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-all ${
+                      form.spoilerMode === m.k ? 'border-gold bg-gold' : 'border-ink-300'
+                    }`}>
+                      {form.spoilerMode === m.k && <span className="w-1.5 h-1.5 rounded-full bg-white block" />}
+                    </div>
+                    <div>
+                      <p className={`text-sm font-semibold ${form.spoilerMode === m.k ? 'text-gold' : 'text-ink-800'}`}>{m.l}</p>
+                      <p className="text-[12px] text-ink-500 mt-0.5">{m.desc}</p>
+                    </div>
+                  </div>
+                </button>
+              ))}
+            </div>
+
+            {/* Companion summary */}
+            <div className="p-4 rounded-xl bg-cream-200 border border-ink-200 mb-6">
+              <SectionLabel>Your companion</SectionLabel>
+              <p className="font-serif text-ink-900 font-semibold">{form.title || 'Untitled'}</p>
+              <p className="text-[12px] text-ink-500 mt-0.5">
+                {form.author || 'Unknown'} · {form.format} · {form.totalChapters || '?'} {form.structureType}s · {form.spoilerMode} spoilers
+              </p>
+              {importData.chapters.length > 0 && (
+                <p className="text-[11px] text-ink-400 mt-1 italic">
+                  {importData.chapters.length} chapters detected from EPUB
+                  {importData.chapterContents && Object.keys(importData.chapterContents).length > 0 && (
+                    <span className="text-sage ml-1">· content ready for extraction</span>
+                  )}
+                </p>
+              )}
+              <div className="flex items-center gap-1.5 mt-2">
+                <span className="w-2.5 h-2.5 rounded-full" style={{ background: MOOD_COLORS[form.mood] }} />
+                <span className="text-[11px] text-ink-400">{MOOD_CONFIG[form.mood]?.label} mood</span>
+              </div>
+            </div>
+
+            <div className="flex gap-3">
+              <button onClick={() => setStep(2)} className="flex-1 py-3 rounded-xl border border-ink-200 text-sm font-semibold text-ink-600 hover:bg-ink-100 transition-all">← Back</button>
+              <button onClick={handleCreate} disabled={extracting} className="flex-1 py-3 rounded-xl bg-gold text-white font-semibold text-sm hover:bg-gold-light transition-all disabled:opacity-60 disabled:cursor-not-allowed">✦ Build the companion</button>
+            </div>
+            <p className="text-center text-[11px] text-ink-400 italic mt-3">
+              You can add characters, mysteries, and notes as you read.
+            </p>
+          </div>
+        )}
+
+      </div>
+    </>
+  )
+}

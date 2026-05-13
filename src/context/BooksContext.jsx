@@ -16,12 +16,16 @@ export function BooksProvider({ children }) {
     setBooks(bs => [newBook, ...bs])
   }, [])
 
+  const deleteBook = useCallback((id) => {
+    setBooks(bs => bs.filter(b => b.id !== id))
+  }, [])
+
   const resetToDemo = useCallback(() => {
     setBooks(resetBooks())
   }, [])
 
   return (
-    <BooksContext.Provider value={{ books, updateBook, createBook, resetToDemo }}>
+    <BooksContext.Provider value={{ books, updateBook, createBook, deleteBook, resetToDemo }}>
       {children}
     </BooksContext.Provider>
   )

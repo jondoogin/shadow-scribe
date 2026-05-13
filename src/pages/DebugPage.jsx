@@ -1,0 +1,265 @@
+/**
+ * DebugPage — Narrative Extraction QA Panel
+ *
+ * Accessible at /debug (not linked from main nav — direct URL only, or via Settings).
+ * Shows per-book extraction quality: character list with mention counts,
+ * mystery seeds with source chapters, chapter summary previews,
+ * and localStorage usage stats.
+ *
+ * Dev/QA use only. No production-facing functionality here.
+ */
+
+import { useState } from 'react'
+import { useBooks } from '../context/BooksContext.jsx'
+import { estimateLocalStorageUsage, estimateBookSize } from '../utils/storage.js'
+import { fmtDate } from '../utils/date.js'
+
+function Badge({ children, color = 'ink' }) {
+  const colors = {
+    ink:    'bg-ink-100 text-ink-600 border-ink-200',
+    sage:   'bg-sage-bg text-sage border-sage-pale',
+    sienna: 'bg-sienna-bg text-sienna border-sienna-pale',
+    gold:   'bg-gold-bg text-gold border-gold-border',
+    ember:  'text-ember border-ember/30',
+  }
+  return (
+    <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full border ${colors[color] ?? colors.ink}`}>
+      {children}
+    </span>
+  )
+}
+
+function StorageBar({ pct }) {
+  const color = pct > 75 ? 'bg-ember' : pct > 50 ? 'bg-gold' : 'bg-sage'
+  return (
+    <div className="h-1.5 rounded-full bg-ink-100 overflow-hidden">
+      <div className={`h-full rounded-full transition-all ${color}`} style={{ width: `${Math.min(pct, 100)}%` }} />
+    </div>
+  )
+}
+
+function ChapterSummaryRow({ ch }) {
+  const [open, setOpen] = useState(false)
+  const hasSummary = !!ch.summary
+  return (
+    <div className="border-b border-ink-100 last:border-b-0">
+      <button
+        onClick={() => setOpen(v => !v)}
+        className="w-full flex items-center gap-3 px-3 py-2 text-left hover:bg-cream-50 transition-colors">
+        <span className="text-[10px] font-semibold text-ink-400 w-6 tabular-nums flex-shrink-0">
+          {ch.num}
+        </span>
+        <span className={`text-[12px] flex-1 truncate ${hasSummary ? 'text-ink-700' : 'text-ink-300 italic'}`}>
+          {hasSummary ? ch.summary.slice(0, 80) + (ch.summary.length > 80 ? '…' : '') : 'No summary'}
+        </span>
+        {hasSummary && <span className="text-[10px] text-ink-300">{open ? '▲' : '▼'}</span>}
+      </button>
+      {open && hasSummary && (
+        <div className="px-12 pb-2.5">
+          <p className="text-[12px] text-ink-600 leading-relaxed italic border-l-2 border-ink-200 pl-3">
+            {ch.summary}
+          </p>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function BookPanel({ book }) {
+  const [open, setOpen] = useState(false)
+  const extracted = book.narrativeExtracted
+  const meta = book.extractionMeta
+  const { kb } = estimateBookSize(book)
+  const mainChars  = book.characters?.main     ?? []
+  const secChars   = book.characters?.secondary ?? []
+  const mysteries  = book.mysteries ?? []
+  const allChars   = [...mainChars, ...secChars]
+  const extractedChars = allChars.filter(c => c.extracted)
+  const extractedMysts = mysteries.filter(m => m.extracted)
+
+  return (
+    <div className="border border-ink-200 rounded-xl overflow-hidden mb-4">
+      {/* Header row */}
+      <button
+        onClick={() => setOpen(v => !v)}
+        className="w-full flex items-center gap-3 px-4 py-3 bg-cream-50 hover:bg-cream-200 transition-colors text-left">
+        <span className="font-serif text-[14px] font-semibold text-ink-900 flex-1 truncate">
+          {book.title}
+        </span>
+        <div className="flex items-center gap-1.5 flex-shrink-0">
+          {extracted
+            ? <Badge color="sage">extracted</Badge>
+            : <Badge color="ink">manual</Badge>}
+          <Badge color="ink">{kb}KB</Badge>
+          {meta?.warnings?.length > 0 && <Badge color="sienna">{meta.warnings.length} warn</Badge>}
+        </div>
+        <span className="text-[10px] text-ink-300 flex-shrink-0">{open ? '▲' : '▼'}</span>
+      </button>
+
+      {open && (
+        <div className="px-4 py-4 space-y-5 bg-white">
+
+          {/* Extraction meta */}
+          {meta && (
+            <section>
+              <p className="text-[10px] font-semibold text-ink-400 uppercase tracking-widest mb-2">Extraction metadata</p>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                {[
+                  ['Chapters extracted', meta.chaptersExtracted ?? '—'],
+                  ['Summaries generated', meta.summariesGenerated ?? '—'],
+                  ['Characters found', meta.characterCount ?? '—'],
+                  ['Mysteries found', meta.mysteryCount ?? '—'],
+                ].map(([label, val]) => (
+                  <div key={label} className="bg-cream-50 rounded-lg p-2.5 border border-ink-100">
+                    <p className="text-[18px] font-bold text-ink-900 tabular-nums">{val}</p>
+                    <p className="text-[10px] text-ink-400">{label}</p>
+                  </div>
+                ))}
+              </div>
+              {meta.warnings?.length > 0 && (
+                <div className="mt-3 space-y-1">
+                  {meta.warnings.map((w, i) => (
+                    <p key={i} className="text-[11px] text-sienna bg-sienna-bg border border-sienna-pale rounded-lg px-3 py-1.5">{w}</p>
+                  ))}
+                </div>
+              )}
+            </section>
+          )}
+
+          {/* Characters */}
+          <section>
+            <p className="text-[10px] font-semibold text-ink-400 uppercase tracking-widest mb-2">
+              Characters ({allChars.length} total · {extractedChars.length} extracted)
+            </p>
+            {allChars.length === 0 ? (
+              <p className="text-[12px] text-ink-300 italic">None</p>
+            ) : (
+              <div className="space-y-1">
+                {allChars.map(c => (
+                  <div key={c.id} className="flex items-center gap-2 text-[12px]">
+                    <span className={`font-medium ${c.extracted ? 'text-ink-700' : 'text-ink-500'}`}>{c.name}</span>
+                    <span className="text-ink-400">{c.role ?? 'Character'}</span>
+                    {c.revealChapter > 0 && (
+                      <span className="text-ink-300">Ch. {c.revealChapter}</span>
+                    )}
+                    {c.mentionCount != null && (
+                      <span className="text-ink-300 tabular-nums">×{c.mentionCount}</span>
+                    )}
+                    {c.extracted && <Badge color="gold">auto</Badge>}
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+
+          {/* Mysteries */}
+          <section>
+            <p className="text-[10px] font-semibold text-ink-400 uppercase tracking-widest mb-2">
+              Mysteries ({mysteries.length} total · {extractedMysts.length} extracted)
+            </p>
+            {mysteries.length === 0 ? (
+              <p className="text-[12px] text-ink-300 italic">None</p>
+            ) : (
+              <div className="space-y-2">
+                {mysteries.map(m => (
+                  <div key={m.id} className="flex items-start gap-2">
+                    <span className="text-ink-300 text-[10px] mt-0.5 flex-shrink-0 tabular-nums">Ch.{m.chapter}</span>
+                    <p className="text-[12px] text-ink-600 leading-relaxed flex-1">{m.text}</p>
+                    {m.extracted && <Badge color="gold">auto</Badge>}
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+
+          {/* Chapter summaries */}
+          <section>
+            <p className="text-[10px] font-semibold text-ink-400 uppercase tracking-widest mb-2">
+              Chapter summaries ({book.chapters.filter(c => c.summary).length} of {book.chapters.length})
+            </p>
+            <div className="border border-ink-100 rounded-xl overflow-hidden max-h-72 overflow-y-auto">
+              {book.chapters.map(ch => <ChapterSummaryRow key={ch.num} ch={ch} />)}
+            </div>
+          </section>
+
+        </div>
+      )}
+    </div>
+  )
+}
+
+export default function DebugPage() {
+  const { books } = useBooks()
+  const storage = estimateLocalStorageUsage()
+  const [filter, setFilter] = useState('all')  // 'all' | 'extracted' | 'manual'
+
+  const visible = books.filter(b => {
+    if (filter === 'extracted') return b.narrativeExtracted
+    if (filter === 'manual')    return !b.narrativeExtracted
+    return true
+  })
+
+  return (
+    <main className="max-w-3xl mx-auto px-5 sm:px-8 py-8 pb-16">
+
+      {/* Header */}
+      <div className="mb-8">
+        <div className="flex items-center gap-2 mb-1">
+          <span className="text-[10px] font-semibold uppercase tracking-widest px-2 py-0.5 rounded-full bg-sienna-bg text-sienna border border-sienna-pale">
+            Dev / QA
+          </span>
+        </div>
+        <h1 className="font-serif text-2xl font-bold text-ink-900">Narrative Extraction Inspector</h1>
+        <p className="text-sm text-ink-500 mt-1">
+          Inspect extraction quality for imported companions. Not linked from the main UI.
+        </p>
+      </div>
+
+      {/* Storage stats */}
+      <div className="bg-cream-50 border border-ink-200 rounded-xl p-4 mb-8">
+        <p className="text-[10px] font-semibold text-ink-400 uppercase tracking-widest mb-3">localStorage usage</p>
+        <StorageBar pct={storage.pctOf5MB} />
+        <div className="flex items-center justify-between mt-2">
+          <span className="text-[12px] text-ink-600">{storage.mb} MB used</span>
+          <span className="text-[12px] text-ink-400">{storage.pctOf5MB}% of 5 MB limit</span>
+        </div>
+        <div className="mt-3 grid grid-cols-3 gap-2">
+          {books.map(b => {
+            const { kb } = estimateBookSize(b)
+            return (
+              <div key={b.id} className="text-[11px] flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-ink-300 flex-shrink-0" />
+                <span className="truncate text-ink-500">{b.title}</span>
+                <span className="text-ink-300 flex-shrink-0">{kb}KB</span>
+              </div>
+            )
+          })}
+        </div>
+      </div>
+
+      {/* Filter */}
+      <div className="flex items-center gap-1.5 mb-5">
+        {[['all', 'All books'], ['extracted', 'Extracted'], ['manual', 'Manual only']].map(([k, l]) => (
+          <button key={k} onClick={() => setFilter(k)}
+            className={`px-3 py-1 rounded-full text-[12px] font-medium transition-all ${
+              filter === k ? 'bg-ink-900 text-white' : 'bg-white text-ink-600 border border-ink-200 hover:border-ink-400'
+            }`}>
+            {l}
+          </button>
+        ))}
+        <span className="ml-auto text-[11px] text-ink-400">{visible.length} companion{visible.length !== 1 ? 's' : ''}</span>
+      </div>
+
+      {/* Book panels */}
+      {visible.length === 0 ? (
+        <p className="text-[13px] text-ink-400 italic text-center py-12">No companions match this filter.</p>
+      ) : (
+        visible.map(b => <BookPanel key={b.id} book={b} />)
+      )}
+
+      <p className="text-center text-[11px] text-ink-300 italic mt-8">
+        Shadow Scribe · Narrative extraction QA · Not for production use
+      </p>
+    </main>
+  )
+}

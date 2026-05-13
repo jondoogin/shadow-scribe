@@ -1,10 +1,18 @@
 import { useState } from 'react'
 import { Ico } from '../components/shared/icons.jsx'
 import SectionLabel from '../components/shared/SectionLabel.jsx'
+import { getEffectiveMode, getDiscussionQuestionView } from '../utils/spoiler.js'
+import { useSettings } from '../context/SettingsContext.jsx'
 
 export default function DiscussionTab({ book, onUpdateBook }) {
   const [input, setInput] = useState('')
+  const { settings } = useSettings()
+  const mode = getEffectiveMode(book, settings)
   const userQuestions = book.userDiscussionQuestions || []
+
+  const questionViews = (book.discussionQuestions || [])
+    .map(q => getDiscussionQuestionView(book, q, mode))
+    .filter(Boolean)
 
   const addQ = () => {
     if (!input.trim()) return
@@ -23,15 +31,20 @@ export default function DiscussionTab({ book, onUpdateBook }) {
         <p className="text-[12px] text-ink-600 leading-relaxed">
           For book clubs, journalling, or the quiet space between chapters.
         </p>
+        {questionViews.length === 0 && !userQuestions.length && (
+          <p className="text-[12px] text-ink-400 italic mt-2">
+            Questions will find their way here as the companion grows with you.
+          </p>
+        )}
       </div>
 
-      {book.discussionQuestions.length > 0 && (
+      {questionViews.length > 0 && (
         <div className="space-y-3 mb-6">
-          {book.discussionQuestions.map((q, i) => (
-            <div key={i} className="bg-cream-50 rounded-xl border border-ink-200 p-4">
+          {questionViews.map((q, i) => (
+            <div key={i} className={`rounded-xl border p-4 ${q._veiled ? 'bg-ink-50 border-ink-100' : 'bg-cream-50 border-ink-200'}`}>
               <div className="flex items-start gap-3">
-                <span className="font-serif text-xl text-gold leading-none flex-shrink-0 mt-[-2px]">"</span>
-                <p className="text-[13px] text-ink-700 leading-relaxed">{q}</p>
+                <span className={`font-serif text-xl leading-none flex-shrink-0 mt-[-2px] ${q._veiled ? 'text-ink-300' : 'text-gold'}`}>"</span>
+                <p className={`text-[13px] leading-relaxed ${q._veiled ? 'text-ink-400 italic' : 'text-ink-700'}`}>{q.text}</p>
               </div>
             </div>
           ))}

@@ -1,5 +1,5 @@
 # Shadow Scribe — AI Context
-**Last updated:** 2026-05-06 (Session 5)
+**Last updated:** 2026-05-07 (Session 10)
 
 This file is for AI assistants (Claude, ChatGPT, etc.) working on this project. Read it before touching any code.
 
@@ -20,9 +20,10 @@ Shadow Scribe is a **reading companion app**. It is a personal, literary, reflec
 | React | 19.x | `useState`, `useEffect`, `useRef`, `useCallback`, `useMemo` used |
 | Vite | 8.x | Dev server on port 5173 |
 | Tailwind CSS | v4 | `@import "tailwindcss"` — NOT v3 syntax |
-| No router | — | View switching via `view` state in root `App` |
 | `BooksContext` | — | Global state via React Context; `useBooks()` hook |
+| `SettingsContext` | — | Global settings (spoilerMode, insightStyle, defaultFormat) via `useSettings()` hook; persisted under `shadowscribe_settings` |
 | `localStorage` | — | Books persisted under key `shadowscribe_books`; see `src/utils/storage.js` |
+| `react-router-dom` | v7 | `BrowserRouter` + `Routes`; pages in `src/pages/` |
 
 ---
 
@@ -49,14 +50,22 @@ Unlayered rules always beat `@layer utilities` rules regardless of specificity. 
 ```
 src/
 ├── App.jsx                          ← root: BooksProvider + AppShell (view/nav state only)
+├── pages/
+│   ├── LibraryPage.jsx              ← /library
+│   ├── BookPage.jsx                 ← /book/:bookId (useParams → BookDashboard)
+│   ├── NewCompanionPage.jsx         ← /new
+│   └── SettingsPage.jsx             ← /settings (wired to SettingsContext)
 ├── context/BooksContext.jsx         ← books[], updateBook, createBook, resetToDemo
 ├── hooks/useBooks.js                ← re-export of useBooks() for convenience
 ├── utils/storage.js                 ← loadBooks(), saveBooks(), resetBooks()
 ├── utils/date.js                    ← fmtDate(), calcStreak()
 ├── utils/progress.js                ← getProgress()
-├── utils/insights.js                ← generateInsights()
+├── utils/companionPresence.js       ← generatePresence() (6-lens presence engine for CompanionInsights)
+├── utils/chapterHelpers.js          ← getChapterLabel, getChapterWeight, getWeightedProgress, isSpecialChapter
+├── context/SettingsContext.jsx       ← settings state + localStorage persistence; useSettings() hook
+├── utils/spoiler.js                 ← full graduated visibility system (getCharacterView, getMysteryView, getChapterTitle, etc.)
 ├── data/books.js                    ← INITIAL_BOOKS (5 mock books)
-├── data/config.js                   ← STATUS_CONFIG, TAG_CONFIG
+├── data/config.js                   ← STATUS_CONFIG, TAG_CONFIG, MOOD_CONFIG, CHAPTER_TYPES, STRUCTURE_TYPES
 ├── components/
 │   ├── layout/TopNav.jsx
 │   ├── library/Library.jsx + BookCard.jsx + CreateCompanion.jsx
@@ -105,9 +114,12 @@ Defined in `@theme {}` in `index.css`. Key families: `cream`, `ink`, `gold`, `sa
 [data-mood="ink"]    { --ca: #44403C; --ca-l: #57534E; --ca-bg: #F5F5F4; --ca-border: #E7E5E0; }
 [data-mood="sienna"] { --ca: #8B4513; --ca-l: #A0521A; --ca-bg: #FDF4EE; --ca-border: #F0D5C0; }
 [data-mood="gold"]   { --ca: #B8860B; --ca-l: #D4AF37; --ca-bg: #FDF8EC; --ca-border: #E8D090; }
+[data-mood="steel"]  { --ca: #2D4A6B; --ca-l: #3D6A9B; --ca-bg: #EEF2F7; --ca-border: #C8D8EE; }
 ```
 
 Always use `var(--ca, #B8860B)` (with gold fallback) for accent-colored UI elements inside `BookDashboard` or `ChapterUpdateModal`. Never hardcode a specific mood color.
+
+Human-readable mood labels and descriptions are in `MOOD_CONFIG` in `src/data/config.js`.
 
 ---
 
@@ -122,17 +134,34 @@ Always use `var(--ca, #B8860B)` (with gold fallback) for accent-colored UI eleme
   currentChapter, totalChapters,
   lastUpdated,   // 'YYYY-MM-DD'
   coverBg,       // CSS gradient string
-  mood,          // 'sage' | 'ember' | 'ink' | 'sienna' | 'gold'
+  mood,          // 'sage' | 'ember' | 'ink' | 'sienna' | 'gold' | 'steel'
+  structureType, // 'chapter' | 'part' | 'section' — set by CreateCompanion; seed books use format-based fallback
   readingLog,    // string[] of 'YYYY-MM-DD' dates
   series,        // null | { name, position, total }
-  chapters: [{ num, title, completed, summary, reflection, important }],
+  chapters: [{
+    num, title, completed, summary, reflection, important,
+    type?,             // 'chapter'(default) | 'prologue' | 'epilogue' | 'interlude' | 'part' | 'section'
+    estimatedLength?,  // relative weight for progress calculation (default: 1)
+    alternateSummary?, // shown in strict mode in place of real title (e.g. "An unexpected arrival")
+  }],
   characters: {
-    main: [{ id, name, role, status, allegiance, lastSeen, description, spoilerSafe, alive }],
+    main: [{
+      id, name, role, status, allegiance, lastSeen, description, spoilerSafe, alive,
+      revealChapter?,      // chapter when character is first introduced (default: parsed from lastSeen)
+      hiddenDescription?,  // custom veil text shown before character is met
+      hiddenStatus?,       // custom veil status text
+    }],
     secondary: [...],
     relationships: [{ from, to, label, type }]
                    // type: 'love' | 'ally' | 'tension' | 'hierarchy' | 'neutral'
   },
-  mysteries: [{ id, text, status, chapter, resolved }],
+  mysteries: [{
+    id, text, resolved,
+    status,              // 'open' | 'suspected' | 'evolving' | 'hinted' | 'dormant' | 'resolved'
+    chapter,             // chapter where mystery appears
+    visibilityThreshold?,// override for when mystery becomes visible (default: chapter)
+    alternateSummary?,   // vague text shown in relaxed mode before threshold is reached
+  }],
   notes: [{ id, text, tag, date }],
              // tag: 'theory' | 'favorite' | 'confusing' | 'theme' | 'character' | 'quote'
   discussionQuestions: string[],      // curated questions (pre-authored per book)
@@ -162,11 +191,31 @@ Tabs receive `onUpdateBook` as a prop and call it with a partial changes object.
 
 ---
 
+## Spoiler system (Session 10)
+
+`spoilerMode` is fully enforced across the app. The system uses **graduated narrative visibility** — literary, not mechanical.
+
+### Mode resolution
+`getEffectiveMode(book, settings)` in `spoiler.js` resolves: `book.spoilerMode ?? settings.spoilerMode ?? 'relaxed'`. Per-book setting overrides global default.
+
+### What each mode does
+| Mode | Characters | Mysteries | Chapter titles |
+|------|-----------|-----------|---------------|
+| `strict` | Unmet characters filtered out entirely; met-but-future get veiled text | Future mysteries filtered out | Hidden beyond currentChapter+1 (shows `···`) |
+| `relaxed` | Unmet characters shown with vague evocative text; `_veiled: true` | Future mysteries shown as `"A thread the story is still gathering."` | All visible |
+| `full` | All characters shown with full detail | All mysteries shown | All visible |
+
+### Veil system
+`getCharacterView(book, character, mode)` returns either `null` (strict, unmet) or an object with `_veiled: true` + literary placeholder text. Never blanks — always has *something* to render. Component checks `veiled` prop to select veiled vs. full card layout.
+
+### Companion presence
+`generatePresence(book, settings)` respects the spoiler boundary — the character dead-count and allegiance-shift observations only count characters within `isCharacterSafe()`, and the mystery lens only counts `isMysteryVisible()` mysteries.
+
+---
+
 ## Key known issues
 
-1. **No routing** — no back button, no deep links. `react-router-dom` needed.
-2. **`spoilerMode` is decorative** — field exists but UI ignores it.
-3. **`CreateCompanion` doesn't set `mood`** — all new books default to `'gold'`.
+1. **`structureType` not on seed books** — field only set by CreateCompanion wizard. Seed books fall back to format-based label detection.
 
 ---
 

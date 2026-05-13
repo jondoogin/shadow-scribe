@@ -1,45 +1,30 @@
-import { useState, useCallback } from 'react'
-import { BooksProvider, useBooks } from './context/BooksContext.jsx'
+import { useLocation, BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { BooksProvider } from './context/BooksContext.jsx'
+import { SettingsProvider } from './context/SettingsContext.jsx'
 import TopNav from './components/layout/TopNav.jsx'
-import Library from './components/library/Library.jsx'
-import CreateCompanion from './components/library/CreateCompanion.jsx'
-import BookDashboard from './components/dashboard/BookDashboard.jsx'
-import './App.css'
+import LibraryPage from './pages/LibraryPage.jsx'
+import BookPage from './pages/BookPage.jsx'
+import NewCompanionPage from './pages/NewCompanionPage.jsx'
+import SettingsPage from './pages/SettingsPage.jsx'
+import DebugPage from './pages/DebugPage.jsx'
 
 function AppShell() {
-  const { createBook } = useBooks()
-  const [view,       setView]       = useState('library')
-  const [selectedId, setSelectedId] = useState(null)
-
-  const goLibrary = useCallback(() => setView('library'), [])
-  const goCreate  = useCallback(() => setView('create'),  [])
-
-  const handleCreate = useCallback(newBook => {
-    createBook(newBook)
-    setSelectedId(newBook.id)
-    setView('dashboard')
-  }, [createBook])
-
-  const handleSelectBook = useCallback(id => {
-    setSelectedId(id)
-    setView('dashboard')
-  }, [])
+  const location = useLocation()
 
   return (
     <div className="min-h-screen bg-cream">
-      <TopNav view={view} onLibrary={goLibrary} onCreateNew={goCreate} />
-
+      <TopNav />
       <div className="pt-14">
-        <div key={view + (selectedId || '')} className="view-enter">
-          {view === 'library' && (
-            <Library onSelectBook={handleSelectBook} />
-          )}
-          {view === 'create' && (
-            <CreateCompanion onCreate={handleCreate} onCancel={goLibrary} />
-          )}
-          {view === 'dashboard' && selectedId && (
-            <BookDashboard bookId={selectedId} />
-          )}
+        <div key={location.pathname} className="view-enter">
+          <Routes>
+            <Route path="/" element={<Navigate to="/library" replace />} />
+            <Route path="/library" element={<LibraryPage />} />
+            <Route path="/new" element={<NewCompanionPage />} />
+            <Route path="/book/:bookId" element={<BookPage />} />
+            <Route path="/settings" element={<SettingsPage />} />
+            <Route path="/debug"    element={<DebugPage />} />
+            <Route path="*" element={<Navigate to="/library" replace />} />
+          </Routes>
         </div>
       </div>
     </div>
@@ -48,8 +33,12 @@ function AppShell() {
 
 export default function App() {
   return (
-    <BooksProvider>
-      <AppShell />
-    </BooksProvider>
+    <BrowserRouter>
+      <SettingsProvider>
+        <BooksProvider>
+          <AppShell />
+        </BooksProvider>
+      </SettingsProvider>
+    </BrowserRouter>
   )
 }

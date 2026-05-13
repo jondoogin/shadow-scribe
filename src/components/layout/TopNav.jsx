@@ -1,13 +1,18 @@
 import { useState, useEffect, useRef } from 'react'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { Ico } from '../shared/icons.jsx'
 import { useBooks } from '../../context/BooksContext.jsx'
 
 const IS_DEV = import.meta.env.DEV
 
-export default function TopNav({ view, onLibrary, onCreateNew }) {
+export default function TopNav() {
+  const navigate = useNavigate()
+  const location = useLocation()
   const { resetToDemo } = useBooks()
   const [open, setOpen] = useState(false)
   const ref = useRef()
+
+  const isLibrary = location.pathname === '/library' || location.pathname === '/'
 
   useEffect(() => {
     if (!open) return
@@ -22,11 +27,14 @@ export default function TopNav({ view, onLibrary, onCreateNew }) {
     return () => document.removeEventListener('keydown', fn)
   }, [])
 
+  // Close menu on navigation
+  useEffect(() => { setOpen(false) }, [location.pathname])
+
   return (
     <header className="fixed top-0 inset-x-0 z-30 h-14 bg-cream-50/95 backdrop-blur-sm border-b border-ink-200">
       <div className="h-full max-w-4xl mx-auto px-5 sm:px-8 flex items-center justify-between">
 
-        <button onClick={onLibrary} className="flex items-center gap-2 group outline-none">
+        <button onClick={() => navigate('/library')} className="flex items-center gap-2 group outline-none">
           <span className="text-gold font-bold text-[15px] group-hover:scale-110 transition-transform origin-center">✦</span>
           <span className="font-serif text-[17px] font-semibold text-ink-900 tracking-tight leading-none">
             Shadow Scribe
@@ -35,7 +43,7 @@ export default function TopNav({ view, onLibrary, onCreateNew }) {
 
         <div className="flex items-center gap-2" ref={ref}>
           <button
-            onClick={onCreateNew}
+            onClick={() => navigate('/new')}
             className="flex items-center gap-1.5 bg-gold text-white rounded-lg text-[13px] font-semibold
                        px-3 py-[7px] hover:bg-gold-light active:scale-95 transition-all"
             style={{ boxShadow:'0 2px 8px rgba(184,134,11,.28)' }}
@@ -63,15 +71,15 @@ export default function TopNav({ view, onLibrary, onCreateNew }) {
             >
               <nav className="p-1.5">
                 <button
-                  onClick={() => { onLibrary(); setOpen(false) }}
+                  onClick={() => navigate('/library')}
                   className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors ${
-                    view === 'library' ? 'bg-gold-bg text-gold' : 'text-ink-700 hover:bg-cream-200'
+                    isLibrary ? 'bg-gold-bg text-gold' : 'text-ink-700 hover:bg-cream-200'
                   }`}
                 >
                   <Ico.Library /> Library
                 </button>
                 <button
-                  onClick={() => { onCreateNew(); setOpen(false) }}
+                  onClick={() => navigate('/new')}
                   className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-ink-700 hover:bg-cream-200 transition-colors"
                 >
                   <Ico.Plus /> New Companion
@@ -89,7 +97,7 @@ export default function TopNav({ view, onLibrary, onCreateNew }) {
                   <div className="border-t border-ink-100 mx-3" />
                   <div className="p-2">
                     <button
-                      onClick={() => { resetToDemo(); onLibrary(); setOpen(false) }}
+                      onClick={() => { resetToDemo(); navigate('/library') }}
                       className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-[12px] text-ink-400 hover:bg-ink-100 hover:text-ink-600 transition-colors"
                     >
                       <Ico.Refresh /> Reset demo data
