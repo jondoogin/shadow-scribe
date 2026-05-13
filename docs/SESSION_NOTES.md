@@ -3,6 +3,155 @@ Reverse-chronological log of what was built, fixed, and decided in each working 
 
 ---
 
+## Session 45 — 2026-05-12
+**Theme:** Six-Feature Enhancement Pass + Settings Nav Fix
+
+### Modified
+
+- **`src/tabs/DiscussionTab.jsx`** — AI discussion questions.
+  - Added `import { generateDiscussionQuestions }` from `aiExtractor.js`.
+  - `hasAiKey` computed from `settings.anthropicKey`.
+  - `generating` / `genError` state.
+  - `handleGenerate()` async handler: calls `generateDiscussionQuestions(book, apiKey)`, merges returned strings into `book.aiDiscussionQuestions` via `onUpdateBook`.
+  - Header card gains "✦ Generate with Claude" button (shown when `hasAiKey && !hasGenerated`) and "✦ Regenerate" (shown when `hasGenerated`). Button disabled during generation; shows spinner-style label "Generating…".
+  - `genError` renders inline below the button in ember italic.
+
+- **`src/components/dashboard/CompanionHeader.jsx`** — Re-extraction with Claude.
+  - Added imports: `useSettings`, `aiExtractNarrative` from `aiExtractor.js`, `parseEpub` from `epubParser.js`.
+  - `hasAiKey`, `reextracting`, `reextractMsg`, `epubRef` state.
+  - `handleReextractClick()` — opens hidden file input.
+  - `handleEpubFile(e)` async handler — parses EPUB, runs `aiExtractNarrative`, merges characters/summaries/mysteries/notes into book via `onUpdateBook`. Clears `reextractMsg` after 5s.
+  - "✦ Re-extract with Claude…" item added to stewardship menu (only visible when `hasAiKey`).
+  - Status message appears above mood selector during and after re-extraction.
+  - Hidden `<input ref={epubRef} type="file" accept=".epub">` in component.
+
+- **`src/tabs/CharactersTab.jsx`** — Name and tier editing.
+  - `startEdit()` now initialises `name` (from `raw.name`) and `tier` (from `raw._tier`) alongside existing fields.
+  - Edit form: added **Name** text input (autoFocus), **Main / Secondary** tier toggle before Role/Status fields.
+  - `saveEdit()` updates `name` and `_tier` on the character record; when `newTier !== charType`, filters character out of old array and appends to new array in a single `onUpdateBook` call.
+  - `sharedCardProps` passes `_tier: charType` via `{ ...rawFound, _tier: charType }` so the tier is always available on edit open.
+
+- **`src/tabs/NotesTab.jsx`** — Notes search.
+  - Added `search` / `setSearch` state.
+  - `visible` filter updated to also check `!q || n.text.toLowerCase().includes(q) || (n.reflection || '').toLowerCase().includes(q)`.
+  - Search input added above tag filters: left-aligned `Ico.Search` icon, right-aligned `Ico.X` clear button (visible only when `search` is non-empty).
+
+- **`src/tabs/ProgressTab.jsx`** — Chapter renaming.
+  - Added `editingChNum` / `editingTitle` state.
+  - `startEditTitle(e, ch)` — stops propagation, sets editing state.
+  - `saveTitle(num)` — persists via `onUpdateBook({ chapters: [...] })`.
+  - Chapter row: added `group` class; `onClick` guard skips toggle when `editingChNum === ch.num`.
+  - When `editingChNum === ch.num`: renders inline `<input>` with autoFocus; saves on blur or Enter; cancels on Escape.
+  - Edit pencil button (`Ico.Edit`) on right side: `opacity-0 group-hover:opacity-100` — appears on hover, hidden at rest. Replaced by `✨` confetti span during celebration.
+
+- **`src/index.css`** — Dark mode palette.
+  - Added `html.dark { }` block overriding all `--color-cream-*` and `--color-ink-*` custom properties with a warm dark palette (surfaces: `#1A1714`–`#2E2B28`; text: `#EDE8E3`–`#3A3633`).
+  - All gold/sage/ember/sienna/steel background-shade vars (`--color-*-bg`, `--color-*-pale`, `--color-*-border`) overridden with deep-toned dark equivalents.
+  - `html.dark .sticky-bar` and `html.dark .sticky-bottom-bar` override `background` to `rgba(26,23,20,.96)`.
+  - `html.dark .tab-scroll-fade::after` overrides the gradient to fade to `#1E1B19`.
+  - `html.dark [data-mood="*"]` overrides `--ca-bg` and `--ca-border` for all 6 moods.
+  - `html.dark .tag-*` overrides all 6 note tag pill classes with dark-palette equivalents.
+
+- **`src/context/SettingsContext.jsx`** — Added `darkMode: false` to `SETTINGS_DEFAULTS`.
+
+- **`src/App.jsx`** — Dark mode sync.
+  - Added `useEffect` + `useSettings` imports.
+  - `AppShell` now calls `useSettings()` and runs `useEffect(() => document.documentElement.classList.toggle('dark', !!settings.darkMode), [settings.darkMode])`.
+
+- **`src/pages/SettingsPage.jsx`** — Dark Mode toggle wired up.
+  - Removed local `darkMode` state and `PlaceholderBadge` from the Dark Mode row.
+  - `<Toggle value={settings.darkMode} onChange={v => updateSetting('darkMode', v)} />` — live, persisted.
+
+- **`src/components/layout/TopNav.jsx`** — Settings nav fix.
+  - Added Settings link to hamburger dropdown: navigates to `/settings`, active-highlighted when `location.pathname === '/settings'`.
+  - Settings was previously absent from the nav entirely.
+
+### Created
+
+- **`src/utils/aiExtractor.js`** (from Option B, refactored here).
+  - `callClaude(apiKey, prompt, maxTokens)` — shared fetch helper. Sets `anthropic-dangerous-direct-browser-access: true`. Maps 401 → "Invalid API key", 429 → "Rate limit reached". Returns parsed content string.
+  - `aiExtractNarrative(chapterContents, chapters, apiKey, { title, author })` — sends chapter text to `claude-3-5-haiku-20241022`; returns `{ characters, summaries, mysteries }` in the same shape as the rule-based extractor.
+  - `generateDiscussionQuestions(book, apiKey)` — builds a prompt from book title, author, chapter summaries, note excerpts, and mystery threads; returns `string[]` of 6–8 tailored discussion questions.
+
+### Architecture decisions
+- **`html.dark` overrides CSS custom properties, not Tailwind classes.** Because Tailwind v4 compiles all utilities to `var(--color-*)` at runtime, overriding the variables in `html.dark` flips the entire palette without touching component markup. No `dark:` utility prefixes needed anywhere.
+- **Dark mode persisted in SettingsContext.** `darkMode` lives in `shadowscribe_settings` alongside `spoilerMode`, `insightStyle`, etc. `AppShell` (inside `SettingsProvider`) syncs it to `html.dark` via a single `useEffect`.
+- **Character tier moves are atomic.** A tier change filters the character out of one array and pushes it into the other in a single `onUpdateBook` call — one context update, one localStorage write.
+- **Notes search covers reflections.** Searching "grief" will surface notes where "grief" appears only in the reflection, not the original note — respecting the reader's evolving interpretation as first-class content.
+- **Re-extraction merges, never replaces.** `handleEpubFile` in `CompanionHeader` merges AI-extracted data into the existing book; it does not wipe user-added notes, manually created characters, or hand-edited chapters.
+
+---
+
+## Session 44 — 2026-05-12
+**Theme:** Deletion Affordances + AI Extraction Foundation (Options A, B, C)
+
+### Option A — Mystery and Discussion deletion
+
+#### Modified
+
+- **`src/tabs/MysteriesTab.jsx`** — Mystery deletion.
+  - Added `deletingId` state.
+  - `deleteMystery(id)` — filters mystery from `book.mysteries` via `onUpdateBook`.
+  - "Remove" button added to thread actions row (only for non-veiled, non-resolved, non-editing threads).
+  - Inline ember confirmation block replaces thread actions when `isDeleting`: "Remove this thread?" / "Keep it" / "Yes, remove it".
+
+- **`src/tabs/DiscussionTab.jsx`** — User question deletion.
+  - Added `deletingIdx` state (index-based, since user questions are a plain array without IDs).
+  - `deleteUserQ(i)` — filters by index from `book.userDiscussionQuestions`.
+  - Inline ember confirmation on each user question card.
+
+### Option B — AI-Assisted Extraction
+
+#### Created
+
+- **`src/utils/aiExtractor.js`** — AI extraction and question generation utilities.
+  - `callClaude(apiKey, prompt, maxTokens)` — shared fetch helper for all Anthropic API calls. Header: `anthropic-dangerous-direct-browser-access: true`. Model: `claude-3-5-haiku-20241022`. Error mapping: 401 → "Invalid API key", 429 → "Rate limit reached".
+  - `aiExtractNarrative(chapterContents, chapters, apiKey, { title, author })` — sends cleaned chapter texts to Claude; returns `{ characters, summaries, mysteries }` matching the shape of rule-based extractor output.
+  - `generateDiscussionQuestions(book, apiKey)` — builds context prompt from book metadata, chapter summaries, notes, and mysteries; returns `string[]` of 6–8 tailored discussion questions.
+
+#### Modified
+
+- **`src/context/SettingsContext.jsx`** — Added `anthropicKey: ''` to `SETTINGS_DEFAULTS`.
+
+- **`src/pages/SettingsPage.jsx`** — AI-Assisted Extraction section.
+  - `showKey` / `keyDraft` / `keySaved` state.
+  - Password input with show/hide toggle (`Ico.Eye` / `Ico.EyeOff`).
+  - `saveKey()` calls `updateSetting('anthropicKey', keyDraft.trim())`; shows "✓ Saved" for 2s.
+  - `clearKey()` resets draft and clears setting.
+  - Status pill: "Active" (sage) when key is set; "Not set" (ink) otherwise.
+  - Key stored in `shadowscribe_settings` in localStorage; never sent anywhere except direct calls to `api.anthropic.com`.
+
+- **`src/components/shared/icons.jsx`** — Added `Ico.EyeOff` (slash-eye), `Ico.Settings` (gear), `Ico.Edit` (pencil).
+
+### Option C — Mood Fix, Reread-Era Pacing, Library Export/Import
+
+#### Modified
+
+- **`src/components/dashboard/CompanionHeader.jsx`** — Mood editing now also updates `coverBg`.
+  - Mood dot `onClick` writes both `mood` and `coverBg: linear-gradient(...)` using `MOOD_CONFIG[m].color`. Previously, changing mood did not update the cover gradient, leaving a visual mismatch.
+
+- **`src/utils/companionPresence.js`** — Pacing filtered to current reread era.
+  - `generatePresence()` now derives `currentEra = book.rereadCount || 0` and filters `readingLog` to `eraLog` (entries where `s.rereadEra ?? 0 === currentEra`).
+  - All session-based lenses (`streak`, `sessions`, `recent7`, `lastDate`, `gapDays`, `sessionRhythmObs`, `sessionStopObs`, `pacingObs`, duration) use `eraLog` instead of the full log.
+  - Prevents first-read session data from polluting pacing and streak observations during a reread.
+
+- **`src/context/BooksContext.jsx`** — Added `importLibrary` action.
+  - `importLibrary(incoming)` — merges an array of book objects into the library; new books (by `id`) are prepended; existing books are skipped (deduplication by ID).
+  - Exported in Provider value.
+
+- **`src/pages/SettingsPage.jsx`** — Working Export and Import.
+  - `handleExport()` — serialises `books` to JSON, triggers browser download as `shadowscribe-library-{date}.json`.
+  - `handleImportFile(e)` — reads the selected file, parses JSON, calls `importLibrary(incoming)`. Shows "✓ N companions imported." on success (clears after 4s) or inline error on failure. Import button styling reflects state (sage on success, ember on error).
+  - Hidden `<input ref={importRef} type="file" accept=".json">` triggered by the Import button.
+
+### Architecture decisions
+- **Direct browser → Anthropic API.** The `anthropic-dangerous-direct-browser-access: true` header is required for browser-originated fetch calls. The key is user-supplied and stored only in `shadowscribe_settings` (localStorage). No proxy, no backend.
+- **`callClaude` as a shared helper.** Both `aiExtractNarrative` and `generateDiscussionQuestions` share the same fetch/error-handling wrapper rather than duplicating it, keeping the error surface consistent.
+- **`deletingIdx` for user questions.** User discussion questions are stored as a plain `string[]` without IDs. Index-based deletion is safe because the confirmation is inline on the specific card and no reordering occurs between the click and the confirm.
+- **Reread-era filtering is additive.** The `eraLog` filter only affects computed observations — the full `readingLog` remains intact in storage, preserving all historical sessions.
+
+---
+
 ## Session 43 — 2026-05-12
 **Theme:** Narrative Extraction Foundation Pass
 

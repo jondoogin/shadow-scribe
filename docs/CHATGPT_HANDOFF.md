@@ -1,5 +1,5 @@
 # Shadow Scribe — Project Handoff
-**Last updated:** 2026-05-12 (Session 43)  
+**Last updated:** 2026-05-12 (Session 45)  
 **Stack:** React 19 · Vite 8 · Tailwind CSS v4 · React Router v7 · localStorage persistence · No backend
 
 ---
@@ -40,18 +40,20 @@ BrowserRouter
 ### Implemented functionality
 - **Library view** — grid of book cards with search, status filter (All / Reading / Finished / Paused), and sort (recent / title / progress)
 - **Book dashboard** — 6-tab companion for each book
-- **Progress tab** — chapter checklist (toggle complete/incomplete), chapter-level celebration animation, "reading now" / "up next" indicators; session history log (most-recent-first, paged at 8); isNew empty-state prompt with "Log your first session →" CTA
-- **Characters tab** — expandable character cards (main + secondary) with allegiance, description, spoiler-safe flag; inline SVG relationship constellation
+- **Progress tab** — chapter checklist (toggle complete/incomplete, inline rename on hover), chapter-level celebration animation, "reading now" / "up next" indicators; session history log (most-recent-first, paged at 8); isNew empty-state prompt with "Log your first session →" CTA
+- **Characters tab** — expandable character cards (main + secondary) with allegiance, description, spoiler-safe flag; inline add/edit with name and Main/Secondary tier toggle; tier moves are atomic (single context update); inline SVG relationship constellation
 - **Chronicle tab** — reverse-chronological log of completed chapters with summaries + reflections; star-marking for pivotal chapters
-- **Notes tab** — free-text notes with 6 tag types (theory, favorite, confusing, theme, character, quote); tag filtering
-- **Mysteries tab** — open question tracker with 6 statuses (open / suspected / evolving / hinted / dormant / resolved); toggle resolution; spoiler-gated by chapter visibility
-- **Discussion tab** — curated discussion questions per book; add-your-own questions
+- **Notes tab** — free-text notes with 6 tag types (theory, favorite, confusing, theme, character, quote); tag filtering; full-text search (covers note body and reflections)
+- **Mysteries tab** — open question tracker with 6 statuses (open / suspected / evolving / hinted / dormant / resolved); toggle resolution; spoiler-gated by chapter visibility; inline deletion with ember confirmation
+- **Discussion tab** — curated discussion questions per book; add-your-own questions (with inline deletion); AI-generated discussion questions via "✦ Generate with Claude" (requires Anthropic API key)
 - **Companion Insights strip** — rotating literary observations from `generatePresence(book, settings)` (13 lenses: arc, finished-book, mystery, lingering mystery, character, character ownership, reader notes, note pattern, interpretation evolution, session rhythm, session stop, pacing, momentum + duration); boundary-aware (never reveals future deaths or invisible mysteries); auto-rotates every 7s
 - **Reading Momentum** — streak/session counter below the update button
 - **Relationship Map** — SVG constellation (protagonist centered, others in ring); dashed lines color-coded by relationship type
 - **Chapter Update Modal** — natural-language chapter input + quick-select buttons; optional duration picker (brief / steady / immersed); creates `SessionEntry` objects on each update; success state with milestone detection, newly-encountered characters, chapter recap, newly-opened mysteries
 - **Create Companion** — 3-step wizard: book details + ISBN cover → chapter structure + series → spoiler settings. EPUB import affordance at top of step 1 routes to a parallel 3-step review wizard pre-filled from the parsed file.
-- **Per-companion accent theming** — `data-mood` on the dashboard wrapper sets CSS custom properties (`--ca`, `--ca-bg`, `--ca-border`) that cascade to all children
+- **Per-companion accent theming** — `data-mood` on the dashboard wrapper sets CSS custom properties (`--ca`, `--ca-bg`, `--ca-border`) that cascade to all children. Changing mood also updates `book.coverBg` so the cover gradient stays in sync.
+- **Dark mode** — `html.dark` overrides all `--color-cream-*` and `--color-ink-*` CSS custom properties with a warm dark palette. Since Tailwind v4 compiles utilities to `var(--color-*)` at runtime, the entire palette flips without touching component markup. Toggled via Settings → Appearance → Dark Mode; persisted in `shadowscribe_settings`.
+- **AI-assisted features** — requires an Anthropic API key stored in Settings. Direct browser → `api.anthropic.com` calls using `anthropic-dangerous-direct-browser-access: true` header. Model: `claude-3-5-haiku-20241022`. Two capabilities: (1) re-extract any companion from a fresh EPUB upload ("✦ Re-extract with Claude…" in the `···` menu); (2) generate tailored discussion questions from book context ("✦ Generate with Claude" in Discussion tab). All logic in `src/utils/aiExtractor.js`.
 
 ### Design philosophy
 - **Companion voice, not app voice** — microcopy is literary and observational ("Tell the companion where you are", "Return to the companion ✦", "The chronicle begins when you do")
@@ -79,8 +81,8 @@ shadow-scribe/
 │   ├── App.jsx                    ← root: BooksProvider + AppShell (view/nav state only)
 │   ├── index.css                  ← Tailwind import, @theme tokens, keyframes, data-mood
 │   ├── context/
-│   │   ├── BooksContext.jsx       ← books[], updateBook, createBook, deleteBook, resetToDemo
-│   │   └── SettingsContext.jsx    ← settings (spoilerMode, insightStyle, defaultFormat); useSettings()
+│   │   ├── BooksContext.jsx       ← books[], updateBook, createBook, deleteBook, importLibrary, resetToDemo
+│   │   └── SettingsContext.jsx    ← settings (spoilerMode, insightStyle, defaultFormat, anthropicKey, darkMode); useSettings()
 │   ├── hooks/useBooks.js          ← re-export of useBooks()
 │   ├── utils/
 │   │   ├── storage.js             ← loadBooks, saveBooks, resetBooks (localStorage)
@@ -88,7 +90,8 @@ shadow-scribe/
 │   │   ├── progress.js            ← getProgress
 │   │   ├── spoiler.js             ← full graduated visibility system (see §Spoiler System below)
 │   │   ├── chapterHelpers.js      ← getChapterLabel, getChapterWeight, getWeightedProgress, isSpecialChapter
-│   │   └── companionPresence.js   ← generatePresence(book, settings) — 13-lens presence engine
+│   │   ├── companionPresence.js   ← generatePresence(book, settings) — 13-lens presence engine
+│   │   └── aiExtractor.js         ← callClaude(), aiExtractNarrative(), generateDiscussionQuestions()
 │   ├── data/
 │   │   ├── books.js               ← INITIAL_BOOKS (5 mock books)
 │   │   └── config.js              ← STATUS_CONFIG, TAG_CONFIG, MOOD_CONFIG, CHAPTER_TYPES, STRUCTURE_TYPES
@@ -111,7 +114,7 @@ shadow-scribe/
     └── launch.json                ← dev server config for Claude Preview tool
 ```
 
-**Notable:** `utils/epubParser.js` is a pure async utility for in-browser EPUB parsing (no React). `utils/chapterHelpers.js` is the central chapter model utility — all chapter label, weight, and progress logic flows through it. `utils/spoiler.js` is the graduated visibility engine — wired to `CharactersTab`, `MysteriesTab`, `ProgressTab`, `WeightedProgressBar`, and `companionPresence.js`. `utils/insights.js` was deleted in Session 9 (orphaned).
+**Notable:** `utils/epubParser.js` is a pure async utility for in-browser EPUB parsing (no React). `utils/chapterHelpers.js` is the central chapter model utility — all chapter label, weight, and progress logic flows through it. `utils/spoiler.js` is the graduated visibility engine — wired to `CharactersTab`, `MysteriesTab`, `ProgressTab`, `WeightedProgressBar`, and `companionPresence.js`. `utils/aiExtractor.js` is the AI integration layer — all calls to the Anthropic API go through `callClaude()` here. `utils/insights.js` was deleted in Session 9 (orphaned).
 
 ---
 
@@ -212,7 +215,7 @@ Veiled characters always have *something* to render — `_veiled: true` triggers
 | `ChapterUpdateModal` | Fixed overlay; natural-language input + quick-select; success state with milestone, newly-met characters, chapter recap, new mysteries, unresolved threads |
 
 ### Icon system
-`Ico` object of inline SVG components: `Book, Plus, Check, Search, Left, Star, User, Eye, Down, Note, Mystery, Chat, Chart, X, Refresh, Menu, Library, Dots, Trash`. All use a shared `sp` props object (`fill:none`, `stroke:currentColor`, `strokeLinecap/Join:round`). `Dots` uses filled circles (not stroked) — dots are filled in the SVG directly.
+`Ico` object of inline SVG components: `Book, Plus, Check, Search, Left, Star, User, Eye, EyeOff, Down, Note, Mystery, Chat, Chart, X, Refresh, Menu, Library, Dots, Trash, Settings, Edit`. All use a shared `sp` props object (`fill:none`, `stroke:currentColor`, `strokeLinecap/Join:round`). `Dots` uses filled circles (not stroked) — dots are filled in the SVG directly. `EyeOff` is the slash-eye used in the API key field show/hide toggle. `Edit` is the pencil icon used in the chapter rename affordance.
 
 ---
 
@@ -246,7 +249,11 @@ updateBook(book.id, { notes: [...book.notes, newNote] })
 - `CompanionInsights` owns: `idx`, `fade`
 - `TopNav` owns: `open` (dropdown)
 - `CharCard` (inside CharactersTab) owns: `open` (expanded)
-- `SettingsPage` owns: `darkMode`, `shadowMode` (UI-only placeholders), `confirmReset`; real settings read/write from `SettingsContext`
+- `SettingsPage` owns: `shadowMode` (still a placeholder), `confirmReset`, `showKey`, `keyDraft`, `keySaved`, `importMsg`; real settings (including `darkMode`) read/write through `SettingsContext`
+- `DiscussionTab` owns: `input`, `generating`, `genError`
+- `CompanionHeader` owns: `reextracting`, `reextractMsg` (in addition to existing menu/edit/delete state)
+- `NotesTab` owns: `search` (in addition to existing note/edit/reflect/delete state)
+- `ProgressTab` owns: `editingChNum`, `editingTitle` (in addition to existing state)
 
 ### Persistence
 `BooksContext` reads/writes `shadowscribe_books`. `SettingsContext` reads/writes `shadowscribe_settings`. Both use lazy initializers + `useEffect` write-on-change. `resetToDemo()` clears the books key and reloads `INITIAL_BOOKS` (settings are not reset).
@@ -426,7 +433,7 @@ All data lives in `src/data.js` as `INITIAL_BOOKS: Book[]`. Currently 5 books.
   coverBg: string               // CSS gradient string for fallback cover
   mood: 'sage' | 'ember' | 'ink' | 'sienna' | 'gold' | 'steel'
   structureType?: 'chapter' | 'part' | 'section'  // set by wizard; seed books lack this field
-  readingLog: string[]          // ISO dates of reading sessions
+  readingLog: SessionEntry[]    // replaces old string[] — migrated on load by normalizeReadingLog()
   series: null | {
     name: string
     position: number
@@ -441,6 +448,14 @@ All data lives in `src/data.js` as `INITIAL_BOOKS: Book[]`. Currently 5 books.
   mysteries: Mystery[]
   notes: Note[]
   discussionQuestions: (string | DiscussionQuestion)[]  // plain strings always visible; objects support spoiler gating
+  userDiscussionQuestions: string[]  // reader-added questions; separate from curated ones
+  aiDiscussionQuestions?: string[]   // Claude-generated questions (set when "Generate" is used)
+  temperament?: string              // 'curious' | 'analytical' | 'emotional' | 'imaginative' | 'quiet' | 'searching'
+  narrativeExtracted?: boolean      // true after successful EPUB extraction
+  extractionMeta?: { chaptersExtracted, summariesGenerated, characterCount, mysteryCount, warnings }
+  completedAt?: string              // ISO date when status → 'finished'
+  archived?: boolean
+  rereadCount?: number              // increments on each restart
 }
 // DiscussionQuestion shape:
 // { text: string, chapter?: number, visibilityThreshold?: number, alternatePrompt?: string }
@@ -531,9 +546,6 @@ Display labels come from `getChapterLabel(ch, format)` in `utils/chapterHelpers.
 
 ## 8. Outstanding Issues
 
-### Characters tab is writable but has no deletion UI
-Characters can now be added, edited, and had their relationships managed. However, there is no way to remove a character once added — only relationships can be deleted. A "Remove from cast" option in the edit form would close this gap.
-
 ### `isbn: null` workaround is fragile
 Three books have `isbn: null` to avoid wrong Open Library covers. There's no UI to update an ISBN or re-attempt a cover fetch. The `onError` handler in `BookCover` works for 404s but Open Library sometimes returns a placeholder image (200 OK) that looks blank — the `onError` fallback doesn't fire for those.
 
@@ -549,37 +561,28 @@ Streak calculation uses `new Date()` without timezone awareness. A user who read
 ### No loading or error state for Open Library covers
 `BookCover` fetches from `covers.openlibrary.org` with no loading state — there's a layout shift while the image loads. No offline handling.
 
-### `ReadingMomentum` disappears if sessions > 0 but streak = 0 and sessions = 0
-Actually works fine — the `else if (sessions > 0)` guard handles it. But if a book has never had a `readingLog` entry added via the modal (only INITIAL_BOOKS have pre-populated logs), sessions shows 0 and the component returns null. New books won't show momentum until after first modal update.
-
+### Vite `.bin/vite` is not a real symlink
+In this project, `node_modules/.bin/vite` is a copied file rather than a symlink. All builds must use `node node_modules/vite/bin/vite.js build` directly. Do not attempt to run `vite build` or `npx vite build`.
 
 ---
 
 ## 9. Recommended Next Steps
 
-### Immediate (high value, low effort)
-
-1. **Add per-book mood editing**  
-   No way to change a book's mood after creation. A small swatch row on the book dashboard header (or a settings panel per-companion) would fix this.
-
-2. **Seed data is the spoiler system's weakest showcase**  
-   Only MANIAC has a character (`Lee Sedol`, `revealChapter: 20`) that demonstrates strict-mode filtering. Adding 1–2 future characters to UTWB (relaxed) and Mother Night would show the veiling system across all three modes with real data.
-
 ### Medium-term architecture
 
-4. **Refactor `BookCover` to handle Open Library edge cases**  
+1. **Refactor `BookCover` to handle Open Library edge cases**  
    Use a `useEffect` with a separate fetch + HEAD request to validate the image before rendering, or maintain a known-bad ISBN list, or always prefer the gradient fallback with an optional "load cover" button.
+
+2. **Shadow Mode** (distinct from Dark Mode)  
+   Planned but not yet implemented. The toggle exists in Settings but is disabled. Intended as a dimmer, lower-contrast reading atmosphere separate from full dark mode.
 
 ### Future backend / API considerations
 
-10. **User accounts + sync**  
-    Companion data is inherently personal and long-lived. A simple backend (Supabase, Firebase, PocketBase) with row-per-book would enable cross-device sync. Schema maps cleanly to the existing data structure.
+3. **User accounts + sync**  
+   Companion data is inherently personal and long-lived. A simple backend (Supabase, Firebase, PocketBase) with row-per-book would enable cross-device sync. Schema maps cleanly to the existing data structure.
 
-11. **Open Library / Google Books API integration**  
-    Auto-populate `totalChapters` (from page count estimate), `synopsis`, and cover on ISBN entry. Currently the user must enter chapter count manually.
-
-12. **Export / import**  
-    JSON export of a single book's companion data. Useful for sharing with a book club or archiving a finished book.
+4. **Open Library / Google Books API integration**  
+   Auto-populate `totalChapters` (from page count estimate), `synopsis`, and cover on ISBN entry. Currently the user must enter chapter count manually.
 
 ### AI integration opportunities
 
