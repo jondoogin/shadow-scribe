@@ -6,6 +6,7 @@ export const SETTINGS_DEFAULTS = {
   spoilerMode:    'relaxed',   // global default for new books and companion presence
   insightStyle:   'observational', // 'observational' | 'analytical' | 'minimal'
   defaultFormat:  'print',     // 'print' | 'ebook' | 'audiobook'
+  anthropicKey:   '',          // Anthropic API key for AI-assisted extraction
 }
 
 const KEY = 'shadowscribe_settings'

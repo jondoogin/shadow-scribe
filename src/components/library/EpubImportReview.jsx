@@ -4,6 +4,7 @@ import SectionLabel from '../shared/SectionLabel.jsx'
 import { MOOD_CONFIG, STRUCTURE_TYPES, CHAPTER_TYPES } from '../../data/config.js'
 import { useSettings } from '../../context/SettingsContext.jsx'
 import { extractNarrative } from '../../utils/narrativeExtractor.js'
+import { aiExtractNarrative } from '../../utils/aiExtractor.js'
 
 const MOOD_COLORS = {
   sage: '#3A6647', ember: '#9B2335', ink: '#44403C',
@@ -80,7 +81,7 @@ function buildBook(epubData, form) {
   }
 }
 
-// Atmospheric loading phrases shown during extraction
+// Atmospheric loading phrases — rule-based path
 const EXTRACTION_PHRASES = [
   'The companion is gathering what it knows…',
   'Tracing recurring names through the pages…',
@@ -88,6 +89,16 @@ const EXTRACTION_PHRASES = [
   'Noting threads that remain unresolved…',
   'Listening for what the story holds…',
   'The archive is organizing the chronicle…',
+]
+
+// Atmospheric loading phrases — AI path
+const AI_EXTRACTION_PHRASES = [
+  'Claude is reading through the chapters…',
+  'Listening for the characters in the story…',
+  'The mysteries are beginning to take shape…',
+  'Tracing what the narrative holds in reserve…',
+  'The companion is gathering its understanding…',
+  'Almost there — the chronicle is forming…',
 ]
 
 // ── Main component ────────────────────────────────────────────────────────────
@@ -124,53 +135,77 @@ export default function EpubImportReview({ importData, onCreate, onBack }) {
   // Rotate loading phrases while extraction runs
   useEffect(() => {
     if (!extracting) return
+    const phrases = settings.anthropicKey?.trim() ? AI_EXTRACTION_PHRASES : EXTRACTION_PHRASES
     const timer = setInterval(() => {
-      phraseRef.current = (phraseRef.current + 1) % EXTRACTION_PHRASES.length
-      setExtractPhrase(EXTRACTION_PHRASES[phraseRef.current])
+      phraseRef.current = (phraseRef.current + 1) % phrases.length
+      setExtractPhrase(phrases[phraseRef.current])
     }, 1400)
     return () => clearInterval(timer)
-  }, [extracting])
+  }, [extracting, settings.anthropicKey])
 
-  const handleCreate = () => {
+  const handleCreate = async () => {
+    const hasContent = importData.chapterContents && Object.keys(importData.chapterContents).length > 0
+    const hasAiKey   = !!settings.anthropicKey?.trim()
+
+    // Pick phrase set before showing overlay
+    const phrases = hasAiKey ? AI_EXTRACTION_PHRASES : EXTRACTION_PHRASES
+    phraseRef.current = 0
+    setExtractPhrase(phrases[0])
     setExtracting(true)
-    // Yield to React so the loading overlay renders before synchronous extraction
-    setTimeout(() => {
-      try {
-        const book = buildBook(importData, form)
 
-        // Run narrative extraction if chapter content is available
-        if (importData.chapterContents && Object.keys(importData.chapterContents).length > 0) {
-          const { characters, summaries, mysteries, extractionMeta } =
-            extractNarrative(importData.chapterContents, book.chapters)
+    // Yield to React so the loading overlay renders before any work starts
+    await new Promise(r => setTimeout(r, 150))
 
-          // Inject extracted characters (only if we found any)
-          if (characters.main.length > 0 || characters.secondary.length > 0) {
-            book.characters = characters
+    try {
+      const book = buildBook(importData, form)
+
+      if (hasContent) {
+        let result
+
+        if (hasAiKey) {
+          // ── AI extraction path ─────────────────────────────────────────
+          try {
+            result = await aiExtractNarrative(
+              importData.chapterContents,
+              book.chapters,
+              settings.anthropicKey,
+              { title: book.title, author: book.author },
+            )
+          } catch (aiErr) {
+            console.warn('AI extraction failed, falling back to rule-based:', aiErr)
+            result = extractNarrative(importData.chapterContents, book.chapters)
+            result.extractionMeta.warnings = [
+              ...(result.extractionMeta.warnings ?? []),
+              `AI extraction failed: ${aiErr.message}`,
+            ]
           }
-
-          // Inject extracted mysteries (only if we found any)
-          if (mysteries.length > 0) {
-            book.mysteries = mysteries
-          }
-
-          // Inject extracted summaries into chapter objects
-          book.chapters = book.chapters.map(ch => ({
-            ...ch,
-            summary: summaries[ch.num] ?? null,
-          }))
-
-          // Store extraction metadata on the book for the debug panel
-          book.narrativeExtracted = true
-          book.extractionMeta = extractionMeta
+        } else {
+          // ── Rule-based extraction path ─────────────────────────────────
+          result = extractNarrative(importData.chapterContents, book.chapters)
         }
 
-        onCreate(book)
-      } catch {
-        // Extraction failed — create the companion without extracted data
-        setExtracting(false)
-        onCreate(buildBook(importData, form))
+        const { characters, summaries, mysteries, extractionMeta } = result
+
+        if (characters.main.length > 0 || characters.secondary.length > 0) {
+          book.characters = characters
+        }
+        if (mysteries.length > 0) {
+          book.mysteries = mysteries
+        }
+        book.chapters = book.chapters.map(ch => ({
+          ...ch,
+          summary: summaries[ch.num] ?? null,
+        }))
+        book.narrativeExtracted = true
+        book.extractionMeta = extractionMeta
       }
-    }, 150)
+
+      onCreate(book)
+    } catch {
+      // Total failure — create companion without any extraction
+      setExtracting(false)
+      onCreate(buildBook(importData, form))
+    }
   }
 
   const inputCls = "w-full border border-ink-200 rounded-xl px-3.5 py-2.5 text-sm text-ink-800 placeholder-ink-400 bg-white transition-all"
@@ -494,7 +529,9 @@ export default function EpubImportReview({ importData, onCreate, onBack }) {
                 <p className="text-[11px] text-ink-400 mt-1 italic">
                   {importData.chapters.length} chapters detected from EPUB
                   {importData.chapterContents && Object.keys(importData.chapterContents).length > 0 && (
-                    <span className="text-sage ml-1">· content ready for extraction</span>
+                    settings.anthropicKey?.trim()
+                      ? <span className="text-sage ml-1">· Claude AI extraction ready ✦</span>
+                      : <span className="text-ink-400 ml-1">· rule-based extraction ready</span>
                   )}
                 </p>
               )}

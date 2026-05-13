@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useBooks } from '../context/BooksContext.jsx'
 import { useSettings } from '../context/SettingsContext.jsx'
+import { Ico } from '../components/shared/icons.jsx'
 
 function SettingsSection({ title, description, children }) {
   return (
@@ -61,6 +62,21 @@ export default function SettingsPage() {
   const [darkMode,     setDarkMode]     = useState(false)
   const [shadowMode,   setShadowMode]   = useState(false)
   const [confirmReset, setConfirmReset] = useState(false)
+  const [showKey,      setShowKey]      = useState(false)
+  const [keyDraft,     setKeyDraft]     = useState(settings.anthropicKey || '')
+  const [keySaved,     setKeySaved]     = useState(false)
+
+  const saveKey = () => {
+    updateSetting('anthropicKey', keyDraft.trim())
+    setKeySaved(true)
+    setTimeout(() => setKeySaved(false), 2000)
+  }
+
+  const clearKey = () => {
+    setKeyDraft('')
+    updateSetting('anthropicKey', '')
+    setKeySaved(false)
+  }
 
   const handleReset = () => {
     if (!confirmReset) { setConfirmReset(true); return }
@@ -122,6 +138,74 @@ export default function SettingsPage() {
             <PlaceholderBadge />
           </div>
         </SettingsRow>
+      </SettingsSection>
+
+      {/* ── AI & Extraction ── */}
+      <SettingsSection
+        title="AI-Assisted Extraction"
+        description="Use Claude to generate richer chapter summaries, character lists, and mystery threads when importing EPUBs."
+      >
+        <div className="px-5 py-4 space-y-4">
+          {/* Status pill */}
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-[13px] font-medium text-ink-800">Anthropic API Key</p>
+              <p className="text-[12px] text-ink-400 mt-0.5 leading-relaxed">
+                Your key is stored locally and never leaves this device.{' '}
+                <a href="https://console.anthropic.com" target="_blank" rel="noreferrer"
+                  className="underline hover:text-ink-600 transition-colors">
+                  Get a key →
+                </a>
+              </p>
+            </div>
+            {settings.anthropicKey ? (
+              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-sage-bg text-sage border border-sage-pale flex-shrink-0">
+                Active
+              </span>
+            ) : (
+              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-ink-100 text-ink-400 border border-ink-200 flex-shrink-0">
+                Not set
+              </span>
+            )}
+          </div>
+
+          {/* Key input */}
+          <div className="flex items-center gap-2">
+            <div className="relative flex-1">
+              <input
+                type={showKey ? 'text' : 'password'}
+                value={keyDraft}
+                onChange={e => { setKeyDraft(e.target.value); setKeySaved(false) }}
+                onKeyDown={e => e.key === 'Enter' && saveKey()}
+                placeholder="sk-ant-..."
+                className="w-full border border-ink-200 rounded-xl px-3.5 py-2.5 text-sm text-ink-800 placeholder-ink-300 bg-white pr-10 font-mono tracking-wider"
+              />
+              <button
+                onClick={() => setShowKey(v => !v)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-ink-300 hover:text-ink-500 transition-colors"
+                aria-label={showKey ? 'Hide key' : 'Show key'}>
+                {showKey ? <Ico.Eye /> : <Ico.EyeOff />}
+              </button>
+            </div>
+            <button
+              onClick={saveKey}
+              disabled={!keyDraft.trim() || keyDraft.trim() === settings.anthropicKey}
+              className="text-[12px] font-semibold px-3.5 py-2.5 rounded-xl bg-gold text-white hover:bg-gold-light transition-all disabled:opacity-40 disabled:cursor-not-allowed flex-shrink-0">
+              {keySaved ? '✓ Saved' : 'Save'}
+            </button>
+            {settings.anthropicKey && (
+              <button
+                onClick={clearKey}
+                className="text-[12px] text-ink-400 hover:text-ember transition-colors flex-shrink-0">
+                Clear
+              </button>
+            )}
+          </div>
+
+          <p className="text-[11px] text-ink-400 italic leading-relaxed">
+            Claude Haiku is used for extraction — fast and low-cost. Each EPUB import uses approximately 1¢–3¢ of API credit depending on book length.
+          </p>
+        </div>
       </SettingsSection>
 
       {/* ── Reading Preferences ── */}
