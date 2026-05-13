@@ -1,5 +1,5 @@
 # Shadow Scribe — Architecture
-**Last updated:** 2026-05-13 (Session 46)
+**Last updated:** 2026-05-13 (Session 47)
 
 ---
 
@@ -199,14 +199,40 @@ Always use `getChapterLabel(ch, format)` from `chapterHelpers.js` for display la
 
 ### ReflectionEntry
 ```ts
-{ id, text, type: 'rule-based'|'ai', surfaceCount, lastSurfaced, suppressed, generatedAt }
+{ id, text, type: 'rule-based'|'ai',
+  priority: 1|2|3,           // higher = surfaces sooner; default 1
+  surfaceCount: number,
+  lastSurfaced: string|null,
+  suppressed: boolean,
+  generatedAt: string }
 ```
+
+---
+
+## Note Intelligence Layer
+
+Computed on-demand inside `assembleReflectionContext`; no new localStorage fields beyond `priority` on `ReflectionEntry`.
+
+### Functions (all in `reflectionEngine.js`)
+| Function | Purpose |
+|----------|---------|
+| `inferNoteThemes(note)` | → string[] top-2 themes; 11 theme × keyword sets |
+| `analyzeNoteThemes(notes)` | → `{ themeCount, dominantTheme, recurringThemes, notesWithThemes }` |
+| `detectInterpretationShifts(notes)` | → `[ { name, earlyValence, lateValence, noteCount, text } ]` |
+| `buildNoteLinkClusters(notes)` | → `[ { type: 'theme'|'character', label, noteIds, weight } ]` top 10 |
+| `computeResonanceWeights(notes)` | → `{ noteId: score }` — score = base 1 + revisedAt/reflection/tag/recurrence bonuses |
+| `extractNameMentions(texts)` | → string[] proper nouns ≥2 occurrences (exported for DebugPage) |
+
+### Signals fed into reflections
+- `dominantTheme` → `theme-persistence` signal (p2)
+- `interpretationShifts[0].text` → `interpretation-shift` signal (p3, highest weight)
+- `highResonanceNotes.find(n => n.revisedAt && n.reflection)` → `resonance-anchor` signal (p2)
 
 ---
 
 ## Companion Observation Pipeline
 
-Two layers — different generation cadence, same display strip (`CompanionInsights`).
+Three layers — different generation cadence, same display strip (`CompanionInsights`).
 
 ### Layer 1: Presence (immediate/contextual)
 - Source: `generatePresence(book, settings)` in `companionPresence.js`
@@ -221,6 +247,12 @@ Two layers — different generation cadence, same display strip (`CompanionInsig
 - AI tier fires when: key present + ≥5 notes + cache stale
 - AI results prepend rule-based results; silent failure leaves rule-based cache intact
 - Woven into presence pool at positions 1 and 4
+- 8h minimum resurfacing window (`MIN_RESURFACE_MS`) — sorted by: surfaceCount ASC → priority DESC → lastSurfaced AGO DESC
+
+### Layer 3: Continuity surfaces (meaningful moments)
+- **Carousel**: `markReflectionSurfaced` wired via `reflectionIndexMap`; session-dedup via `surfacedThisSessionRef`
+- **ChapterUpdateModal**: `pickCompletionReflection` (respects 8h) / `pickReturnReflection` (ignores 8h after ≥7-day gap)
+- **DiscussionTab**: `persistentReflection` — prefers already-seen by priority DESC
 
 ### Display
 - Auto-rotates every 7s with 280ms crossfade

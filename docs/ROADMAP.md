@@ -1,25 +1,22 @@
 # Shadow Scribe — Roadmap
-**Last updated:** 2026-05-13 (Session 46)
+**Last updated:** 2026-05-13 (Session 47)
 
 ---
 
 ## Active Milestone Queue
 
-### Milestone: Companion Intelligence Layer v2 — Continuity Surface
-The reflection engine generates observations. v2 surfaces them at meaningful moments beyond the ambient strip.
+### Milestone: Companion Intelligence Layer v4 — AI Note Intelligence
+Use the API to enhance note intelligence signals when conditions allow (key present + ≥8 notes).
 
 **Planned work:**
-- Brief reflection surface when reader marks a chapter complete ("Earlier you were uncertain about X — that chapter may have shifted things")
-- Pattern summary at the top of Discussion Questions tab
-- Wire `markReflectionSurfaced` into the `CompanionInsights` carousel tick
-- Deduplicate AI + rule-based reflections by semantic proximity
+- Pass theme distribution, interpretation shifts, and high-resonance note texts to the AI reflection call
+- Let the AI generate an `interpretation-shift` type reflection from richer language than the rule-based SHIFT_TEXT map allows
+- Improve AI reflection prompting to mention which themes and characters the reader has been tracking
+- Deduplicate AI + rule-based reflections by semantic proximity (hash or embedding)
 
 ---
 
 ## Known Issues (must-fix before next major milestone)
-
-### `markReflectionSurfaced` not wired
-`markReflectionSurfaced(reflections, id)` is defined in `reflectionEngine.js` but the `CompanionInsights` carousel never calls it. Surface counts stay at 0. Rotation still works (all at 0 = unsurfaced-first sort is a no-op), but counts don't accumulate. Wiring requires `updateBook` in the interval tick (one localStorage write per 7s). Low cost; complete before v2.
 
 ### `ChapterUpdateModal` natural-language parsing is weak
 Regex handles `chapter 21`, `ch. 5`, `part III`, `#12`. Doesn't handle ordinals, spelled-out numbers, or "finished the book". Unrecognized input silently falls back to `currentChapter + 1`.
@@ -89,3 +86,4 @@ These require a backend and are out of scope for the current localStorage-only a
 | Deletion affordances + AI extraction | 44 | Mystery/discussion deletion, `aiExtractor.js`, re-extraction |
 | Six-feature enhancement pass | 45 | AI discussion questions, re-extraction, character editing, notes search, chapter rename, dark mode |
 | Companion Intelligence Layer v1 | 46 | `reflectionEngine.js`, AI reflections, voice pass, DebugPage Reflection Inspector |
+| Companion Intelligence Layer v2+v3 | 47 | `markReflectionSurfaced` wired, chapter/return reflection surfaces, Discussion Tab continuity header, note intelligence layer (themes/shifts/resonance/clusters), DebugPage Note Intelligence panel |

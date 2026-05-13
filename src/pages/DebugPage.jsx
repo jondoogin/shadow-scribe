@@ -19,6 +19,11 @@ import {
   hashContext,
   shouldRegenerate,
   generateRuleBasedReflections,
+  analyzeNoteThemes,
+  detectInterpretationShifts,
+  buildNoteLinkClusters,
+  computeResonanceWeights,
+  MIN_RESURFACE_MS,
 } from '../utils/reflectionEngine.js'
 
 function Badge({ children, color = 'ink' }) {
@@ -281,13 +286,25 @@ function ReflectionPanel({ book, settings, onUpdateBook }) {
               Cached reflections
               {cache?.generatedAt && <span className="ml-2 font-normal normal-case">{fmtDate(cache.generatedAt.split('T')[0])}</span>}
             </p>
-            {reflections.map(r => (
-              <div key={r.id} className="flex items-start gap-2.5 text-[12px]">
-                <span className="text-ink-300 flex-shrink-0 tabular-nums mt-0.5">×{r.surfaceCount ?? 0}</span>
-                <p className="text-ink-600 italic leading-relaxed flex-1">"{r.text}"</p>
-                <Badge color={r.type === 'ai' ? 'gold' : 'ink'}>{r.type === 'ai' ? 'AI' : 'rule'}</Badge>
-              </div>
-            ))}
+            {reflections.map(r => {
+              const cooling = r.lastSurfaced && (Date.now() - new Date(r.lastSurfaced).getTime() < MIN_RESURFACE_MS)
+              return (
+                <div key={r.id} className={`flex items-start gap-2.5 text-[12px] ${cooling ? 'opacity-40' : ''}`}>
+                  <span className="text-ink-300 flex-shrink-0 tabular-nums mt-0.5">×{r.surfaceCount ?? 0}</span>
+                  <p className="text-ink-600 italic leading-relaxed flex-1">"{r.text}"</p>
+                  <div className="flex flex-col items-end gap-1 flex-shrink-0">
+                    <div className="flex items-center gap-1">
+                      <Badge color={r.type === 'ai' ? 'gold' : 'ink'}>{r.type === 'ai' ? 'AI' : 'rule'}</Badge>
+                      <Badge color={r.priority === 3 ? 'sienna' : r.priority === 2 ? 'sage' : 'ink'}>p{r.priority ?? 1}</Badge>
+                    </div>
+                    {r.lastSurfaced && (
+                      <span className="text-[10px] text-ink-300">{fmtDate(r.lastSurfaced.split('T')[0])}</span>
+                    )}
+                    {cooling && <span className="text-[10px] text-ink-300">cooling</span>}
+                  </div>
+                </div>
+              )
+            })}
           </div>
         )}
 
@@ -335,12 +352,126 @@ function ReflectionPanel({ book, settings, onUpdateBook }) {
   )
 }
 
+// ── Note Intelligence Inspector ───────────────────────────────────────────────
+
+function NoteIntelligencePanel({ book }) {
+  const notes = book.notes || []
+
+  if (!notes.length) {
+    return (
+      <div className="border border-ink-100 rounded-xl p-4 mb-4 text-center">
+        <p className="text-[12px] text-ink-400 italic">No notes yet for <em>{book.title}</em></p>
+      </div>
+    )
+  }
+
+  const { themeCount, dominantTheme } = analyzeNoteThemes(notes)
+  const shifts          = detectInterpretationShifts(notes)
+  const clusters        = buildNoteLinkClusters(notes)
+  const resonanceW      = computeResonanceWeights(notes)
+  const highResNotes    = [...notes]
+    .filter(n => (resonanceW[n.id] || 1) >= 4)
+    .sort((a, b) => (resonanceW[b.id] || 1) - (resonanceW[a.id] || 1))
+    .slice(0, 3)
+  const themeEntries = Object.entries(themeCount).sort((a, b) => b[1] - a[1])
+
+  return (
+    <div className="border border-ink-100 rounded-xl overflow-hidden mb-4">
+      <div className="px-4 py-3 bg-cream-50 flex items-center gap-3">
+        <span className="font-serif text-[13px] font-semibold text-ink-900 flex-1 truncate">{book.title}</span>
+        <div className="flex items-center gap-1.5">
+          <Badge color="ink">{notes.length} notes</Badge>
+          {dominantTheme && <Badge color="gold">{dominantTheme}</Badge>}
+        </div>
+      </div>
+      <div className="px-4 py-3 space-y-4 bg-white">
+
+        {/* Theme distribution */}
+        <section>
+          <p className="text-[10px] font-semibold text-ink-400 uppercase tracking-widest mb-2">Theme distribution</p>
+          {themeEntries.length === 0 ? (
+            <p className="text-[12px] text-ink-300 italic">No themes detected</p>
+          ) : (
+            <div className="flex flex-wrap gap-1.5">
+              {themeEntries.map(([theme, count]) => (
+                <span key={theme} className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-ink-100 text-ink-600 border border-ink-200">
+                  {theme} <span className="text-ink-400">×{count}</span>
+                </span>
+              ))}
+            </div>
+          )}
+        </section>
+
+        {/* Interpretation shifts */}
+        <section>
+          <p className="text-[10px] font-semibold text-ink-400 uppercase tracking-widest mb-2">Interpretation shifts</p>
+          {shifts.length === 0 ? (
+            <p className="text-[12px] text-ink-300 italic">None detected</p>
+          ) : (
+            <div className="space-y-2">
+              {shifts.map((s, i) => (
+                <div key={i} className="text-[12px] space-y-0.5">
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium text-ink-700">{s.name}</span>
+                    <span className="text-ink-400">{s.earlyValence} → {s.lateValence}</span>
+                    <span className="text-ink-300">×{s.noteCount} notes</span>
+                  </div>
+                  <p className="text-ink-500 italic leading-relaxed pl-2 border-l-2 border-ink-100">{s.text}</p>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+
+        {/* High-resonance notes */}
+        <section>
+          <p className="text-[10px] font-semibold text-ink-400 uppercase tracking-widest mb-2">High-resonance notes (score ≥ 4)</p>
+          {highResNotes.length === 0 ? (
+            <p className="text-[12px] text-ink-300 italic">None</p>
+          ) : (
+            <div className="space-y-2">
+              {highResNotes.map(n => (
+                <div key={n.id} className="flex items-start gap-2 text-[12px]">
+                  <Badge color="gold">{resonanceW[n.id]}</Badge>
+                  <Badge color="ink">{n.tag}</Badge>
+                  <p className="text-ink-600 italic leading-relaxed flex-1">
+                    "{n.text.slice(0, 80)}{n.text.length > 80 ? '…' : ''}"
+                  </p>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+
+        {/* Link clusters */}
+        <section>
+          <p className="text-[10px] font-semibold text-ink-400 uppercase tracking-widest mb-2">Top link clusters</p>
+          {clusters.length === 0 ? (
+            <p className="text-[12px] text-ink-300 italic">None</p>
+          ) : (
+            <div className="flex flex-wrap gap-2">
+              {clusters.slice(0, 6).map((cl, i) => (
+                <div key={i} className="flex items-center gap-1.5 text-[11px] bg-cream-50 border border-ink-100 rounded-lg px-2.5 py-1.5">
+                  <Badge color={cl.type === 'theme' ? 'gold' : 'sage'}>{cl.type}</Badge>
+                  <span className="font-medium text-ink-700">{cl.label}</span>
+                  <span className="text-ink-400">×{cl.weight}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+
+      </div>
+    </div>
+  )
+}
+
 export default function DebugPage() {
   const { books, updateBook } = useBooks()
   const { settings }          = useSettings()
   const storage = estimateLocalStorageUsage()
-  const [filter,    setFilter]    = useState('all')   // 'all' | 'extracted' | 'manual'
-  const [reflPanel, setReflPanel] = useState(false)
+  const [filter, setFilter] = useState('all')     // 'all' | 'extracted' | 'manual'
+  const [panel,  setPanel]  = useState('extraction') // 'extraction' | 'reflection' | 'intelligence'
 
   const visible = books.filter(b => {
     if (filter === 'extracted') return b.narrativeExtracted
@@ -365,25 +496,23 @@ export default function DebugPage() {
       </div>
 
       {/* Section toggle */}
-      <div className="flex gap-2 mb-6">
-        <button
-          onClick={() => setReflPanel(false)}
-          className={`px-3.5 py-1.5 rounded-full text-[12px] font-medium transition-all ${
-            !reflPanel ? 'bg-ink-900 text-white' : 'bg-white text-ink-600 border border-ink-200 hover:border-ink-400'
-          }`}>
-          Narrative Extraction
-        </button>
-        <button
-          onClick={() => setReflPanel(true)}
-          className={`px-3.5 py-1.5 rounded-full text-[12px] font-medium transition-all ${
-            reflPanel ? 'bg-ink-900 text-white' : 'bg-white text-ink-600 border border-ink-200 hover:border-ink-400'
-          }`}>
-          Reflection Engine
-        </button>
+      <div className="flex gap-2 mb-6 flex-wrap">
+        {[
+          ['extraction',   'Narrative Extraction'],
+          ['reflection',   'Reflection Engine'],
+          ['intelligence', 'Note Intelligence'],
+        ].map(([k, l]) => (
+          <button key={k} onClick={() => setPanel(k)}
+            className={`px-3.5 py-1.5 rounded-full text-[12px] font-medium transition-all ${
+              panel === k ? 'bg-ink-900 text-white' : 'bg-white text-ink-600 border border-ink-200 hover:border-ink-400'
+            }`}>
+            {l}
+          </button>
+        ))}
       </div>
 
       {/* Reflection Inspector panel */}
-      {reflPanel && (
+      {panel === 'reflection' && (
         <div className="mb-10">
           <p className="text-[12px] text-ink-500 mb-5 leading-relaxed">
             Inspect the reflection cache, context signals, and spoiler boundary for each companion.
@@ -396,8 +525,21 @@ export default function DebugPage() {
         </div>
       )}
 
+      {/* Note Intelligence panel */}
+      {panel === 'intelligence' && (
+        <div className="mb-10">
+          <p className="text-[12px] text-ink-500 mb-5 leading-relaxed">
+            Theme inference, interpretation shifts, resonance scores, and note link clusters.
+            All computed on-demand from existing notes — nothing stored beyond <code className="font-mono text-ink-700 bg-ink-100 px-1 rounded">priority</code> on cached reflections.
+          </p>
+          {books.map(b => (
+            <NoteIntelligencePanel key={b.id} book={b} />
+          ))}
+        </div>
+      )}
+
       {/* Extraction inspector (conditionally shown) */}
-      {!reflPanel && (<>
+      {panel === 'extraction' && (<>
         {/* Storage stats */}
         <div className="bg-cream-50 border border-ink-200 rounded-xl p-4 mb-8">
           <p className="text-[10px] font-semibold text-ink-400 uppercase tracking-widest mb-3">localStorage usage</p>

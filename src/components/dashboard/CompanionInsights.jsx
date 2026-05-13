@@ -1,12 +1,13 @@
-import { useState, useEffect, useMemo }        from 'react'
-import { generatePresence }                    from '../../utils/companionPresence.js'
-import { generateCompanionReflections }        from '../../utils/aiExtractor.js'
+import { useState, useEffect, useMemo, useRef } from 'react'
+import { generatePresence }                      from '../../utils/companionPresence.js'
+import { generateCompanionReflections }          from '../../utils/aiExtractor.js'
 import {
   assembleReflectionContext,
   hashContext,
   shouldRegenerate,
   generateRuleBasedReflections,
   getActiveReflections,
+  markReflectionSurfaced,
 } from '../../utils/reflectionEngine.js'
 import { useSettings } from '../../context/SettingsContext.jsx'
 import { useBooks }    from '../../context/BooksContext.jsx'
@@ -17,6 +18,11 @@ export default function CompanionInsights({ book }) {
 
   const [idx,  setIdx]  = useState(0)
   const [fade, setFade] = useState(true)
+
+  // Refs for markReflectionSurfaced — avoids adding reflectionCache to effect deps
+  const surfacedThisSessionRef = useRef(new Set())
+  const reflectionCacheRef     = useRef(book.reflectionCache)
+  useEffect(() => { reflectionCacheRef.current = book.reflectionCache }, [book.reflectionCache])
 
   // ── Presence observations (immediate, contextual) ─────────────────────────
   const presence = useMemo(
@@ -37,12 +43,22 @@ export default function CompanionInsights({ book }) {
   // ── Combined pool: weave reflections into the presence stream ─────────────
   // Reflections appear at positions 1 and 4 (after the arc observation,
   // and mid-way through) so they feel interspersed rather than appended.
-  const observations = useMemo(() => {
-    if (!cachedReflections.length) return presence
+  // reflectionIndexMap tracks which pool indices correspond to reflections (id lookup).
+  const { observations, reflectionIndexMap } = useMemo(() => {
+    const map = {}
+    if (!cachedReflections.length) return { observations: presence, reflectionIndexMap: map }
     const pool = [...presence]
-    if (cachedReflections[0]) pool.splice(Math.min(1, pool.length), 0, cachedReflections[0].text)
-    if (cachedReflections[1] && pool.length >= 4) pool.splice(Math.min(4, pool.length), 0, cachedReflections[1].text)
-    return pool.filter(Boolean)
+    if (cachedReflections[0]) {
+      const pos = Math.min(1, pool.length)
+      pool.splice(pos, 0, cachedReflections[0].text)
+      map[pos] = cachedReflections[0].id
+    }
+    if (cachedReflections[1] && pool.length >= 4) {
+      const pos = Math.min(4, pool.length)
+      pool.splice(pos, 0, cachedReflections[1].text)
+      map[pos] = cachedReflections[1].id
+    }
+    return { observations: pool.filter(Boolean), reflectionIndexMap: map }
   }, [presence, cachedReflections])
 
   // ── Reflection generation (triggered when context hash changes) ───────────
@@ -91,6 +107,24 @@ export default function CompanionInsights({ book }) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [book.id, book.notes?.length, book.currentChapter, book.readingLog?.length,
       book.mysteries?.length, settings.insightStyle])
+
+  // ── Mark reflections surfaced when carousel shows them ───────────────────
+  // Uses reflectionCacheRef (not book.reflectionCache in deps) to avoid
+  // the save→trigger loop. surfacedThisSessionRef prevents multiple writes
+  // for the same reflection within a single session.
+  useEffect(() => {
+    const reflId = reflectionIndexMap[idx]
+    if (!reflId) return
+    if (surfacedThisSessionRef.current.has(reflId)) return
+    surfacedThisSessionRef.current.add(reflId)
+    const cache = reflectionCacheRef.current
+    if (!cache?.reflections?.length) return
+    const updated = markReflectionSurfaced(cache.reflections, reflId)
+    updateBook(book.id, {
+      reflectionCache: { ...cache, reflections: updated },
+    })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [idx, reflectionIndexMap, book.id, updateBook])
 
   // ── Auto-advance carousel ─────────────────────────────────────────────────
   useEffect(() => {

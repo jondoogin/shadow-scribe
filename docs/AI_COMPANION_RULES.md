@@ -1,5 +1,5 @@
 # Shadow Scribe — AI Companion Rules
-**Last updated:** 2026-05-13 (Session 46)
+**Last updated:** 2026-05-13 (Session 47)
 
 Rules governing companion voice, spoiler behavior, reflection generation, and AI constraints.
 These rules are foundational — do not change them without explicit product discussion.
@@ -105,22 +105,54 @@ const views = book.characters.main
 - Never references future chapter content, resolved-beyond-boundary mysteries, or unsafe character states
 
 ### Layer 2: Reflections (retrospective/synthesized)
-`generateRuleBasedReflections(ctx, style)` — 9 named signal types:
+`generateRuleBasedReflections(ctx, style)` — 12 named signal types:
 
-1. `theory-arc` — reader has accumulated theories (≥2 theory notes)
-2. `character-focus` — character note count ≥3
-3. `character-focus-named` — specific character name appearing ≥2× in theory notes (`theoryCharFocus`)
-4. `confusion-to-theory` — temporal evolution: early notes confused, later notes interpretive
-5. `sustained-theory` — temporal evolution: consistent theorising throughout
-6. `late-favorites` — temporal evolution: favourite passages concentrated in second half
+1. `interpretation-shift` — note intelligence: character valence shift between early/late notes (priority 3, weight 4)
+2. `theory-arc` — reader has accumulated theories (≥2 theory notes)
+3. `theme-persistence` — dominant theme appearing in ≥3 notes (priority 2, weight 2)
+4. `character-focus` — character note count ≥3 or specific name appearing ≥2× in theory notes
+5. `temporal-evolution` — confusion-to-theory / sustained-theory / late-favorites
+6. `resonance-anchor` — a note has been both revised and had a reflection added (priority 2, weight 2)
 7. `interpretation-evolution` — revised or reflected notes indicate shifting understanding
-8. `mystery-continuity` — oldest open mystery has been unresolved ≥5 chapters
-9. `confusion-signal` — confusion note count ≥2 relative to total
+8. `mystery-continuity` — oldest open mystery unresolved ≥12 chapters
+9. `reader-attention` — favourite/quote note count ≥3, or dense annotation past midpoint
+10. `confusion-signal` — confusion note count ≥3 without matching theories
+
+**Reflection priority levels (1–3):**
+- Priority 3 — surfaces soonest after previous showing; for high-signal signals (`interpretation-shift`, revised theory-arc)
+- Priority 2 — mid-tier; most signals
+- Priority 1 — ambient; reader attention, confusion without theories
 
 **Reflection generation rules:**
 - Deduped by signal type — highest-weight entry wins per type
 - Never includes chapter summaries, future character states, or mysteries beyond `currentChapter`
 - Minimum content threshold before generation: `noteCount >= 3 OR openMysteries.length >= 2`
+- 8h minimum resurfacing window (`MIN_RESURFACE_MS`) — reflections within this window are excluded from rotation
+
+---
+
+## Note Intelligence Layer
+
+Computed on-demand from existing note data. No new localStorage fields (only `priority` on `ReflectionEntry`).
+
+### Theme inference
+`inferNoteThemes(note)` / `analyzeNoteThemes(notes)`:
+- 11 themes: grief, suspicion, isolation, trust, fear, ambiguity, obsession (label: fixation), belonging, guilt, longing, uncertainty
+- Keyword-set matching against joined `note.text + note.reflection`; threshold = 1 keyword hit
+- Top 2 themes per note; dominant theme = most frequent across all notes; recurring = ≥3 notes
+- **Companion must not**: label a reader as "grieving" or characterise them by their themes — themes inform observations, not diagnoses
+
+### Interpretation shift detection
+`detectInterpretationShifts(notes)`:
+- Requires ≥4 notes; checks top 3 named characters from theory/character notes
+- Splits notes at chronological midpoint; computes valence (positive/negative/uncertain/mixed) for early vs late notes per character
+- Only fires when valence differs between halves
+- `SHIFT_TEXT` map provides 6 directional phrase generators — always character-focused, never reader-labelling
+
+### Resonance weighting
+`computeResonanceWeights(notes)` — scores: base 1, +2 revisedAt, +2 reflection field, +1 theory tag, +1 recurring theme (≥3 notes), +1 recurring char (≥3 notes). `highResonanceNotes` = score ≥4.
+- **What this is for**: identifying notes with the highest emotional investment, to power `resonance-anchor` signals and future AI context enrichment
+- **Not exposed to the reader** — internal only
 
 ### AI reflection generation
 `generateCompanionReflections(ctx, apiKey)` in `aiExtractor.js`:
@@ -139,8 +171,10 @@ const views = book.characters.main
 
 ## Reflection Memory and Rotation
 
-- `getActiveReflections(book, limit)` — sorts unsuppressed reflections by `surfaceCount` ascending (least-shown first), `generatedAt` descending as tiebreaker
-- `markReflectionSurfaced(reflections, id)` — increments `surfaceCount` (currently defined but not yet wired to carousel)
+- `getActiveReflections(book, limit)` — 3-tier sort: surfaceCount ASC → priority DESC → lastSurfaced AGO DESC; excludes reflections surfaced within `MIN_RESURFACE_MS` (8h)
+- `markReflectionSurfaced(reflections, id)` — pure function; increments `surfaceCount`, sets `lastSurfaced`. Caller persists via `updateBook`. Wired in `CompanionInsights` carousel (session-dedup via ref) and `ChapterUpdateModal` (merged into same `onUpdateBook` call).
+- `pickCompletionReflection(book)` — for chapter-completion moment; respects 8h window
+- `pickReturnReflection(book)` — for return after ≥7-day gap; ignores 8h window (absence resets freshness)
 - `suppressed: true` on a `ReflectionEntry` removes it from rotation permanently
 
 ---
@@ -154,3 +188,6 @@ const views = book.characters.main
 5. Initiate conversation — the companion observes, it does not prompt
 6. Reference future chapter titles in strict mode
 7. Surface a "welcome back" message based on time gap alone (no temporal manipulation)
+8. Label the reader by their themes — "you seem preoccupied with grief" is not a companion observation
+9. Use inferred themes as personality descriptors or reading assessments
+10. Surface an interpretation-shift observation that names a character the reader hasn't met yet (`isCharacterMet` must pass before name appears in any observation)

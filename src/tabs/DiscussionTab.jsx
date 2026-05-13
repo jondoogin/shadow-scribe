@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { Ico } from '../components/shared/icons.jsx'
 import SectionLabel from '../components/shared/SectionLabel.jsx'
 import { getEffectiveMode, getDiscussionQuestionView } from '../utils/spoiler.js'
@@ -12,6 +12,21 @@ export default function DiscussionTab({ book, onUpdateBook }) {
   const [genError,    setGenError]    = useState(null)
   const { settings } = useSettings()
   const mode = getEffectiveMode(book, settings)
+
+  // Continuity header reflection — prefer a thread the companion has already surfaced
+  // (surfaceCount > 0) for continuity feel; fall back to highest-priority unseen
+  const persistentReflection = useMemo(() => {
+    const reflections = book.reflectionCache?.reflections
+    if (!reflections?.length) return null
+    const unsuppressed = reflections.filter(r => !r.suppressed)
+    if (!unsuppressed.length) return null
+    const seen = unsuppressed.filter(r => (r.surfaceCount ?? 0) > 0)
+    if (seen.length) {
+      return seen.sort((a, b) => (b.priority ?? 1) - (a.priority ?? 1))[0]
+    }
+    return unsuppressed.sort((a, b) => (b.priority ?? 1) - (a.priority ?? 1))[0]
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [book.reflectionCache?.contextHash, book.reflectionCache?.reflections?.length])
   const userQuestions = book.userDiscussionQuestions || []
   const hasAiKey = !!settings.anthropicKey?.trim()
   const hasGenerated = book.aiQuestionsGenerated
@@ -80,6 +95,16 @@ export default function DiscussionTab({ book, onUpdateBook }) {
             </button>
           )}
         </div>
+
+        {/* Continuity line — a thread the companion has been tracking */}
+        {(questionViews.length > 0 || userQuestions.length > 0) && persistentReflection && (
+          <div className="mt-3 pt-3 border-t" style={{ borderColor: 'var(--ca-border, #E8D090)' }}>
+            <p className="text-[12px] text-ink-400 italic leading-relaxed">
+              <span className="not-italic opacity-60" style={{ color: 'var(--ca, #B8860B)' }}>✦</span>{' '}
+              {persistentReflection.text}
+            </p>
+          </div>
+        )}
       </div>
 
       {questionViews.length > 0 && (

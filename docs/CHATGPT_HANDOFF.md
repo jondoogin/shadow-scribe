@@ -1,5 +1,5 @@
 # Shadow Scribe — Current State Briefing
-**Last updated:** 2026-05-13 (Session 46)
+**Last updated:** 2026-05-13 (Session 47)
 
 This is a **lightweight current-state briefing** for external AI collaboration (ChatGPT, etc.).
 For full technical depth, read the modular docs: ARCHITECTURE.md, AI_COMPANION_RULES.md, DESIGN_SYSTEM.md, PRODUCT_FOUNDATION.md, ROADMAP.md.
@@ -14,38 +14,37 @@ A personal reading companion app. Literary, reflective, spoiler-aware. Not a pro
 
 ---
 
-## Where We Are (Session 46)
+## Where We Are (Session 47)
 
-### Recently completed — Companion Intelligence Layer v1
-The companion's observation strip is now a **two-layer system**:
+### Recently completed — Companion Intelligence Layer v2 + v3
+The reflection engine now has a **full note intelligence layer** and surfaces reflections at **meaningful moments**:
 
-1. **Presence layer** — 13-lens immediate observations (`companionPresence.js`). Contextual, synchronous, spoiler-boundary-aware.
-2. **Reflection layer** — retrospective synthesis of the reader's own engagement patterns (`reflectionEngine.js` + `aiExtractor.generateCompanionReflections`). Rule-based (sync, always) + AI-enhanced (async, silent, requires key + ≥5 notes). Cached in `book.reflectionCache`. Woven into the presence pool at positions 1 and 4.
+**Note intelligence (v3):**
+- `inferNoteThemes` / `analyzeNoteThemes` — 11-theme keyword inference; `dominantTheme`, `recurringThemes`
+- `detectInterpretationShifts` — detects character valence changes between early and late notes
+- `buildNoteLinkClusters` — groups notes by shared theme or character mention
+- `computeResonanceWeights` — scores notes by revision depth, reflection, tag, and recurrence
+- 3 new signal types: `interpretation-shift` (p3), `theme-persistence` (p2), `resonance-anchor` (p2)
 
-Companion voice was also sharpened — eliminated assistant-like phrasing ("I notice", "It seems", "Pay attention to…").
+**Continuity surfaces (v2):**
+- `markReflectionSurfaced` wired into the `CompanionInsights` carousel (session-dedup, ref pattern)
+- `pickCompletionReflection` / `pickReturnReflection` in `ChapterUpdateModal` — companion speaks at chapter milestones and after 7+ day absences
+- `persistentReflection` continuity header in `DiscussionTab` — a thread the companion has been tracking
+- Priority system (`priority: 1|2|3`) on all `ReflectionEntry` objects; 8h minimum resurfacing window
 
-DebugPage now has a Reflection Inspector panel for QA.
+DebugPage has a third panel — "Note Intelligence" — showing themes, shifts, resonance scores, and clusters per book.
 
-### Previously completed (Sessions 44–45)
-- Mystery + discussion question deletion
-- AI EPUB re-extraction ("✦ Re-extract with Claude…")
-- AI discussion question generation ("✦ Generate with Claude")
-- Character name/tier editing
-- Notes search (covers reflections)
-- Chapter inline rename
-- Dark mode (full `html.dark` palette override)
-- Settings nav fix
+### Previously completed (Sessions 44–46)
+- Mystery + discussion question deletion, AI EPUB re-extraction, AI discussion questions
+- Character name/tier editing, notes search, chapter inline rename, dark mode
 
 ---
 
 ## Immediate Next Step
 
-**Companion Intelligence Layer v2: Continuity Surface**
+**Companion Intelligence Layer v4: AI Note Intelligence**
 
-The engine generates observations — v2 surfaces them at *meaningful moments*:
-- Brief reflection when reader marks a chapter complete
-- Pattern summary at top of Discussion tab
-- Wire `markReflectionSurfaced` into the carousel tick (currently defined but not called)
+Feed the richer note intelligence signals into the AI reflection call — themes, character shifts, high-resonance note texts — so AI reflections can reference what the companion has learned.
 
 See ROADMAP.md for full milestone queue.
 

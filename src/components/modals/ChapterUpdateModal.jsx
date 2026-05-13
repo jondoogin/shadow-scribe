@@ -4,6 +4,12 @@ import ProgressBar from '../shared/ProgressBar.jsx'
 import SectionLabel from '../shared/SectionLabel.jsx'
 import { getEffectiveMode, isMysteryVisible } from '../../utils/spoiler.js'
 import { useSettings } from '../../context/SettingsContext.jsx'
+import { logDates } from '../../utils/date.js'
+import {
+  pickCompletionReflection,
+  pickReturnReflection,
+  markReflectionSurfaced,
+} from '../../utils/reflectionEngine.js'
 
 const DURATION_CONFIG = [
   { k: 'brief',    l: 'A brief return'   },
@@ -12,14 +18,16 @@ const DURATION_CONFIG = [
 ]
 
 export default function ChapterUpdateModal({ book, onClose, onUpdateBook }) {
-  const [input,            setInput]            = useState('')
-  const [selectedChapter,  setSelectedChapter]  = useState(null)
-  const [showAllChapters,  setShowAllChapters]  = useState(false)
-  const [durationEstimate, setDurationEstimate] = useState(null)
-  const [done,             setDone]             = useState(false)
-  const [isFirst,          setIsFirst]          = useState(false)
-  const [prevCh,           setPrevCh]           = useState(book.currentChapter)
-  const [newCh,            setNewCh]            = useState(book.currentChapter)
+  const [input,               setInput]               = useState('')
+  const [selectedChapter,     setSelectedChapter]     = useState(null)
+  const [showAllChapters,     setShowAllChapters]     = useState(false)
+  const [durationEstimate,    setDurationEstimate]    = useState(null)
+  const [done,                setDone]                = useState(false)
+  const [isFirst,             setIsFirst]             = useState(false)
+  const [prevCh,              setPrevCh]              = useState(book.currentChapter)
+  const [newCh,               setNewCh]               = useState(book.currentChapter)
+  const [completionReflection, setCompletionReflection] = useState(null)
+  const [gapOnEntry,           setGapOnEntry]           = useState(null)
   const inputRef       = useRef()
   const dialogRef      = useRef()
   const closeButtonRef = useRef()
@@ -77,6 +85,20 @@ export default function ChapterUpdateModal({ book, onClose, onUpdateBook }) {
     setPrevCh(book.currentChapter)
     setIsFirst(firstSession)
 
+    // Compute gap before this session (captures return-after-absence)
+    const dates   = logDates(currentLog)
+    const lastDate = [...dates].sort().pop() ?? null
+    const gap = lastDate
+      ? Math.floor((Date.now() - new Date(lastDate).getTime()) / 86_400_000)
+      : null
+    setGapOnEntry(gap)
+
+    // Pick which reflection to surface — return reflection ignores 8h window
+    const reflection = (gap !== null && gap >= 7)
+      ? pickReturnReflection(book)
+      : pickCompletionReflection(book)
+    setCompletionReflection(reflection)
+
     const entry = {
       id: `s_${Date.now()}`,
       date: today,
@@ -86,11 +108,22 @@ export default function ChapterUpdateModal({ book, onClose, onUpdateBook }) {
       ...(durationEstimate ? { durationEstimate } : {}),
     }
 
+    // Mark the reflection surfaced in the same write to avoid a second localStorage save
+    const reflectionCacheUpdate = (reflection && book.reflectionCache?.reflections)
+      ? {
+          reflectionCache: {
+            ...book.reflectionCache,
+            reflections: markReflectionSurfaced(book.reflectionCache.reflections, reflection.id),
+          },
+        }
+      : {}
+
     onUpdateBook({
       currentChapter: n,
       chapters: book.chapters.map(c => c.num <= n ? { ...c, completed: true } : c),
       lastUpdated: today,
       readingLog: [...currentLog, entry],
+      ...reflectionCacheUpdate,
     })
     setNewCh(n); setDone(true)
   }
@@ -291,6 +324,14 @@ export default function ChapterUpdateModal({ book, onClose, onUpdateBook }) {
                     </p>
                   ))}
                 </div>
+              )}
+
+              {/* Companion reflection — surfaces at meaningful moments only */}
+              {completionReflection && (newCh - prevCh >= 2 || milestone !== undefined || (gapOnEntry !== null && gapOnEntry >= 7)) && (
+                <p className="text-[12px] text-ink-400 italic text-center px-2 pt-1 leading-relaxed animate-fade-in">
+                  <span className="not-italic opacity-60" style={{ color: 'var(--ca, #B8860B)' }}>✦</span>{' '}
+                  {completionReflection.text}
+                </p>
               )}
 
               <button ref={closeButtonRef} onClick={onClose}

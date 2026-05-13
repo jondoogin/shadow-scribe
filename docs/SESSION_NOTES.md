@@ -3,6 +3,78 @@ Reverse-chronological log of what was built, fixed, and decided in each working 
 
 ---
 
+## Session 47 — 2026-05-13
+**Theme:** Companion Intelligence Layer v2 + v3 — Continuity Surface, Note Intelligence, Emotional Continuity
+
+Combined milestone: v2 (surface reflections at meaningful moments) and v3 (note intelligence layer) implemented in a single pass because v3 signals feed directly into v2 surfaces.
+
+### Modified
+
+- **`src/utils/reflectionEngine.js`** — Complete rewrite (~745 lines). Added note intelligence layer, priority system, new pick functions, and updated cache/sort logic. Major additions:
+  - **Note intelligence — theme inference**: `inferNoteThemes(note)` (exported), `analyzeNoteThemes(notes)` (exported). `THEME_KEYWORDS` — 11 themes × keyword sets (grief, suspicion, isolation, trust, fear, ambiguity, obsession/fixation, belonging, guilt, longing, uncertainty). Returns up to 2 themes per note; threshold = 1 keyword hit.
+  - **Note intelligence — interpretation shifts**: `detectInterpretationShifts(notes)` (exported). Splits notes at chronological midpoint; extracts named characters from theory/character notes; computes emotional valence (positive/negative/uncertain/mixed) for early vs late notes mentioning each character. `SHIFT_TEXT` — 6 directional phrase generators keyed by `earlyValence+lateValence`.
+  - **Note intelligence — link clusters**: `buildNoteLinkClusters(notes)` (exported). Groups notes into theme clusters (shared inferred theme) and character clusters (shared proper noun mention). Returns top 10 by weight.
+  - **Note intelligence — resonance weighting**: `computeResonanceWeights(notes)` (exported). Scores each note: base 1, +2 revisedAt, +2 reflection, +1 theory tag, +1 recurring theme (≥3 notes), +1 recurring char mention (≥3 notes). `highResonanceNotes` = score ≥4.
+  - **Priority field**: `makeEntry()` now takes `priority` (1–3); all `generateRuleBasedReflections` candidates carry `weight` (existing) and `priority` (new — persisted in cache).
+  - **`MIN_RESURFACE_MS = 8 * 3_600_000`** — exported constant; 8h minimum resurfacing window.
+  - **`getActiveReflections`** — updated with 3-tier sort: surfaceCount ASC → priority DESC → lastSurfaced AGO DESC. Also filters reflections surfaced within `MIN_RESURFACE_MS`.
+  - **`markReflectionSurfaced`** — now wired (was defined but unused in v1).
+  - **`pickCompletionReflection(book)`** — for chapter-completion moment; respects 8h window.
+  - **`pickReturnReflection(book)`** — for return after ≥7-day absence; ignores 8h window (any reflection is fresh after an absence).
+  - **`assembleReflectionContext`** — extended with note intelligence signals: `themeCount`, `dominantTheme`, `recurringThemes`, `interpretationShifts`, `highResonanceNotes`, `resonanceWeights`.
+  - **`hashContext`** — extended with `dominantTheme` and `interpretationShifts.length` (invalidates cache when note intelligence signals change).
+  - **`extractNameMentions`** — exported (was private; needed by DebugPage).
+  - **3 new signal types** in `generateRuleBasedReflections`: `interpretation-shift` (p3, w4 — highest), `theme-persistence` (p2, w2), `resonance-anchor` (p2, w2).
+  - **Continuity language variants** added to existing signals: `theory-arc` ("There was an earlier reading of this. It's moved since."), `character-focus` ("You've kept returning to X since early on."), `mystery-continuity` ("This question has followed you for N chapters.").
+
+- **`src/components/dashboard/CompanionInsights.jsx`** — Wire `markReflectionSurfaced` into carousel lifecycle.
+  - Added `useRef` import.
+  - Added `markReflectionSurfaced` import from reflectionEngine.
+  - `observations` useMemo restructured to return `{ observations, reflectionIndexMap }`. `reflectionIndexMap` maps pool index → reflection id for the two woven positions.
+  - `surfacedThisSessionRef = useRef(new Set())` — prevents multiple writes for same reflection within session.
+  - `reflectionCacheRef = useRef(book.reflectionCache)` — stays in sync via separate effect; avoids adding `book.reflectionCache` to the surfacing effect deps.
+  - New `useEffect([idx, reflectionIndexMap, book.id, updateBook])` — fires when carousel advances to a reflection position; marks it surfaced via `updateBook`.
+
+- **`src/components/modals/ChapterUpdateModal.jsx`** — Chapter completion reflection surface + long-pause awareness.
+  - Added imports: `logDates` from date.js, `pickCompletionReflection`, `pickReturnReflection`, `markReflectionSurfaced` from reflectionEngine.
+  - Added state: `completionReflection`, `gapOnEntry`.
+  - `handleUpdate()`: computes gap before adding new session; picks `pickReturnReflection` if gap ≥7 days (ignores 8h window), otherwise `pickCompletionReflection`; marks reflection surfaced in the same `onUpdateBook` call (single localStorage write, no race condition).
+  - Done JSX: shows reflection text as small italic line (✦ prefix, no box/label) when `completionReflection && (newCh - prevCh >= 2 || milestone !== undefined || gapOnEntry >= 7)`.
+
+- **`src/tabs/DiscussionTab.jsx`** — Continuity header line.
+  - Added `useMemo` import.
+  - `persistentReflection` useMemo: prefers already-seen reflections (surfaceCount > 0) sorted by priority DESC; falls back to highest-priority unseen. Deps on `reflectionCache.contextHash` and `reflections.length`.
+  - Continuity line added at bottom of the "Questions worth sitting with" header card — separator using `--ca-border`, ✦ prefix, italic ink-400 text. Shows only when questions exist and `persistentReflection` is non-null.
+
+- **`src/pages/DebugPage.jsx`** — Note Intelligence QA panel + Reflection Inspector upgrades.
+  - Added imports: `analyzeNoteThemes`, `detectInterpretationShifts`, `buildNoteLinkClusters`, `computeResonanceWeights`, `MIN_RESURFACE_MS` from reflectionEngine.
+  - `[reflPanel, setReflPanel]` replaced with `[panel, setPanel]` (string: `'extraction' | 'reflection' | 'intelligence'`). Three-button toggle row.
+  - **`NoteIntelligencePanel`** component — per-book QA panel showing: theme distribution (keyword-scored pill badges), interpretation shifts (name + earlyValence → lateValence + note count + generated phrase), high-resonance notes (score badge + tag badge + text snippet), top-6 link clusters (type badge + label + weight).
+  - **Reflection list upgrades**: priority badge alongside type badge (colour-coded by priority level — sienna=p3, sage=p2, ink=p1), `lastSurfaced` formatted date, greyed-out + "cooling" label for reflections within `MIN_RESURFACE_MS`.
+
+### Architecture decisions
+- **Single-write chapter reflection surfacing.** Reflection is captured BEFORE `onUpdateBook` in `handleUpdate`. The `markReflectionSurfaced` update is merged into the same `onUpdateBook` call. This eliminates the timing race where a regeneration (triggered by `currentChapter` change) could invalidate the reflection before it's marked.
+- **Session-level dedup in carousel.** `surfacedThisSessionRef` prevents multiple localStorage writes for the same reflection if it appears multiple times in a session (e.g. after pool reorder). One write per reflection ID per session.
+- **`reflectionCacheRef` pattern.** The surfacing effect needs access to the latest cache but must not include it in deps (save→trigger loop). Keeping a ref in sync via a separate shallow effect solves this cleanly.
+- **Continuity line prefers seen reflections.** For the Discussion Tab header, the companion deliberately surfaces something already seen — this creates a thread feeling, not a discovery feeling.
+- **All note intelligence is on-demand.** No new localStorage fields beyond `priority` on existing `ReflectionEntry` objects. Theme data, resonance scores, clusters, and shifts are recomputed from existing notes each time the context is assembled.
+
+### ReflectionEntry shape (updated)
+```ts
+{
+  id: string
+  text: string
+  type: 'rule-based' | 'ai'
+  priority: 1 | 2 | 3          // NEW — higher surfaces sooner
+  surfaceCount: number
+  lastSurfaced: string | null
+  suppressed: boolean
+  generatedAt: string
+}
+```
+
+---
+
 ## Session 46 — 2026-05-13
 **Theme:** Companion Intelligence Layer v1 — Reflection Engine, Voice Pass, QA Tooling
 
