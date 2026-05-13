@@ -5,10 +5,16 @@ import { getEffectiveMode, getDiscussionQuestionView } from '../utils/spoiler.js
 import { useSettings } from '../context/SettingsContext.jsx'
 
 export default function DiscussionTab({ book, onUpdateBook }) {
-  const [input, setInput] = useState('')
+  const [input,       setInput]       = useState('')
+  const [deletingIdx, setDeletingIdx] = useState(null)
   const { settings } = useSettings()
   const mode = getEffectiveMode(book, settings)
   const userQuestions = book.userDiscussionQuestions || []
+
+  const deleteUserQ = (i) => {
+    onUpdateBook({ userDiscussionQuestions: userQuestions.filter((_, idx) => idx !== i) })
+    setDeletingIdx(null)
+  }
 
   const questionViews = (book.discussionQuestions || [])
     .map(q => getDiscussionQuestionView(book, q, mode))
@@ -55,8 +61,34 @@ export default function DiscussionTab({ book, onUpdateBook }) {
         <div className="space-y-3 mb-6">
           {userQuestions.map((q, i) => (
             <div key={i} className="bg-sage-bg rounded-xl border border-sage-pale p-4">
-              <p className="text-[13px] text-ink-700 leading-relaxed">{q}</p>
-              <p className="text-[10px] text-sage mt-2 font-medium">Your question</p>
+              {deletingIdx === i ? (
+                <div className="animate-fade-in">
+                  <p className="text-[12px] text-ink-600 mb-2.5 leading-relaxed">
+                    Remove this question from the companion?
+                  </p>
+                  <div className="flex gap-2">
+                    <button onClick={() => setDeletingIdx(null)}
+                      className="text-[12px] text-ink-600 hover:text-ink-800 px-3 py-1.5 rounded-lg border border-ink-200 bg-white transition-colors">
+                      Keep it
+                    </button>
+                    <button onClick={() => deleteUserQ(i)}
+                      className="text-[12px] font-semibold px-3 py-1.5 rounded-lg text-white bg-ember hover:bg-ember-light transition-colors">
+                      Yes, remove it
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <p className="text-[13px] text-ink-700 leading-relaxed">{q}</p>
+                  <div className="flex items-center justify-between mt-2">
+                    <p className="text-[10px] text-sage font-medium">Your question</p>
+                    <button onClick={() => setDeletingIdx(i)}
+                      className="text-[11px] text-ink-300 hover:text-ember transition-colors">
+                      Remove
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
           ))}
         </div>

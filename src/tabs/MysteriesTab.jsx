@@ -32,6 +32,7 @@ export default function MysteriesTab({ book, onUpdateBook }) {
   const [observeText,    setObserveText]    = useState('')
   const [refiningId,     setRefiningId]     = useState(null)
   const [refineText,     setRefineText]     = useState('')
+  const [deletingId,     setDeletingId]     = useState(null)
 
   const toggle = id => onUpdateBook({
     mysteries: book.mysteries.map(m =>
@@ -86,6 +87,11 @@ export default function MysteriesTab({ book, onUpdateBook }) {
       } : my),
     })
     setRefiningId(null)
+  }
+
+  const deleteMystery = (id) => {
+    onUpdateBook({ mysteries: book.mysteries.filter(m => m.id !== id) })
+    setDeletingId(null)
   }
 
   const addMystery = () => {
@@ -184,9 +190,10 @@ export default function MysteriesTab({ book, onUpdateBook }) {
       ) : (
         <div className="space-y-2">
           {visible.map(m => {
-            const isObserving = observingId === m.id
-            const isRefining  = refiningId  === m.id
+            const isObserving = observingId  === m.id
+            const isRefining  = refiningId   === m.id
             const showPicker  = statusPickerId === m.id
+            const isDeleting  = deletingId   === m.id
 
             return (
               <div key={m.id}
@@ -310,8 +317,27 @@ export default function MysteriesTab({ book, onUpdateBook }) {
                       </div>
                     )}
 
+                    {/* Delete confirmation */}
+                    {isDeleting && (
+                      <div className="mt-3 animate-fade-in">
+                        <p className="text-[12px] text-ink-600 mb-2.5 leading-relaxed">
+                          Remove this thread from the companion?
+                        </p>
+                        <div className="flex gap-2">
+                          <button onClick={() => setDeletingId(null)}
+                            className="text-[12px] text-ink-600 hover:text-ink-800 px-3 py-1.5 rounded-lg border border-ink-200 transition-colors">
+                            Keep it
+                          </button>
+                          <button onClick={() => deleteMystery(m.id)}
+                            className="text-[12px] font-semibold px-3 py-1.5 rounded-lg text-white bg-ember hover:bg-ember-light transition-colors">
+                            Yes, remove it
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
                     {/* Thread actions */}
-                    {!m._veiled && !m.resolved && !isRefining && !isObserving && (
+                    {!m._veiled && !m.resolved && !isRefining && !isObserving && !isDeleting && (
                       <div className="flex items-center gap-4 mt-2.5">
                         <button onClick={() => startObserving(m)}
                           className="text-[11px] text-ink-300 hover:text-ink-500 italic transition-colors">
@@ -320,6 +346,10 @@ export default function MysteriesTab({ book, onUpdateBook }) {
                         <button onClick={() => startRefining(m)}
                           className="text-[11px] text-ink-300 hover:text-ink-500 transition-colors">
                           Refine
+                        </button>
+                        <button onClick={() => setDeletingId(m.id)}
+                          className="text-[11px] text-ink-300 hover:text-ember transition-colors ml-auto">
+                          Remove
                         </button>
                       </div>
                     )}
