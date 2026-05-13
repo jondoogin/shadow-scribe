@@ -430,12 +430,15 @@ export function generatePresence(book, settings = null) {
   const notes     = book.notes || []
   const main      = (book.characters?.main || []).filter(c => isCharacterSafe(book, c))
   const allChars  = [...(book.characters?.main || []), ...(book.characters?.secondary || [])]
-  const log       = book.readingLog || []
-  const streak    = calcStreak(log)
-  const sessions  = log.length
-  const recent7   = recentSessionCount(log, 7)
-  const lastDate  = [...logDates(log)].sort().pop()
-  const gapDays   = daysSince(lastDate)
+  const log        = book.readingLog || []
+  const currentEra = book.rereadCount || 0
+  // Filter to the current reading era so pacing/momentum don't conflate first-read and reread sessions
+  const eraLog     = log.filter(s => typeof s === 'object' && (s.rereadEra ?? 0) === currentEra)
+  const streak     = calcStreak(eraLog)
+  const sessions   = eraLog.length
+  const recent7    = recentSessionCount(eraLog, 7)
+  const lastDate   = [...logDates(eraLog)].sort().pop()
+  const gapDays    = daysSince(lastDate)
   const out       = []
 
   // Arc — always first
@@ -474,15 +477,15 @@ export function generatePresence(book, settings = null) {
   if (intObs) out.push(intObs)
 
   // Session rhythm — multiple sessions same day, immersed runs, brief returns
-  const srObs = sessionRhythmObs(log, style)
+  const srObs = sessionRhythmObs(eraLog, style)
   if (srObs) out.push(srObs)
 
   // Session stop — paused near a starred chapter
-  const ssObs = sessionStopObs(log, book.chapters || [], style)
+  const ssObs = sessionStopObs(eraLog, book.chapters || [], style)
   if (ssObs) out.push(ssObs)
 
   // Pacing change
-  const pObs = pacingObs(log, pct, style)
+  const pObs = pacingObs(eraLog, pct, style)
   if (pObs) out.push(pObs)
 
   // Momentum
@@ -491,7 +494,7 @@ export function generatePresence(book, settings = null) {
 
   // Duration
   if (style !== 'minimal' && sessions >= 2) {
-    const sorted    = [...logDates(log)].sort()
+    const sorted    = [...logDates(eraLog)].sort()
     const totalDays = Math.floor((Date.now() - new Date(sorted[0])) / 86400000)
     if (totalDays >= 30 && pct < 85)         out.push("You've been living with this story for over a month.")
     else if (totalDays >= 14 && sessions >= 4) out.push(`You've been returning to this story for ${Math.round(totalDays / 7)} weeks.`)

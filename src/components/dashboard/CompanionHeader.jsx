@@ -343,7 +343,10 @@ export default function CompanionHeader({ book, onOpenUpdate, onUpdateBook }) {
                   return (
                     <button
                       key={m}
-                      onClick={() => onUpdateBook({ mood: m })}
+                      onClick={() => onUpdateBook({
+                        mood: m,
+                        coverBg: `linear-gradient(160deg,${MOOD_CONFIG[m].color}CC 0%,${MOOD_CONFIG[m].color}66 100%)`,
+                      })}
                       onMouseEnter={() => setHoveredMood(m)}
                       onMouseLeave={() => setHoveredMood(null)}
                       aria-label={cfg.label}

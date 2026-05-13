@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useBooks } from '../context/BooksContext.jsx'
 import { useSettings } from '../context/SettingsContext.jsx'
@@ -56,9 +56,11 @@ function PlaceholderBadge() {
 
 export default function SettingsPage() {
   const navigate = useNavigate()
-  const { resetToDemo } = useBooks()
+  const { books, resetToDemo, importLibrary } = useBooks()
   const { settings, updateSetting } = useSettings()
+  const importRef = useRef()
 
+  const [importMsg,    setImportMsg]    = useState(null)  // null | { ok, text }
   const [darkMode,     setDarkMode]     = useState(false)
   const [shadowMode,   setShadowMode]   = useState(false)
   const [confirmReset, setConfirmReset] = useState(false)
@@ -76,6 +78,40 @@ export default function SettingsPage() {
     setKeyDraft('')
     updateSetting('anthropicKey', '')
     setKeySaved(false)
+  }
+
+  const handleExport = () => {
+    const date = new Date().toISOString().split('T')[0]
+    const blob = new Blob([JSON.stringify(books, null, 2)], { type: 'application/json' })
+    const url  = URL.createObjectURL(blob)
+    const a    = document.createElement('a')
+    a.href = url
+    a.download = `shadowscribe-library-${date}.json`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  const handleImportFile = (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    e.target.value = ''
+    const reader = new FileReader()
+    reader.onload = (ev) => {
+      try {
+        const parsed = JSON.parse(ev.target.result)
+        const incoming = Array.isArray(parsed) ? parsed : []
+        if (incoming.length === 0) {
+          setImportMsg({ ok: false, text: 'No companions found in that file.' })
+          return
+        }
+        importLibrary(incoming)
+        setImportMsg({ ok: true, text: `${incoming.length} companion${incoming.length !== 1 ? 's' : ''} imported.` })
+        setTimeout(() => setImportMsg(null), 4000)
+      } catch {
+        setImportMsg({ ok: false, text: "Could not read that file — make sure it's a Shadow Scribe export." })
+      }
+    }
+    reader.readAsText(file)
   }
 
   const handleReset = () => {
@@ -244,30 +280,36 @@ export default function SettingsPage() {
       <SettingsSection title="Data & Privacy" description="Your reading data lives only on this device.">
         <SettingsRow
           label="Export Library"
-          description="Download all your companions as a JSON file."
+          description={`Download all ${books.length} companion${books.length !== 1 ? 's' : ''} as a JSON file.`}
         >
-          <div className="flex items-center gap-2">
-            <button
-              disabled
-              className="text-[12px] font-medium text-ink-400 border border-ink-200 rounded-lg px-3 py-1.5 cursor-not-allowed opacity-50"
-            >
-              Export
-            </button>
-            <PlaceholderBadge />
-          </div>
+          <button
+            onClick={handleExport}
+            disabled={books.length === 0}
+            className="text-[12px] font-medium text-ink-700 border border-ink-200 rounded-lg px-3 py-1.5 hover:bg-ink-100 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            Export
+          </button>
         </SettingsRow>
         <SettingsRow
           label="Import Library"
-          description="Restore companions from a previous export."
+          description={importMsg
+            ? importMsg.text
+            : "Add companions from a previous export. Duplicates are skipped."}
         >
           <div className="flex items-center gap-2">
+            <input ref={importRef} type="file" accept=".json" className="hidden" onChange={handleImportFile} />
             <button
-              disabled
-              className="text-[12px] font-medium text-ink-400 border border-ink-200 rounded-lg px-3 py-1.5 cursor-not-allowed opacity-50"
+              onClick={() => importRef.current?.click()}
+              className={`text-[12px] font-medium border rounded-lg px-3 py-1.5 transition-colors ${
+                importMsg?.ok
+                  ? 'text-sage border-sage-pale bg-sage-bg'
+                  : importMsg
+                    ? 'text-ember border-ember-pale bg-ember-bg'
+                    : 'text-ink-700 border-ink-200 hover:bg-ink-100'
+              }`}
             >
-              Import
+              {importMsg?.ok ? '✓ Imported' : 'Import'}
             </button>
-            <PlaceholderBadge />
           </div>
         </SettingsRow>
         <SettingsRow

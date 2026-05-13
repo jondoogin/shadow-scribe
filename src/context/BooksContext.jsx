@@ -24,8 +24,17 @@ export function BooksProvider({ children }) {
     setBooks(resetBooks())
   }, [])
 
+  // Merge imported books into the library, skipping duplicates by ID
+  const importLibrary = useCallback((incoming) => {
+    setBooks(current => {
+      const existingIds = new Set(current.map(b => b.id))
+      const newBooks = incoming.filter(b => b && b.id && !existingIds.has(b.id))
+      return [...newBooks, ...current]
+    })
+  }, [])
+
   return (
-    <BooksContext.Provider value={{ books, updateBook, createBook, deleteBook, resetToDemo }}>
+    <BooksContext.Provider value={{ books, updateBook, createBook, deleteBook, resetToDemo, importLibrary }}>
       {children}
     </BooksContext.Provider>
   )
