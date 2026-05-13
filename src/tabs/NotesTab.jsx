@@ -9,6 +9,7 @@ const today = () => new Date().toISOString().split('T')[0]
 
 export default function NotesTab({ book, onUpdateBook }) {
   const [activeTag,      setActiveTag]      = useState(null)
+  const [search,         setSearch]         = useState('')
   const [adding,         setAdding]         = useState(false)
   const [newNote,        setNewNote]        = useState('')
   const [newTag,         setNewTag]         = useState('theme')
@@ -26,7 +27,10 @@ export default function NotesTab({ book, onUpdateBook }) {
   const [deletingId,     setDeletingId]     = useState(null)
   const [removingReflId, setRemovingReflId] = useState(null)
 
-  const visible  = activeTag ? book.notes.filter(n => n.tag === activeTag) : book.notes
+  const q       = search.trim().toLowerCase()
+  const visible = book.notes
+    .filter(n => !activeTag || n.tag === activeTag)
+    .filter(n => !q || n.text.toLowerCase().includes(q) || (n.reflection || '').toLowerCase().includes(q))
   const usedTags = [...new Set(book.notes.map(n => n.tag))]
 
   const dominantTag = (() => {
@@ -116,6 +120,24 @@ export default function NotesTab({ book, onUpdateBook }) {
           {book.notes.length} notes — mostly {dominantTag}
         </p>
       )}
+
+      <div className="mb-4">
+        <div className="relative">
+          <Ico.Search className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-300 w-3.5 h-3.5 pointer-events-none" />
+          <input
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Search notes…"
+            className="w-full border border-ink-200 rounded-xl pl-8 pr-3.5 py-2 text-sm text-ink-800 placeholder-ink-400 bg-white"
+          />
+          {search && (
+            <button onClick={() => setSearch('')}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-ink-300 hover:text-ink-500 transition-colors">
+              <Ico.X />
+            </button>
+          )}
+        </div>
+      </div>
 
       <div className="flex items-center justify-between mb-5 flex-wrap gap-2">
         <div className="flex gap-1.5 flex-wrap">

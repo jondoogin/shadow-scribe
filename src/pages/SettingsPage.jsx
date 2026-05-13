@@ -61,7 +61,6 @@ export default function SettingsPage() {
   const importRef = useRef()
 
   const [importMsg,    setImportMsg]    = useState(null)  // null | { ok, text }
-  const [darkMode,     setDarkMode]     = useState(false)
   const [shadowMode,   setShadowMode]   = useState(false)
   const [confirmReset, setConfirmReset] = useState(false)
   const [showKey,      setShowKey]      = useState(false)
@@ -133,10 +132,7 @@ export default function SettingsPage() {
           label="Dark Mode"
           description="Easier on the eyes for late-night reading."
         >
-          <div className="flex items-center gap-2">
-            <Toggle value={darkMode} onChange={setDarkMode} disabled />
-            <PlaceholderBadge />
-          </div>
+          <Toggle value={settings.darkMode} onChange={v => updateSetting('darkMode', v)} />
         </SettingsRow>
         <SettingsRow
           label="Shadow Mode"

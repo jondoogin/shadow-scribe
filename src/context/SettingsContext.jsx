@@ -7,6 +7,7 @@ export const SETTINGS_DEFAULTS = {
   insightStyle:   'observational', // 'observational' | 'analytical' | 'minimal'
   defaultFormat:  'print',     // 'print' | 'ebook' | 'audiobook'
   anthropicKey:   '',          // Anthropic API key for AI-assisted extraction
+  darkMode:       false,       // dark colour palette
 }
 
 const KEY = 'shadowscribe_settings'

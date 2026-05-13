@@ -22,6 +22,22 @@ export default function ProgressTab({ book, onUpdateBook, onOpenUpdate }) {
   const pct = getProgress(book)
   const [celebrating,   setCelebrating]   = useState(null)
   const [showAllSess,   setShowAllSess]   = useState(false)
+  const [editingChNum,  setEditingChNum]  = useState(null)
+  const [editingTitle,  setEditingTitle]  = useState('')
+
+  const startEditTitle = (e, ch) => {
+    e.stopPropagation()
+    setEditingChNum(ch.num)
+    setEditingTitle(ch.title)
+  }
+
+  const saveTitle = (num) => {
+    const t = editingTitle.trim()
+    if (t) {
+      onUpdateBook({ chapters: book.chapters.map(c => c.num === num ? { ...c, title: t } : c) })
+    }
+    setEditingChNum(null)
+  }
   const isNew = pct === 0 && !(book.readingLog?.length)
 
   const label = book.format === 'audiobook' ? 'Part' : 'Chapter'
@@ -82,8 +98,8 @@ export default function ProgressTab({ book, onUpdateBook, onOpenUpdate }) {
           return (
             <div
               key={ch.num}
-              onClick={() => toggleChapter(ch.num)}
-              className={`flex items-center gap-3 px-4 py-3 rounded-xl cursor-pointer transition-all select-none ${
+              onClick={() => editingChNum !== ch.num && toggleChapter(ch.num)}
+              className={`group flex items-center gap-3 px-4 py-3 rounded-xl cursor-pointer transition-all select-none ${
                 ch.completed ? 'bg-sage-bg border border-sage-pale'
                 : isCurrent  ? 'border'
                 : 'bg-cream-50 border border-ink-200 hover:border-ink-300'
@@ -115,11 +131,37 @@ export default function ProgressTab({ book, onUpdateBook, onOpenUpdate }) {
                   )}
                   {ch.important && <span className="text-gold text-[11px] leading-none">★</span>}
                 </div>
-                <p className={`text-[13px] font-medium truncate ${ch.completed ? 'line-through text-ink-400' : 'text-ink-700'}`}>
-                  {getChapterTitle(book, ch, mode)}
-                </p>
+                {editingChNum === ch.num ? (
+                  <input
+                    autoFocus
+                    value={editingTitle}
+                    onChange={e => setEditingTitle(e.target.value)}
+                    onBlur={() => saveTitle(ch.num)}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter') saveTitle(ch.num)
+                      if (e.key === 'Escape') setEditingChNum(null)
+                    }}
+                    onClick={e => e.stopPropagation()}
+                    className="w-full text-[13px] font-medium text-ink-800 bg-transparent border-b border-ink-300 outline-none py-0.5"
+                  />
+                ) : (
+                  <p className={`text-[13px] font-medium truncate ${ch.completed ? 'line-through text-ink-400' : 'text-ink-700'}`}>
+                    {getChapterTitle(book, ch, mode)}
+                  </p>
+                )}
               </div>
-              {celebrating === ch.num && <span className="confetti-dot text-base">✨</span>}
+              {celebrating === ch.num
+                ? <span className="confetti-dot text-base">✨</span>
+                : (
+                  <button
+                    onClick={e => startEditTitle(e, ch)}
+                    className="flex-shrink-0 text-ink-200 hover:text-ink-400 transition-colors opacity-0 group-hover:opacity-100 ml-1"
+                    aria-label="Rename chapter"
+                  >
+                    <Ico.Edit />
+                  </button>
+                )
+              }
             </div>
           )
         })}

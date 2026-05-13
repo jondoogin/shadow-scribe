@@ -11,6 +11,9 @@ import { getChapterLabel } from '../../utils/chapterHelpers.js'
 import { MOOD_CONFIG } from '../../data/config.js'
 import { fmtDate } from '../../utils/date.js'
 import { useBooks } from '../../context/BooksContext.jsx'
+import { useSettings } from '../../context/SettingsContext.jsx'
+import { aiExtractNarrative } from '../../utils/aiExtractor.js'
+import { parseEpub } from '../../utils/epubParser.js'
 
 const TEMPERAMENT_CONFIG = [
   { k: 'curious',      l: 'Curious',      d: 'Notices and wonders'       },
@@ -67,13 +70,19 @@ export default function CompanionHeader({ book, onOpenUpdate, onUpdateBook }) {
   const navigate     = useNavigate()
   const { deleteBook } = useBooks()
 
-  const [hoveredMood,   setHoveredMood]   = useState(null)
-  const [pendingAction, setPendingAction] = useState(null)
-  const [menuOpen,      setMenuOpen]      = useState(false)
-  const [confirmDelete, setConfirmDelete] = useState(false)
-  const [editingMeta,   setEditingMeta]   = useState(false)
-  const [metaForm,      setMetaForm]      = useState({ title: book.title, author: book.author, temperament: book.temperament || '' })
-  const menuRef = useRef()
+  const { settings } = useSettings()
+  const hasAiKey = !!settings.anthropicKey?.trim()
+
+  const [hoveredMood,    setHoveredMood]    = useState(null)
+  const [pendingAction,  setPendingAction]  = useState(null)
+  const [menuOpen,       setMenuOpen]       = useState(false)
+  const [confirmDelete,  setConfirmDelete]  = useState(false)
+  const [editingMeta,    setEditingMeta]    = useState(false)
+  const [metaForm,       setMetaForm]       = useState({ title: book.title, author: book.author, temperament: book.temperament || '' })
+  const [reextracting,   setReextracting]   = useState(false)
+  const [reextractMsg,   setReextractMsg]   = useState(null)  // { ok, text }
+  const menuRef    = useRef()
+  const epubRef    = useRef()
   const displayMood = hoveredMood || activeMood
 
   // Close stewardship menu on outside click
@@ -110,6 +119,49 @@ export default function CompanionHeader({ book, onOpenUpdate, onUpdateBook }) {
     const a    = document.createElement('a')
     a.href = url; a.download = `${book.title.replace(/\s+/g, '-').toLowerCase()}-companion.json`
     a.click(); URL.revokeObjectURL(url)
+  }
+
+  const handleReextractClick = () => {
+    setMenuOpen(false)
+    setReextractMsg(null)
+    epubRef.current?.click()
+  }
+
+  const handleEpubFile = async (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    e.target.value = ''
+    setReextracting(true)
+    setReextractMsg(null)
+    try {
+      const parsed = await parseEpub(file)
+      const { chapterContents } = parsed
+      if (!chapterContents || Object.keys(chapterContents).length === 0) {
+        throw new Error('No chapter content found in that EPUB.')
+      }
+      const result = await aiExtractNarrative(
+        chapterContents,
+        book.chapters,
+        settings.anthropicKey,
+        { title: book.title, author: book.author },
+      )
+      const { characters, summaries, mysteries, extractionMeta } = result
+      const updates = { narrativeExtracted: true, extractionMeta }
+      if (characters.main.length > 0 || characters.secondary.length > 0) updates.characters = characters
+      if (mysteries.length > 0) updates.mysteries = mysteries
+      updates.chapters = book.chapters.map(ch => ({
+        ...ch,
+        summary: summaries[ch.num] ?? ch.summary ?? null,
+      }))
+      onUpdateBook(updates)
+      setReextractMsg({ ok: true, text: `AI extraction complete — ${extractionMeta.characterCount} characters, ${extractionMeta.summariesGenerated} summaries, ${extractionMeta.mysteryCount} mysteries.` })
+      setTimeout(() => setReextractMsg(null), 6000)
+    } catch (err) {
+      setReextractMsg({ ok: false, text: err.message })
+      setTimeout(() => setReextractMsg(null), 6000)
+    } finally {
+      setReextracting(false)
+    }
   }
 
   const handleDelete = () => {
@@ -173,6 +225,8 @@ export default function CompanionHeader({ book, onOpenUpdate, onUpdateBook }) {
 
   return (
     <div className="bg-cream-50 border-b border-ink-200">
+      {/* Hidden EPUB file input for re-extraction */}
+      <input ref={epubRef} type="file" accept=".epub" className="hidden" onChange={handleEpubFile} />
       <div className="max-w-4xl mx-auto px-5 sm:px-8 py-6">
         <div className="flex gap-5 items-start">
           <div className="flex-shrink-0" style={{ boxShadow:'var(--shadow-panel)', borderRadius:12 }}>
@@ -238,6 +292,12 @@ export default function CompanionHeader({ book, onOpenUpdate, onUpdateBook }) {
                           className="w-full text-left text-[13px] text-ink-700 hover:bg-ink-100 px-3 py-2 rounded-lg transition-colors">
                           Export companion
                         </button>
+                        {hasAiKey && (
+                          <button onClick={handleReextractClick}
+                            className="w-full text-left text-[13px] text-ink-700 hover:bg-ink-100 px-3 py-2 rounded-lg transition-colors">
+                            ✦ Re-extract with Claude…
+                          </button>
+                        )}
                       </div>
                       <div className="border-t border-ink-100 mx-3" />
                       <div className="p-1.5">
@@ -330,6 +390,20 @@ export default function CompanionHeader({ book, onOpenUpdate, onUpdateBook }) {
                 <p className="text-[12px] text-ink-400 italic">
                   {book.completedAt ? fmtCompleted(book.completedAt) : 'The story is complete.'}
                 </p>
+              </div>
+            )}
+
+            {/* ── Re-extraction status ── */}
+            {reextracting && (
+              <div className="mt-3 px-3 py-2 rounded-lg bg-gold-bg border border-gold-border animate-fade-in">
+                <p className="text-[12px] text-gold animate-pulse">Claude is reading the chapters…</p>
+              </div>
+            )}
+            {reextractMsg && !reextracting && (
+              <div className={`mt-3 px-3 py-2 rounded-lg border animate-fade-in ${
+                reextractMsg.ok ? 'bg-sage-bg border-sage-pale text-sage' : 'bg-ember-bg border-ember-pale text-ember'
+              }`}>
+                <p className="text-[12px]">{reextractMsg.text}</p>
               </div>
             )}
 

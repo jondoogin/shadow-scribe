@@ -3,17 +3,35 @@ import { Ico } from '../components/shared/icons.jsx'
 import SectionLabel from '../components/shared/SectionLabel.jsx'
 import { getEffectiveMode, getDiscussionQuestionView } from '../utils/spoiler.js'
 import { useSettings } from '../context/SettingsContext.jsx'
+import { generateDiscussionQuestions } from '../utils/aiExtractor.js'
 
 export default function DiscussionTab({ book, onUpdateBook }) {
   const [input,       setInput]       = useState('')
   const [deletingIdx, setDeletingIdx] = useState(null)
+  const [generating,  setGenerating]  = useState(false)
+  const [genError,    setGenError]    = useState(null)
   const { settings } = useSettings()
   const mode = getEffectiveMode(book, settings)
   const userQuestions = book.userDiscussionQuestions || []
+  const hasAiKey = !!settings.anthropicKey?.trim()
+  const hasGenerated = book.aiQuestionsGenerated
 
   const deleteUserQ = (i) => {
     onUpdateBook({ userDiscussionQuestions: userQuestions.filter((_, idx) => idx !== i) })
     setDeletingIdx(null)
+  }
+
+  const handleGenerate = async () => {
+    setGenerating(true)
+    setGenError(null)
+    try {
+      const questions = await generateDiscussionQuestions(book, settings.anthropicKey)
+      onUpdateBook({ discussionQuestions: questions, aiQuestionsGenerated: true })
+    } catch (err) {
+      setGenError(err.message)
+    } finally {
+      setGenerating(false)
+    }
   }
 
   const questionViews = (book.discussionQuestions || [])
@@ -30,18 +48,38 @@ export default function DiscussionTab({ book, onUpdateBook }) {
     <div className="max-w-2xl">
       <div className="rounded-xl p-4 mb-6 border"
         style={{ background:'var(--ca-bg, #FDF8EC)', borderColor:'var(--ca-border, #E8D090)' }}>
-        <div className="flex items-center gap-2 mb-1.5" style={{ color:'var(--ca, #B8860B)' }}>
-          <Ico.Chat />
-          <p className="text-[10px] font-semibold uppercase tracking-widest">Questions worth sitting with</p>
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 mb-1.5" style={{ color:'var(--ca, #B8860B)' }}>
+              <Ico.Chat />
+              <p className="text-[10px] font-semibold uppercase tracking-widest">Questions worth sitting with</p>
+            </div>
+            <p className="text-[12px] text-ink-600 leading-relaxed">
+              For book clubs, journalling, or the quiet space between chapters.
+            </p>
+            {questionViews.length === 0 && !userQuestions.length && !hasAiKey && (
+              <p className="text-[12px] text-ink-400 italic mt-2">
+                Questions will find their way here as the companion grows with you.
+              </p>
+            )}
+            {genError && (
+              <p className="text-[11px] text-ember mt-2">{genError}</p>
+            )}
+          </div>
+          {hasAiKey && (
+            <button
+              onClick={handleGenerate}
+              disabled={generating}
+              className="flex-shrink-0 flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1.5 rounded-lg border transition-all disabled:opacity-50"
+              style={{ color:'var(--ca, #B8860B)', borderColor:'var(--ca-border, #E8D090)', background:'var(--ca-bg, #FDF8EC)' }}>
+              {generating ? (
+                <span className="animate-pulse">Thinking…</span>
+              ) : (
+                <>✦ {hasGenerated ? 'Regenerate' : 'Generate with Claude'}</>
+              )}
+            </button>
+          )}
         </div>
-        <p className="text-[12px] text-ink-600 leading-relaxed">
-          For book clubs, journalling, or the quiet space between chapters.
-        </p>
-        {questionViews.length === 0 && !userQuestions.length && (
-          <p className="text-[12px] text-ink-400 italic mt-2">
-            Questions will find their way here as the companion grows with you.
-          </p>
-        )}
       </div>
 
       {questionViews.length > 0 && (

@@ -16,7 +16,37 @@ const MODEL    = 'claude-3-5-haiku-20241022'
 const MAX_CHAPTER_CHARS = 2500  // chars per chapter excerpt — ~600 tokens each
 const MAX_CHAPTERS      = 60    // hard cap for very long books
 
-// ── Main export ───────────────────────────────────────────────────────────────
+// ── Shared API call helper ────────────────────────────────────────────────────
+
+async function callClaude(apiKey, prompt, maxTokens = 2048) {
+  const response = await fetch(API_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': apiKey.trim(),
+      'anthropic-version': '2023-06-01',
+      'anthropic-dangerous-direct-browser-access': 'true',
+    },
+    body: JSON.stringify({
+      model: MODEL,
+      max_tokens: maxTokens,
+      messages: [{ role: 'user', content: prompt }],
+    }),
+  })
+
+  if (!response.ok) {
+    const errData = await response.json().catch(() => ({}))
+    const msg = errData.error?.message || `API error ${response.status}`
+    if (response.status === 401) throw new Error('Invalid API key — check your key in Settings')
+    if (response.status === 429) throw new Error('Rate limit reached — please try again in a moment')
+    throw new Error(msg)
+  }
+
+  const data = await response.json()
+  return data.content?.[0]?.text ?? ''
+}
+
+// ── Main exports ──────────────────────────────────────────────────────────────
 
 /**
  * Extract characters, chapter summaries, and mysteries using Claude.
@@ -47,34 +77,8 @@ export async function aiExtractNarrative(chapterContents, chapters, apiKey, { ti
     ? `"${title}"${author ? ` by ${author}` : ''}`
     : 'this novel'
 
-  const prompt = buildPrompt(bookRef, excerpts)
-
-  // ── API call ──────────────────────────────────────────────────────────────
-  const response = await fetch(API_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': apiKey.trim(),
-      'anthropic-version': '2023-06-01',
-      'anthropic-dangerous-direct-browser-access': 'true',
-    },
-    body: JSON.stringify({
-      model: MODEL,
-      max_tokens: 6000,
-      messages: [{ role: 'user', content: prompt }],
-    }),
-  })
-
-  if (!response.ok) {
-    const errData = await response.json().catch(() => ({}))
-    const msg = errData.error?.message || `API error ${response.status}`
-    if (response.status === 401) throw new Error('Invalid API key — check your key in Settings')
-    if (response.status === 429) throw new Error('Rate limit reached — please try again in a moment')
-    throw new Error(msg)
-  }
-
-  const data    = await response.json()
-  const rawText = data.content?.[0]?.text ?? ''
+  const prompt  = buildPrompt(bookRef, excerpts)
+  const rawText = await callClaude(apiKey, prompt, 6000)
 
   // Parse JSON — handle potential markdown fences
   let parsed
@@ -213,4 +217,82 @@ function normalizeAIResult(json, chapters) {
       warnings,
     },
   }
+}
+
+// ── Discussion question generation ────────────────────────────────────────────
+
+/**
+ * Generate 6-8 literary discussion questions tailored to the reader's
+ * current position and notes. Questions are stored as plain strings in
+ * book.discussionQuestions.
+ *
+ * @param {Object} book     Full book object (uses title, author, progress, notes, summaries, mysteries)
+ * @param {string} apiKey   Anthropic API key
+ * @returns {string[]}      Array of question strings
+ */
+export async function generateDiscussionQuestions(book, apiKey) {
+  if (!apiKey?.trim()) throw new Error('No API key provided')
+
+  const pct          = Math.round((book.currentChapter / book.totalChapters) * 100)
+  const visibleChaps = book.chapters?.filter(c => c.completed && c.summary) ?? []
+  const notes        = (book.notes || []).slice(-12)   // most recent 12
+  const mysteries    = (book.mysteries || []).filter(m => !m.resolved).slice(0, 8)
+
+  // Build context block
+  const parts = []
+
+  if (visibleChaps.length > 0) {
+    parts.push('Chapter summaries so far:\n' +
+      visibleChaps.slice(-8).map(c => `  Ch.${c.num} ${c.title}: ${c.summary}`).join('\n'))
+  }
+
+  if (notes.length > 0) {
+    parts.push('Reader notes:\n' +
+      notes.map(n => `  [${n.tag}] ${n.text}`).join('\n'))
+  }
+
+  if (mysteries.length > 0) {
+    parts.push('Open mysteries the reader is tracking:\n' +
+      mysteries.map(m => `  "${m.text}"`).join('\n'))
+  }
+
+  const context = parts.length > 0
+    ? `\n\nContext from their reading so far:\n${parts.join('\n\n')}`
+    : ''
+
+  const position = pct >= 99
+    ? 'has just finished the book'
+    : pct >= 75
+      ? `is in the final quarter (${pct}% through)`
+      : pct >= 50
+        ? `is past the midpoint (${pct}% through)`
+        : `is ${pct}% through`
+
+  const prompt = `You are generating literary discussion questions for a reader of "${book.title}" by ${book.author}. The reader ${position} (chapter ${book.currentChapter} of ${book.totalChapters}).${context}
+
+Generate 6-8 thoughtful discussion questions that:
+- Are genuinely tailored to THIS book's themes, characters, and situations
+- Are appropriate for where they are (no spoilers past chapter ${book.currentChapter})
+- Range across: character psychology, thematic depth, structural craft, and personal resonance
+- Feel like questions worth a long conversation, not yes/no answers
+
+Return ONLY a JSON array of strings — no markdown, no explanation:
+["Question one?", "Question two?", ...]`
+
+  const rawText = await callClaude(apiKey, prompt, 1500)
+
+  // Parse the array
+  const jsonText = extractJSON(rawText)
+  let questions
+  try {
+    questions = JSON.parse(jsonText)
+  } catch {
+    throw new Error('AI returned an unexpected format — try again')
+  }
+
+  if (!Array.isArray(questions) || questions.length === 0) {
+    throw new Error('No questions were generated — try again')
+  }
+
+  return questions.filter(q => typeof q === 'string' && q.trim()).map(q => q.trim())
 }

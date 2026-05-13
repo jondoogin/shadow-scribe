@@ -201,6 +201,73 @@ body::before {
 }
 #root { position: relative; z-index: 1; }
 
+/* ── Dark mode palette ── */
+html.dark {
+  /* Cream → warm dark surfaces */
+  --color-cream-50:  #1E1B19;
+  --color-cream:     #1A1714;
+  --color-cream-200: #252220;
+  --color-cream-300: #2E2B28;
+
+  /* Ink → warm light text */
+  --color-ink:       #EDE8E3;
+  --color-ink-900:   #EDE8E3;
+  --color-ink-800:   #D4CEC8;
+  --color-ink-700:   #B5AFA9;
+  --color-ink-600:   #928C86;
+  --color-ink-500:   #736E69;
+  --color-ink-400:   #524E4A;
+  --color-ink-300:   #3A3633;
+  --color-ink-200:   #2A2724;
+  --color-ink-100:   #221F1C;
+
+  /* Gold backgrounds → deep amber */
+  --color-gold-pale:   #3A2E0A;
+  --color-gold-bg:     #2A2308;
+  --color-gold-border: #5A4A0F;
+
+  /* Sage backgrounds */
+  --color-sage-bg:   #1A2C1F;
+  --color-sage-pale: #243A2A;
+
+  /* Ember backgrounds */
+  --color-ember-bg:   #2A1218;
+  --color-ember-pale: #3A1A22;
+
+  /* Sienna backgrounds */
+  --color-sienna-bg:   #2A1C0E;
+  --color-sienna-pale: #3A2414;
+
+  /* Steel backgrounds */
+  --color-steel-bg:   #121C2A;
+  --color-steel-pale: #1A2A3A;
+}
+
+/* Sticky bars in dark mode */
+html.dark .sticky-bar        { background: rgba(26,23,20,.96); }
+html.dark .sticky-bottom-bar { background: rgba(26,23,20,.96); }
+
+/* Tab scroll fade in dark mode */
+html.dark .tab-scroll-fade::after {
+  background: linear-gradient(to right, transparent, #1E1B19);
+}
+
+/* Companion mood accent backgrounds in dark mode */
+html.dark [data-mood="sage"]   { --ca-bg: #1A2C1F; --ca-border: #243A2A; }
+html.dark [data-mood="ember"]  { --ca-bg: #2A1218; --ca-border: #3A1A22; }
+html.dark [data-mood="ink"]    { --ca-bg: #1E1B19; --ca-border: #2E2B28; }
+html.dark [data-mood="sienna"] { --ca-bg: #2A1C0E; --ca-border: #3A2414; }
+html.dark [data-mood="gold"]   { --ca-bg: #2A2308; --ca-border: #5A4A0F; }
+html.dark [data-mood="steel"]  { --ca-bg: #121C2A; --ca-border: #1A2A3A; }
+
+/* Note tag pills in dark mode */
+html.dark .tag-theory    { background: #1A2C1F; color: #7DB88C; border-color: #243A2A; }
+html.dark .tag-favorite  { background: #2A2308; color: #D4AF37; border-color: #5A4A0F; }
+html.dark .tag-confusing { background: #2A1218; color: #E07080; border-color: #3A1A22; }
+html.dark .tag-theme     { background: #1E1830; color: #9A7ACC; border-color: #2E2445; }
+html.dark .tag-character { background: #2A1C0E; color: #C07040; border-color: #3A2414; }
+html.dark .tag-quote     { background: #121C2A; color: #6090C0; border-color: #1A2A3A; }
+
 /* ── Reduced motion ── */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {

@@ -151,7 +151,9 @@ function CharCard({ ch, raw, veiled, book, visibleChars, onSave, onUpdateBook, o
 
   const startEdit = () => {
     setEditForm({
+      name:          raw.name          || '',
       role:          raw.role          || '',
+      tier:          raw._tier         || 'secondary',
       status:        raw.status        || '',
       allegiance:    raw.allegiance    || '',
       description:   raw.description   || '',
@@ -163,9 +165,11 @@ function CharCard({ ch, raw, veiled, book, visibleChars, onSave, onUpdateBook, o
   }
 
   const saveEdit = () => {
-    const rc = editForm.revealChapter !== '' ? parseInt(editForm.revealChapter) : null
+    const rc   = editForm.revealChapter !== '' ? parseInt(editForm.revealChapter) : null
+    const name = editForm.name.trim() || raw.name
     onSave({
       ...raw,
+      name,
       role:          editForm.role.trim()        || raw.role,
       status:        editForm.status.trim()      || raw.status,
       allegiance:    editForm.allegiance.trim()  || raw.allegiance,
@@ -174,6 +178,7 @@ function CharCard({ ch, raw, veiled, book, visibleChars, onSave, onUpdateBook, o
       spoilerSafe:   rc == null && raw.spoilerSafe,
       alive:         deriveAlive(editForm.status),
       updatedAt:     new Date().toISOString().split('T')[0],
+      _tier:         editForm.tier,
     })
     setEditing(false)
   }
@@ -299,6 +304,22 @@ function CharCard({ ch, raw, veiled, book, visibleChars, onSave, onUpdateBook, o
           ) : editing ? (
             // ── Edit mode ─────────────────────────────────────────────
             <div className="space-y-3">
+              <div>
+                <label className="text-[10px] uppercase tracking-widest text-ink-400 block mb-1">Name</label>
+                <input value={editForm.name} onChange={setE('name')} autoFocus className={inputCls} />
+              </div>
+              <div className="flex items-center gap-2">
+                {['main', 'secondary'].map(t => (
+                  <button key={t} onClick={() => setEditForm(f => ({ ...f, tier: t }))}
+                    className={`text-[11px] px-3 py-1 rounded-full font-medium transition-all border ${
+                      editForm.tier === t
+                        ? 'bg-ink-900 text-white border-ink-900'
+                        : 'bg-white text-ink-600 border-ink-200 hover:border-ink-400'
+                    }`}>
+                    {t === 'main' ? 'Main' : 'Secondary'}
+                  </button>
+                ))}
+              </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="text-[10px] uppercase tracking-widest text-ink-400 block mb-1">Role</label>
@@ -528,13 +549,26 @@ export default function CharactersTab({ book, onUpdateBook }) {
   const allRaw = [...book.characters.main, ...book.characters.secondary]
   const userAddedCount = allRaw.filter(c => c.userAdded).length
 
-  const saveChar = (charType, updated) =>
-    onUpdateBook({
-      characters: {
-        ...book.characters,
-        [charType]: book.characters[charType].map(c => c.id === updated.id ? updated : c),
-      },
-    })
+  const saveChar = (charType, updated) => {
+    const newTier = updated._tier || charType
+    if (newTier !== charType) {
+      // Moving between main ↔ secondary
+      onUpdateBook({
+        characters: {
+          ...book.characters,
+          [charType]: book.characters[charType].filter(c => c.id !== updated.id),
+          [newTier]:  [...book.characters[newTier], { ...updated, _tier: newTier }],
+        },
+      })
+    } else {
+      onUpdateBook({
+        characters: {
+          ...book.characters,
+          [charType]: book.characters[charType].map(c => c.id === updated.id ? updated : c),
+        },
+      })
+    }
+  }
 
   const deleteChar = (charType, charId) =>
     onUpdateBook({
@@ -548,7 +582,8 @@ export default function CharactersTab({ book, onUpdateBook }) {
     })
 
   const sharedCardProps = charType => ch => {
-    const raw = book.characters[charType].find(c => c.id === ch.id)
+    const rawFound = book.characters[charType].find(c => c.id === ch.id)
+    const raw = rawFound ? { ...rawFound, _tier: charType } : rawFound
     return (
       <CharCard key={ch.id} ch={ch} raw={raw} veiled={ch._veiled}
         book={book}
