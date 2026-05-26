@@ -1,0 +1,137 @@
+/* Lantern Design System — D12 Scholar's Study II
+   CSS custom properties for both modes.
+   Usage: reference var(--color-*) etc. in all component styles.
+   Mode toggling: set data-mode="dark" or data-mode="light" on <html>.
+*/
+
+/* ── Fonts ──────────────────────────────────────────────────────────────────── */
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400;1,600&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+:root {
+  --font-serif: 'Playfair Display', Georgia, serif;
+  --font-sans:  'Inter', system-ui, sans-serif;
+  --font-mono:  'JetBrains Mono', 'Fira Mono', monospace;
+
+  /* ── Spacing ────────────────────────────────────────────────────────────── */
+  --space-1:    4px;
+  --space-2:    8px;
+  --space-3:   12px;
+  --space-4:   16px;
+  --space-5:   20px;
+  --space-6:   24px;
+  --space-7:   28px;
+  --space-8:   32px;
+  --space-10:  40px;
+  --space-12:  48px;
+  --space-page-pad:      40px;
+  --space-max-width:   1000px;
+  --space-card-pad:     16px;
+  --space-companion-pad:22px;
+  --space-section-gap:  40px;
+  --space-companion-gap:48px;
+
+  /* ── Radii ──────────────────────────────────────────────────────────────── */
+  --radius-card:            12px;
+  --radius-card-large:      16px;
+  --radius-companion:       20px;
+  --radius-companion-inner: 18.5px;
+  --radius-pill:            99px;
+  --radius-tab:              8px;
+
+  /* ── Motion ─────────────────────────────────────────────────────────────── */
+  --motion-fast:     all 0.12s ease;
+  --motion-standard: all 0.28s ease;
+  --motion-thought:  opacity 0.48s ease;
+}
+
+/* ── Dark mode (default) ───────────────────────────────────────────────────── */
+:root,
+[data-mode="dark"] {
+  /* Surface */
+  --color-bg:           #0A1A1E;
+  --color-card-base:    #101E26;
+  --color-card-deep:    #162836;
+  --color-card-hover:   #1C3040;
+  --color-card-archival:#0C1820;
+
+  /* Text */
+  --color-text-primary:   #D8CCBA;
+  --color-text-secondary: #A89E8E;
+  --color-text-dim:       #5C7080;
+
+  /* Accent */
+  --color-accent:     #3C7AAA;
+  --color-accent-dim: rgba(60, 122, 170, 0.18);
+
+  /* Separators */
+  --color-separator:      rgba(60, 122, 170, 0.16);
+  --color-separator-soft: rgba(60, 122, 170, 0.10);
+
+  /* Companion */
+  --color-companion-bg:       #090F14;
+  --color-companion-hover-bg: #0F1E2C;
+
+  /* Atmospheric glows */
+  --gradient-glow:         radial-gradient(ellipse 80% 50% at 50% -5%, rgba(40,110,160,.16) 0%, transparent 65%);
+  --gradient-mystical-glow:radial-gradient(circle 400px at 15% 40%, rgba(30,90,130,.08) 0%, transparent 70%);
+
+  /* Gold */
+  --gradient-gold-foil: linear-gradient(135deg, #7A5A28 0%, #C4A058 40%, #F0D898 60%, #8A6830 100%);
+  --color-gold:         #C4A058;
+  --color-gold-dim:     rgba(196, 160, 88, 0.22);
+  --shadow-gold:        0 0 32px rgba(196,160,88,.18), 0 4px 28px rgba(0,0,0,.60);
+  --shadow-gold-hover:  0 0 52px rgba(196,160,88,.38), 0 8px 44px rgba(0,0,0,.70);
+}
+
+/* ── Light mode ────────────────────────────────────────────────────────────── */
+[data-mode="light"] {
+  /* Surface */
+  --color-bg:           #FAF6EE;
+  --color-card-base:    #FFFFFF;
+  --color-card-deep:    #F3EDE2;
+  --color-card-hover:   #EDE5D8;
+  --color-card-archival:#F7F1E6;
+
+  /* Text */
+  --color-text-primary:   #1C1410;
+  --color-text-secondary: #5C4828;
+  --color-text-dim:       #9A8868;
+
+  /* Accent */
+  --color-accent:     #8A6028;
+  --color-accent-dim: rgba(138, 96, 40, 0.12);
+
+  /* Separators */
+  --color-separator:      rgba(138, 96, 40, 0.14);
+  --color-separator-soft: rgba(138, 96, 40, 0.08);
+
+  /* Companion */
+  --color-companion-bg:       #EDE3D0;
+  --color-companion-hover-bg: #E5D8C0;
+
+  /* Atmospheric glows */
+  --gradient-glow:         radial-gradient(ellipse 80% 50% at 50% -5%, rgba(196,160,88,.18) 0%, transparent 65%);
+  --gradient-mystical-glow:radial-gradient(circle 400px at 15% 40%, rgba(196,160,88,.10) 0%, transparent 70%);
+
+  /* Gold */
+  --gradient-gold-foil: linear-gradient(135deg, #A07A40 0%, #D8C490 40%, #F0E4B8 60%, #B89060 100%);
+  --color-gold:         #8A6028;
+  --color-gold-dim:     rgba(138, 96, 40, 0.18);
+  --shadow-gold:        0 0 20px rgba(138,96,40,.14), 0 4px 20px rgba(0,0,0,.10);
+  --shadow-gold-hover:  0 0 36px rgba(138,96,40,.28), 0 8px 32px rgba(0,0,0,.16);
+}
+
+/* ── Typography utilities ───────────────────────────────────────────────────── */
+.t-book-title       { font-family: var(--font-serif); font-size: 28px; font-weight: 600; line-height: 1.1;  letter-spacing: -0.02em; }
+.t-section-heading  { font-family: var(--font-serif); font-size: 22px; font-weight: 600; line-height: 1.2;  letter-spacing: -0.01em; }
+.t-chapter-number   { font-family: var(--font-serif); font-size: 28px; font-weight: 700; line-height: 1.0;  letter-spacing: -0.02em; }
+.t-companion-thought{ font-family: var(--font-serif); font-size: 17px; font-weight: 400; line-height: 1.75; font-style: italic; }
+.t-body-primary     { font-family: var(--font-serif); font-size: 15px; font-weight: 400; line-height: 1.65; }
+.t-body-secondary   { font-family: var(--font-serif); font-size: 14px; font-weight: 400; line-height: 1.6;  }
+.t-body-small       { font-family: var(--font-serif); font-size: 13px; font-weight: 400; line-height: 1.5;  }
+.t-tab-label        { font-family: var(--font-sans);  font-size: 14px; font-weight: 400; line-height: 1.0;  }
+.t-book-card-title  { font-family: var(--font-serif); font-size: 17px; font-weight: 600; line-height: 1.2;  }
+.t-author           { font-family: var(--font-serif); font-size: 13px; font-weight: 400; line-height: 1.0;  font-style: italic; }
+.t-stat-meta        { font-family: var(--font-sans);  font-size: 12px; font-weight: 400; line-height: 1.0;  }
+.t-section-label    { font-family: var(--font-sans);  font-size: 12px; font-weight: 700; line-height: 1.0;  letter-spacing: 0.09em; text-transform: uppercase; }
+.t-zone-label       { font-family: var(--font-sans);  font-size: 11px; font-weight: 700; line-height: 1.0;  letter-spacing: 0.08em; text-transform: uppercase; }

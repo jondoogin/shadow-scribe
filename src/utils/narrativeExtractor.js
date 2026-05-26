@@ -134,6 +134,22 @@ export function extractCharacters(chapterTexts, chapters) {
     }
   }
 
+  // Prefix-based dedup: if "Wallace" and "Wallace Price" both appear, merge
+  // the shorter form into the longer (more complete) name. Prevents duplicate
+  // characters like ["Wallace", "Wallace Price"] from polluting the cast.
+  for (const [name] of [...nameCounts]) {
+    if (!nameCounts.has(name)) continue
+    for (const [other] of [...nameCounts]) {
+      if (name === other || !nameCounts.has(other)) continue
+      // name is a strict prefix of other (e.g. "Wallace" / "Wallace Price")
+      if (other.startsWith(name + ' ')) {
+        nameCounts.set(other, (nameCounts.get(other) || 0) + (nameCounts.get(name) || 0))
+        nameCounts.delete(name)
+        break
+      }
+    }
+  }
+
   // Filter: require ≥2 reliable mentions
   const MIN_MENTIONS = 2
   const candidates = [...nameCounts.entries()]

@@ -26,10 +26,12 @@
 import { getProgress }                        from './progress.js'
 import { logDates }                           from './date.js'
 import { isMysteryVisible, getEffectiveMode } from './spoiler.js'
+import { extractNoteFragment, extractResidueFragments, detectMotifs, detectAtmosphericSignature } from './residueMemory.js'
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
-export const MIN_RESURFACE_MS = 8 * 3_600_000   // 8 hours between resurfacings
+export const MIN_RESURFACE_MS  = 8  * 3_600_000   // 8 hours between resurfacings
+export const LONG_RESURFACE_MS = 24 * 3_600_000   // 24 hours — patience mode (self-sustaining narratives)
 
 // ── Note intelligence — theme inference ──────────────────────────────────────
 
@@ -288,6 +290,15 @@ export function assembleReflectionContext(book, settings) {
     .sort((a, b) => (resonanceWeights[b.id] || 1) - (resonanceWeights[a.id] || 1))
     .slice(0, 5)
 
+  // ── Residue fragments — specific remembered anchors ───────────────────────
+  const residueFragments     = extractResidueFragments(notes, mysteries, currentCh, resonanceWeights)
+
+  // ── Motif persistence — recurring concrete words across notes ─────────────
+  const motifs               = detectMotifs(notes, currentCh)
+
+  // ── Atmospheric signature — dominant emotional weather of the reading ──────
+  const atmosphericSignature = detectAtmosphericSignature(notes)
+
   // ── Visible mysteries only ────────────────────────────────────────────────
   const openMysteries = mysteries.filter(m =>
     !m.resolved && isMysteryVisible(book, m, mode)
@@ -321,6 +332,10 @@ export function assembleReflectionContext(book, settings) {
     interpretationShifts,
     highResonanceNotes,
     resonanceWeights,
+    // Residue
+    residueFragments,
+    motifs,
+    atmosphericSignature,
     // Session
     sessionCount:    dates.length,
     daysSinceLast,
@@ -346,6 +361,9 @@ export function hashContext(ctx) {
     ctx.sessionCount,
     ctx.dominantTheme ?? '',
     ctx.interpretationShifts.length,
+    ctx.residueFragments?.length ?? 0,
+    ctx.motifs?.length ?? 0,
+    ctx.atmosphericSignature?.signature ?? '',
   ].join(':')
 }
 
@@ -366,26 +384,38 @@ export function shouldRegenerate(book, contextHash) {
  *   3. Longest-unsurfaced first (among same priority)
  *
  * Excludes reflections surfaced within MIN_RESURFACE_MS (8 h).
+ *
+ * Cooling: prefers reflections shown fewer than 4 times ("fresh pool").
+ * Falls back to the full eligible pool only when the fresh pool is exhausted.
+ * This lets well-worn reflections naturally recede without storing extra state.
  */
-export function getActiveReflections(book, limit = 3) {
+export function getActiveReflections(book, limit = 3, devMode = false) {
   const reflections = book.reflectionCache?.reflections
   if (!reflections?.length) return []
   const now = Date.now()
-  return [...reflections]
+
+  const sortFn = (a, b) => {
+    const aSc = a.surfaceCount ?? 0
+    const bSc = b.surfaceCount ?? 0
+    if (aSc !== bSc) return aSc - bSc                       // unseen first
+    const aP = a.priority ?? 1
+    const bP = b.priority ?? 1
+    if (aP !== bP) return bP - aP                           // higher priority first
+    const aAge = a.lastSurfaced ? now - new Date(a.lastSurfaced).getTime() : Infinity
+    const bAge = b.lastSurfaced ? now - new Date(b.lastSurfaced).getTime() : Infinity
+    return bAge - aAge                                      // longest ago first
+  }
+
+  const eligible = [...reflections]
     .filter(r => !r.suppressed)
-    .filter(r => !r.lastSurfaced || now - new Date(r.lastSurfaced).getTime() > MIN_RESURFACE_MS)
-    .sort((a, b) => {
-      const aSc = a.surfaceCount ?? 0
-      const bSc = b.surfaceCount ?? 0
-      if (aSc !== bSc) return aSc - bSc                       // unseen first
-      const aP = a.priority ?? 1
-      const bP = b.priority ?? 1
-      if (aP !== bP) return bP - aP                           // higher priority first
-      const aAge = a.lastSurfaced ? now - new Date(a.lastSurfaced).getTime() : Infinity
-      const bAge = b.lastSurfaced ? now - new Date(b.lastSurfaced).getTime() : Infinity
-      return bAge - aAge                                      // longest ago first
-    })
-    .slice(0, limit)
+    // devMode bypasses the 8h cooldown — all reflections are eligible for testing
+    .filter(r => devMode || !r.lastSurfaced || now - new Date(r.lastSurfaced).getTime() > MIN_RESURFACE_MS)
+
+  // Prefer fresh reflections (shown < 4 times); fall back to full pool when saturated
+  const fresh = eligible.filter(r => (r.surfaceCount ?? 0) < 4)
+  const pool  = fresh.length >= limit ? fresh : eligible
+
+  return pool.sort(sortFn).slice(0, limit)
 }
 
 /**
@@ -461,31 +491,47 @@ export function generateRuleBasedReflections(ctx, insightStyle = 'observational'
 
   // ── Theory arc ─────────────────────────────────────────────────────────────
   if (ctx.theoryNotes.length >= 3) {
+    const focusName = ctx.theoryCharFocus?.[0]
     if (ctx.revisedTheories.length >= 2) {
       candidates.push({
-        text: pick([
-          "Your theories haven't stayed still. Something in the story keeps revising them.",
-          "The explanations you started with have shifted. The story has pushed back.",
-          "There was an earlier reading of this. It's moved since.",
-        ]),
+        text: focusName
+          ? pick([
+            `Your theories about ${focusName} haven't stayed still. The story keeps revising them.`,
+            `The early reading of ${focusName} has shifted more than once.`,
+          ])
+          : pick([
+            "Your theories haven't stayed still. The story keeps revising them.",
+            "The explanations you started with have shifted. The story has pushed back.",
+            "There was an earlier reading of this. It's moved since.",
+          ]),
         type: 'theory-arc', weight: 3, priority: 3,
       })
     } else if (ctx.revisedTheories.length === 1) {
       candidates.push({
-        text: pick([
-          "At least one theory has been revised since you first wrote it. Something changed.",
-          "One of your earlier explanations has been updated. The story is still surprising you.",
-          "You've been returning to earlier theories and reworking them.",
-        ]),
+        text: focusName
+          ? pick([
+            `One theory about ${focusName} has been revised since you first wrote it. Something changed.`,
+            `You've updated at least one explanation of ${focusName}. The story pushed back.`,
+          ])
+          : pick([
+            "At least one theory has been revised since you first wrote it. Something changed.",
+            "One of your earlier explanations has been updated. The story is still surprising you.",
+            "You've been returning to earlier theories and reworking them.",
+          ]),
         type: 'theory-arc', weight: 2, priority: 2,
       })
     } else {
       candidates.push({
-        text: pick([
-          `${ctx.theoryNotes.length} theory notes. You've been reading ahead of the text.`,
-          "Your notes keep reaching for explanations. Something is being worked out.",
-          "A consistent theorising thread through this reading. That attention tends to find what it's looking for.",
-        ]),
+        text: focusName
+          ? pick([
+            `${ctx.theoryNotes.length} theory notes, many returning to ${focusName}. You've been reading ahead of the text.`,
+            `Your theories keep returning to ${focusName}. Something about them is unresolved.`,
+          ])
+          : pick([
+            `${ctx.theoryNotes.length} theory notes. You've been reading ahead of the text.`,
+            "Your notes keep reaching for explanations. That pattern keeps building.",
+            "A consistent theorising thread through this reading.",
+          ]),
         type: 'theory-arc', weight: 1, priority: 2,
       })
     }
@@ -496,7 +542,7 @@ export function generateRuleBasedReflections(ctx, insightStyle = 'observational'
     const label = THEME_LABELS[ctx.dominantTheme] || ctx.dominantTheme
     candidates.push({
       text: pick([
-        `A thread of ${label} runs through many of your notes. This story has found something in you.`,
+        `A thread of ${label} runs through many of your notes.`,
         `${label.charAt(0).toUpperCase() + label.slice(1)} keeps appearing in what you write. The story seems to be working on it.`,
         `You keep circling back to ${label}. Something there is unresolved.`,
       ]),
@@ -538,7 +584,7 @@ export function generateRuleBasedReflections(ctx, insightStyle = 'observational'
   } else if (ctx.temporalEvolution === 'late-favorites') {
     candidates.push({
       text: pick([
-        "You've been marking passages as favourites more in the second half. Something in the writing has found you.",
+        "You've been marking passages as favourites more in the second half. The language is landing differently.",
         "The favourites are appearing more now than they were early on. The language is landing differently.",
       ]),
       type: 'temporal-evolution', weight: 2, priority: 2,
@@ -560,16 +606,45 @@ export function generateRuleBasedReflections(ctx, insightStyle = 'observational'
 
   // ── Resonance anchor (note intelligence) ──────────────────────────────────
   // A note that has been both revised and reflected on is a strong signal.
+  // The note fragment is injected for specificity — companion sounds like it read the note.
   const deepNote = ctx.highResonanceNotes.find(n => n.revisedAt && n.reflection)
   if (deepNote) {
+    const frag = extractNoteFragment(deepNote, 38)
     candidates.push({
-      text: pick([
-        "One thought has been returned to more than once — revised, then reflected on again. It seems to still be alive.",
-        "There's a note you've kept coming back to. It has the quality of something not yet finished.",
-        "Something you wrote early has been revisited more than once. It seems to be a thread you haven't closed.",
-      ]),
+      text: frag
+        ? pick([
+          `One thought — "${frag}" — has been returned to more than once. It's still alive.`,
+          `Something you wrote — "${frag}" — keeps getting revised. That thread hasn't closed.`,
+        ])
+        : pick([
+          "One thought has been returned to more than once — revised, then reflected on again. It's still alive.",
+          "There's a note you've kept coming back to. It has the quality of something not yet finished.",
+          "Something you wrote early has been revisited more than once. A thread you haven't closed.",
+        ]),
       type: 'resonance-anchor', weight: 2, priority: 2,
     })
+  }
+
+  // ── Early-note callback ────────────────────────────────────────────────────
+  // When past the midpoint, resurface a specific note fragment from the first
+  // quarter of the book — feels like the companion remembering alongside you.
+  if (ctx.pct > 55 && ctx.totalChapters > 0) {
+    const earlyBoundary = ctx.totalChapters * 0.28
+    const earlyDeepNote = ctx.highResonanceNotes.find(
+      n => n.chapter && n.chapter <= earlyBoundary && (n.revisedAt || n.reflection)
+    )
+    if (earlyDeepNote) {
+      const frag = extractNoteFragment(earlyDeepNote, 40)
+      if (frag) {
+        candidates.push({
+          text: pick([
+            `"${frag}" — something from early in this reading, still carrying weight.`,
+            `You wrote "${frag}" near the start. That thought has had a long time to settle.`,
+          ]),
+          type: 'early-note-callback', weight: 2, priority: 2,
+        })
+      }
+    }
   }
 
   // ── Revisiting notes ───────────────────────────────────────────────────────
@@ -578,23 +653,93 @@ export function generateRuleBasedReflections(ctx, insightStyle = 'observational'
       text: pick([
         "You've returned to earlier notes and added to them. The meaning is still moving.",
         "Some of your notes carry two layers now — the first thought and a later one.",
-        "You've been revisiting earlier thoughts. Something is still unfinished.",
+        "You've been revisiting earlier thoughts. The reading hasn't closed yet.",
       ]),
       type: 'interpretation-evolution', weight: 2, priority: 2,
     })
   }
 
   // ── Long-open mystery ──────────────────────────────────────────────────────
+  // Inject mystery text when available — the reader named this question themselves.
   if (ctx.longestOpenMystery) {
-    const age = ctx.currentChapter - (ctx.longestOpenMystery.chapter || 0)
+    const age      = ctx.currentChapter - (ctx.longestOpenMystery.chapter || 0)
+    const mystRaw  = ctx.longestOpenMystery.text?.trim()
+    const mystFrag = mystRaw && mystRaw.length > 6
+      ? (mystRaw.length > 44 ? mystRaw.slice(0, 41).trim() + '…' : mystRaw)
+      : null
     if (age >= 12) {
       candidates.push({
-        text: pick([
-          `The first thread opened is still unanswered — ${age} chapters on.`,
-          "The oldest question in this story is still open. The novel has been carrying it a long way.",
-          `This question has followed you for ${age} chapters. It hasn't let go.`,
-        ]),
+        text: mystFrag
+          ? pick([
+            `"${mystFrag}" — still unanswered, ${age} chapters on.`,
+            `That question — "${mystFrag}" — has followed you for ${age} chapters.`,
+          ])
+          : pick([
+            `The first thread opened is still unanswered — ${age} chapters on.`,
+            "The oldest question in this story is still open. The novel has been carrying it a long way.",
+            `This question has followed you for ${age} chapters. It hasn't let go.`,
+          ]),
         type: 'mystery-continuity', weight: 2, priority: 2,
+      })
+    }
+  }
+
+  // ── Motif callback — recurring concrete image ─────────────────────────────
+  // A word appearing in 4+ notes is something the reader keeps returning to
+  // without always noticing it. Naming it feels like the companion remembering.
+  if (ctx.motifs?.length) {
+    const top = ctx.motifs[0]
+    if (top.count >= 4) {
+      candidates.push({
+        text: pick([
+          `"${top.word}" keeps appearing in what you write — in ${top.count} separate notes. That kind of recurrence usually means something.`,
+          `The word "${top.word}" runs through your notes. You may not have noticed — but it keeps returning.`,
+        ]),
+        type: 'motif-callback', weight: 1.5, priority: 2,
+      })
+    }
+  }
+
+  // ── Atmospheric memory — emotional weather of the reading ─────────────────
+  // When a dominant atmosphere emerges from note language, the companion
+  // can name it — acknowledging the texture of the reading experience.
+  if (ctx.atmosphericSignature && ctx.noteCount >= 6) {
+    const { signature } = ctx.atmosphericSignature
+    const ATMOS_TEXT = {
+      cold:    ["Something cold runs through this reading. It keeps appearing in what you write.",
+                "A chill in the language of your notes — distance, numbness, removal. This book is cold somewhere."],
+      dread:   ["A current of dread beneath your notes. The reading has its shadow.",
+                "Something heavy keeps appearing in what you write. This story carries weight."],
+      warmth:  ["There's a warmth running through your notes — brightness, closeness, light.",
+                "Your notes have a warmth to them. This story seems to be reaching you."],
+      grief:   ["A thread of absence through your notes — loss, longing, what isn't there anymore. This book is sitting with something.",
+                "Grief keeps surfacing in what you write. The reading is holding it."],
+      strange: ["An unsettled quality runs through your notes. Something in this story resists easy reading.",
+                "Your notes keep circling something uncanny. This book won't resolve into ordinary."],
+      tension: ["Something taut in the language of your notes — urgency, sharpness, breath held.",
+                "A tension running through what you write. The reading is moving fast underneath."],
+    }
+    const pool = ATMOS_TEXT[signature]
+    if (pool) {
+      candidates.push({
+        text: pick(pool),
+        type: 'atmospheric-memory', weight: 1.5, priority: 2,
+      })
+    }
+  }
+
+  // ── Residue callback — recurring mystery anchor ────────────────────────────
+  // Fires between 8–11 chapters open (gap before mystery-continuity at 12+).
+  if (ctx.longestOpenMystery && ctx.residueFragments?.length) {
+    const mystAge = ctx.currentChapter - (ctx.longestOpenMystery.chapter || 0)
+    const mystFrag = ctx.residueFragments.find(f => f.type === 'mystery')
+    if (mystFrag && mystAge >= 8 && mystAge < 12) {
+      candidates.push({
+        text: pick([
+          `"${mystFrag.text}" — still here, unresolved.`,
+          `That question — "${mystFrag.text}" — is still open.`,
+        ]),
+        type: 'residue-callback', weight: 1.5, priority: 2,
       })
     }
   }
@@ -613,12 +758,18 @@ export function generateRuleBasedReflections(ctx, insightStyle = 'observational'
 
   // ── Quote collection ───────────────────────────────────────────────────────
   if (ctx.quoteNotes.length >= 3) {
+    const topQuote = ctx.quoteNotes.sort((a, b) => (ctx.resonanceWeights[b.id] || 1) - (ctx.resonanceWeights[a.id] || 1))[0]
+    const qfrag    = extractNoteFragment(topQuote, 44)
     candidates.push({
-      text: pick([
-        "You've been collecting sentences. This book is giving you language to carry.",
-        `${ctx.quoteNotes.length} passages marked as quotes. The writing is doing something to you.`,
-        "The quotes you've kept suggest a reader paying close attention to how the story is told.",
-      ]),
+      text: qfrag
+        ? pick([
+          `You've been collecting sentences — "${qfrag}" among them. The writing is doing something to you.`,
+          `"${qfrag}" — one of ${ctx.quoteNotes.length} passages you've held onto. This book is giving you language to carry.`,
+        ])
+        : pick([
+          "You've been collecting sentences. This book is giving you language to carry.",
+          `${ctx.quoteNotes.length} passages marked as quotes. The writing is doing something to you.`,
+        ]),
       type: 'reader-attention', weight: 1, priority: 1,
     })
   }
@@ -657,6 +808,55 @@ export function generateRuleBasedReflections(ctx, insightStyle = 'observational'
     .sort((a, b) => b.weight - a.weight)
     .slice(0, 5)
     .map((c, i) => makeEntry(`rb_${ts}_${i}`, c.text, 'rule-based', c.priority ?? 1))
+}
+
+// ── First-note intro reflection — tag-aware ───────────────────────────────────
+
+/**
+ * Generates a tag-aware companion response for the reader's very first note.
+ * Called once, when `book.notes.length === 0` before the new note is added.
+ * Returns a string — no entry object; caller wraps it in makeEntry.
+ */
+export function generateFirstIntroReflection(note) {
+  const tag = note?.tag || 'theme'
+  const pools = {
+    theory: [
+      "A theory right away. You came to this story already reaching for explanations.",
+      "Your first note is already an interpretation. Something caught you immediately.",
+      "A theory before the story has had time to unfold. Something caught you immediately.",
+    ],
+    confusing: [
+      "Something already unsettled you. This story may be deliberate about what it withholds.",
+      "Your first note is a question. Some stories begin this way — not with clarity, but with the right kind of confusion.",
+      "Disorientation early. That can be exactly what a story intends.",
+    ],
+    quote: [
+      "You stopped for the language before anything else. That's a specific kind of reading.",
+      "The first thing you kept was a sentence. You came here for the writing itself.",
+      "Something in the prose caught you first. The language is already working on you.",
+    ],
+    favorite: [
+      "Something moved you early.",
+      "A favourite moment already. Something in this has reach.",
+      "The story reached you before you had time to be cautious about it.",
+    ],
+    character: [
+      "Someone has already caught your attention. Early impressions in fiction are rarely accidental.",
+      "You noticed a character before anything else. That kind of attention tends to stay.",
+      "Someone made an impression immediately. Worth watching what the story does with that.",
+    ],
+    theme: [
+      "You saw the larger concern beneath the surface from the very start.",
+      "Something beneath the surface, noticed early.",
+      "Something larger than the plot caught you first. That attentiveness tends to compound.",
+    ],
+  }
+  const pool = pools[tag] ?? [
+    "The first thought is here. The reading has begun.",
+    "Something worth keeping from the very beginning.",
+    "A first note. The reading has begun in earnest.",
+  ]
+  return pool[Math.floor(Math.random() * pool.length)]
 }
 
 // ── Entry factory ─────────────────────────────────────────────────────────────

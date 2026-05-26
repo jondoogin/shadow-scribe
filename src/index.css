@@ -3,24 +3,25 @@
 @theme {
   --font-serif: "Playfair Display", Georgia, serif;
   --font-sans:  "Inter", system-ui, sans-serif;
+  --font-mono:  "JetBrains Mono", "Fira Mono", monospace;
 
-  /* ── Cream ── */
-  --color-cream-50:  #FFFDF9;
-  --color-cream:     #FAF8F3;
-  --color-cream-200: #F2EBE0;
-  --color-cream-300: #E8DDD0;
+  /* ── Cream — Scholar's Study II light surfaces ── */
+  --color-cream-50:  #FFFFFF;   /* card base — elevated, clean white */
+  --color-cream:     #FAF6EE;   /* page background — warm parchment  */
+  --color-cream-200: #F3EDE2;   /* card deep — nested surface        */
+  --color-cream-300: #EDE5D8;   /* card hover                        */
 
-  /* ── Ink ── */
-  --color-ink:       #1C1917;
-  --color-ink-900:   #1C1917;
-  --color-ink-800:   #292524;
-  --color-ink-700:   #44403C;
-  --color-ink-600:   #57534E;
-  --color-ink-500:   #78716C;
-  --color-ink-400:   #A8A29E;
-  --color-ink-300:   #D6D3D1;
-  --color-ink-200:   #E7E5E0;
-  --color-ink-100:   #F5F5F4;
+  /* ── Ink — Scholar's Study II light text ── */
+  --color-ink:       #1C1410;
+  --color-ink-900:   #1C1410;   /* text primary — near-black warm ink */
+  --color-ink-800:   #2C2418;
+  --color-ink-700:   #5C4828;   /* text secondary — cognac            */
+  --color-ink-600:   #7A6040;
+  --color-ink-500:   #9A8868;   /* text dim — labels, metadata        */
+  --color-ink-400:   #B8A890;
+  --color-ink-300:   #CFC3B0;
+  --color-ink-200:   #E4D8C8;   /* separator                          */
+  --color-ink-100:   #F0E8DC;   /* subtle separator                   */
 
   /* ── Gold ── */
   --color-gold:          #B8860B;
@@ -53,8 +54,8 @@
   --color-steel-pale:  #C8D8EE;
 
   /* ── Elevation ── */
-  --shadow-card:       0 1px 2px rgba(28,25,23,.04), 0 1px 4px rgba(28,25,23,.03);
-  --shadow-card-hover: 0 4px 14px rgba(28,25,23,.08), 0 1px 4px rgba(28,25,23,.04);
+  --shadow-card:       0 1px 3px rgba(28,25,23,.04), 0 1px 6px rgba(28,25,23,.03);
+  --shadow-card-hover: 0 4px 16px rgba(28,25,23,.08), 0 1px 4px rgba(28,25,23,.04);
   --shadow-panel:      0 4px 16px rgba(28,25,23,.06);
   --shadow-modal:      0 20px 56px rgba(28,25,23,.16), 0 4px 16px rgba(28,25,23,.08);
   --shadow-menu:       0 8px 24px rgba(28,25,23,.10), 0 2px 8px rgba(28,25,23,.05);
@@ -65,7 +66,46 @@
   --animate-pop:        pop       0.28s cubic-bezier(0.2, 0.8, 0.3, 1);
   --animate-celebrate:  celebrate 0.50s ease-out;
   --animate-menu-drop:  menuDrop  0.15s ease-out;
-  --animate-tab-in:     tabIn     0.22s ease;
+  --animate-tab-in:     tabIn     0.35s ease;
+}
+
+/* ── Scholar's Study II semantic tokens ── */
+:root {
+  /* Surface */
+  --color-bg:                #FAF6EE;
+  --color-card-base:         #FDFAF5;  /* warm cream tint — not pure white */
+  --color-card-deep:         #F3EDE2;
+  --color-card-hover:        #EDE5D8;
+  --color-card-archival:     #F5EFE4;
+
+  /* Text */
+  --color-text-primary:      #1C1410;
+  --color-text-secondary:    #5C4828;
+  --color-text-dim:          #9A8868;
+
+  /* Accent */
+  --color-accent:            #8A6028;
+  --color-accent-dim:        rgba(138, 96, 40, 0.12);
+
+  /* Separators */
+  --color-separator:         rgba(138, 96, 40, 0.14);
+  --color-separator-soft:    rgba(138, 96, 40, 0.08);
+
+  /* Companion */
+  --color-companion-bg:      #EDE3D0;
+  --color-companion-hover:   #E5D8C0;
+
+  /* Gold foil + shadow */
+  --gradient-gold-foil:      linear-gradient(135deg, #A07A40 0%, #D8C490 40%, #F0E4B8 60%, #B89060 100%);
+  --color-gold-accent:       #8A6028;
+  --shadow-gold:             0 0 20px rgba(138,96,40,.14), 0 4px 20px rgba(0,0,0,.10);
+  --shadow-gold-hover:       0 0 36px rgba(138,96,40,.28), 0 8px 32px rgba(0,0,0,.16);
+
+  /* Atmospheric gradients */
+  --gradient-glow:
+    radial-gradient(ellipse 75% 45% at 50% -8%,  rgba(184,134,11,.05) 0%, transparent 65%),
+    radial-gradient(ellipse 45% 35% at 12% 85%,  rgba(139,69,19,.025) 0%, transparent 55%),
+    radial-gradient(ellipse 55% 40% at 90% 70%,  rgba(184,134,11,.02) 0%, transparent 60%);
 }
 
 @keyframes fadeIn      { from { opacity: 0 }                              to { opacity: 1 } }
@@ -73,10 +113,31 @@
 @keyframes pop         { from { transform: scale(.95); opacity: 0 }       to { transform: scale(1);    opacity: 1 } }
 @keyframes celebrate   { 0%{transform:scale(1)} 40%{transform:scale(1.04)} 75%{transform:scale(.99)} 100%{transform:scale(1)} }
 @keyframes menuDrop    { from { transform: translateY(-6px); opacity: 0 } to { transform: translateY(0); opacity: 1 } }
-@keyframes tabIn       { from { opacity: 0; transform: translateY(4px) }  to { opacity: 1; transform: translateY(0) } }
+@keyframes tabIn       { from { opacity: 0 } to { opacity: 1 } }
 @keyframes confetti    { 0%{opacity:1;transform:translateY(0) rotate(0deg)} 100%{opacity:0;transform:translateY(-60px) rotate(360deg)} }
-@keyframes viewIn      { from { opacity: 0; transform: translateY(6px) }  to { opacity: 1; transform: translateY(0) } }
+@keyframes viewIn      { from { opacity: 0 }  to { opacity: 1 } }
 @keyframes pulse-soft  { 0%,100%{opacity:.6} 50%{opacity:1} }
+@keyframes companionSpark { 0%,100%{opacity:.55} 50%{opacity:.90} }
+@keyframes ambientBreathe { 0%,100%{opacity:.42} 50%{opacity:.62} }
+@keyframes illuminateIn   { from { opacity: 0; filter: blur(4px) }  to { opacity: 1; filter: blur(0) } }
+@keyframes settleDown     { from { transform: translateY(-8px); opacity: 0 } to { transform: translateY(0); opacity: 1 } }
+@keyframes warmSettle     { from { opacity: 0; transform: translateY(6px) } to { opacity: 1; transform: translateY(0) } }
+@keyframes noteFormArrive { from { opacity: 0; transform: translateY(-10px) } to { opacity: 1; transform: translateY(0) } }
+@keyframes noteArrive     { from { opacity: 0; transform: translateY(8px) }  to { opacity: 1; transform: translateY(0) } }
+@keyframes doneArrive     { 0%{transform:scale(.96);opacity:0} 60%{transform:scale(1.02)} 100%{transform:scale(1);opacity:1} }
+@keyframes emberDrift     { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-3px)} }
+@keyframes bookEnter      { from { opacity: 0; filter: blur(3px); transform: translateY(8px) } to { opacity: 1; filter: blur(0); transform: translateY(0) } }
+@keyframes modalBackdrop  { from { opacity: 0 } to { opacity: 1 } }
+@keyframes modalSettle    { 0%{transform:translateY(12px) scale(.98);opacity:0} 100%{transform:translateY(0) scale(1);opacity:1} }
+@keyframes companionPulse       { 0%,100%{opacity:.18} 50%{opacity:.75} }
+@keyframes companionGlyphSettle { from { opacity: 0 } to { opacity: 1 } }
+@keyframes companionTextSurface { from { opacity: 0 } to { opacity: 1 } }
+/* ── Staggered card surface — slow atmospheric emergence ─── */
+@keyframes cardSurface  { from { opacity: 0; transform: translateY(8px) }  to { opacity: 1; transform: translateY(0) } }
+/* ── Note arriving at top of stack ─────────────────────────── */
+@keyframes noteLand     { from { opacity: 0; transform: translateY(-10px) } to { opacity: 1; transform: translateY(0) } }
+/* ── Modal soft fade — slower, more atmospheric than slide-up ─ */
+@keyframes modalSoft    { 0%{transform:translateY(6px) scale(.99);opacity:0} 100%{transform:translateY(0) scale(1);opacity:1} }
 
 @layer base {
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -105,36 +166,116 @@
   }
   button:focus-visible { outline: 2px solid var(--color-gold); outline-offset: 2px; }
 
-  /* Eliminate 300ms tap delay on touch devices */
   button, [role="button"], a, input, select, textarea { touch-action: manipulation; }
 }
 
 /* ── Typography helpers ── */
 .font-serif { font-family: var(--font-serif) !important; }
 
-/* ── Tab bar ── */
+/* ── Tab bar — manuscript section navigation ── */
 .tab-btn {
-  display: flex; align-items: center; gap: 6px;
-  padding: 0 16px; height: 44px;
-  font-size: 13px; font-weight: 500;
-  border-bottom: 2px solid transparent;
-  color: var(--color-ink-500);
+  display: flex; align-items: center;
+  padding: 0 14px; height: 38px;
+  font-size: 11px; font-weight: 400;
+  letter-spacing: 0.01em;
+  border-bottom: 1px solid transparent;
+  color: var(--color-ink-400);
   white-space: nowrap;
-  transition: color .2s, border-color .2s;
+  font-family: var(--font-sans);
+  transition: color .25s ease, border-color .25s ease;
 }
-.tab-btn:hover  { color: var(--color-ink-700); border-color: var(--color-ink-200); }
-.tab-btn.active { color: var(--color-gold);    border-color: var(--color-gold); }
+.tab-btn:hover { color: var(--color-ink-600); }
+.tab-btn.active {
+  color: var(--color-gold);
+  border-bottom-color: rgba(184,134,11,.35);
+  font-style: italic;
+  font-family: var(--font-serif);
+  font-size: 12px;
+  letter-spacing: 0;
+}
+
+/* ── Editorial filter links — nearly silent until activated ── */
+/* Inactive links recede into the background; the active one carries the voice. */
+.filter-link {
+  font-family: var(--font-sans);
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--color-ink-300);   /* receded — ghost until engaged */
+  transition: color .18s ease;
+}
+.filter-link:hover { color: var(--color-ink-500); }
+.filter-link.active {
+  color: var(--color-ink-800);
+  font-style: italic;
+  font-family: var(--font-serif);
+  font-size: 12px;
+}
+html.dark .filter-link        { color: var(--color-ink-500); }
+html.dark .filter-link:hover  { color: var(--color-ink-700); }
+html.dark .filter-link.active { color: var(--color-ink-800); }
+
+/* ── Companion echo — environmental residue trace inside tab content ── */
+.companion-echo {
+  font-family: var(--font-serif);
+  font-style: italic;
+  color: var(--color-ink-300);
+  line-height: 1.6;
+}
+html.dark .companion-echo { color: var(--color-ink-400); }
+
+/* ── Session row — dissolved from bordered container ── */
+.session-row {
+  border-bottom: 1px solid rgba(28,20,16,.04);
+}
+.session-row:last-child { border-bottom: none; }
 
 /* ── Sticky bars ── */
 .sticky-bar {
   position: sticky;
-  background: rgba(250,248,243,.96);
-  backdrop-filter: blur(10px);
-  border-bottom: 1px solid var(--color-ink-100);
+  background: rgba(250,246,238,.96);
+  backdrop-filter: blur(6px);
+  border-bottom: none;
+  box-shadow: 0 1px 0 rgba(28,20,16,.04), 0 4px 8px rgba(250,246,238,.6);
   z-index: 20;
 }
 
-/* ── Card hover lift ── */
+/* ── Atmospheric card — dissolved containment, shadow-led ── */
+.atmospheric-card {
+  background: var(--color-card-base);
+  border-radius: 12px;
+  border: 1px solid rgba(28,20,16,.018);  /* near-invisible — shadow does the work */
+  box-shadow: 0 1px 4px rgba(28,20,16,.055), 0 1px 8px rgba(28,20,16,.028);
+  transition: background .12s ease, box-shadow .25s ease, transform .25s ease;
+}
+.atmospheric-card:hover {
+  background: var(--color-card-hover);
+  box-shadow: 0 4px 18px rgba(28,20,16,.09), 0 1px 5px rgba(28,20,16,.04);
+  transform: translateY(-1px);
+}
+
+/* ── Reading hero card — borderless, pure shadow containment ── */
+.reading-hero-card {
+  background: var(--color-card-base);
+  border-radius: 20px;
+  border: none;
+  box-shadow: 0 2px 16px rgba(28,20,16,.08), 0 1px 4px rgba(28,20,16,.04);
+  transition: box-shadow .28s ease, transform .28s ease, background .12s ease;
+}
+.reading-hero-card:hover {
+  box-shadow: 0 8px 36px rgba(28,20,16,.13), 0 2px 8px rgba(28,20,16,.06);
+  transform: translateY(-2px);
+}
+
+/* ── Dissolved note card — borderless, shadow-only containment ── */
+.note-card {
+  border-radius: 10px;
+  border: none;
+  box-shadow: 0 1px 3px rgba(28,20,16,.04);
+  transition: box-shadow .2s ease;
+}
+.note-card:hover { box-shadow: 0 2px 10px rgba(28,20,16,.07); }
+
+/* ── Legacy card-lift (kept for backward compat) ── */
 .card-lift {
   transition: transform .25s ease, box-shadow .25s ease;
   box-shadow: var(--shadow-card);
@@ -144,7 +285,107 @@
   box-shadow: var(--shadow-card-hover);
 }
 
-/* ── Accent-colored primary button — follows companion mood ── */
+/* ── Shelf typography — Playfair italic, quiet editorial ── */
+.shelf-title {
+  font-family: var(--font-serif);
+  font-size: 11px;
+  font-style: italic;
+  color: var(--color-ink-600);
+  opacity: 0.70;
+  margin-bottom: 1.5rem;
+  font-weight: 400;
+  letter-spacing: 0;
+}
+
+/* ── Active shelf title — reading-now section gets more silence before books ── */
+.reading-now-zone .shelf-title {
+  font-size: 12px;
+  opacity: 0.80;
+  margin-bottom: 2rem;
+}
+
+/* ── Shelf status states ── */
+.shelf-dormant {
+  opacity: 0.62;
+  filter: saturate(0.82) brightness(0.97);
+  transition: opacity .22s ease, filter .22s ease;
+}
+.shelf-dormant:hover { opacity: 1; filter: saturate(1) brightness(1); }
+
+.shelf-archive {
+  opacity: 0.38;
+  filter: saturate(0.60) brightness(0.95);
+  transition: opacity .22s ease, filter .22s ease;
+}
+.shelf-archive:hover { opacity: 0.72; filter: saturate(0.88) brightness(0.99); }
+
+/* ── Reading-now zone — warm field around the active reading section ── */
+/* Slightly more warmth and breathing room than previous passes — the active  */
+/* books should feel like they live in a different atmosphere from dormant ones */
+.reading-now-zone {
+  border-radius: 20px;
+  background: color-mix(in srgb, var(--color-gold-bg, #FDF8EC) 20%, var(--color-cream, #FAF6EE));
+  /* top edge: barely visible warm line. bottom: warm cream penumbra — zone dissolves
+     softly into the section below rather than ending at a hard compositional boundary */
+  box-shadow: inset 0 1px 0 rgba(184,134,11,.055), 0 40px 48px -8px var(--color-cream, #FAF6EE);
+  /* side bleed: zone extends further into the page margins for more peripheral warmth */
+  margin: -16px -28px 0;
+  padding: 22px 28px 14px;
+}
+
+/* ── Topographic section rhythm — gravity-weighted spacing ── */
+/* Active zone breathes generously. Dormant zones contract. Archive nearly disappears. */
+.topo-gap-active  { margin-bottom: 5.5rem;  }  /* reading-now → set aside: generous gravity field */
+.topo-gap-dormant { margin-bottom: 3.25rem; } /* set aside → finished: distinct compositional gap */
+.topo-gap-archive { margin-bottom: 1.5rem;  } /* archive: tightest, most receded */
+
+/* ── Inhabited depth — annotation-dense books carry more atmospheric weight ── */
+/* Surface warmth is barely perceptible — felt as a quality, not seen as a tint */
+.surface-inhabited {
+  background: color-mix(in srgb, var(--color-gold-bg, #FDF8EC) 5%, var(--color-card-base)) !important;
+  box-shadow: 0 3px 16px rgba(28,20,16,.11), 0 1px 5px rgba(28,20,16,.07) !important;
+}
+.surface-inhabited-deep {
+  background: color-mix(in srgb, var(--color-gold-bg, #FDF8EC) 10%, var(--color-card-base)) !important;
+  box-shadow: 0 6px 32px rgba(28,20,16,.18), 0 2px 8px rgba(28,20,16,.10) !important;
+}
+
+/* ── Primary reading-now card — most recently active book in multi-book view ── */
+/* Casts slightly more shadow; draws the eye first in the reading field */
+.reading-hero-primary {
+  box-shadow: 0 6px 32px rgba(28,20,16,.16), 0 2px 8px rgba(28,20,16,.08) !important;
+}
+
+/* ── Card dissolved — inhabited books need no border: shadow + tint are enough ── */
+/* The boundary is implied, not declared. The book exists through weight alone.   */
+.card-dissolved {
+  border: none !important;
+}
+
+/* ── Shelf cooling — paused 45–89 days: the book is still here, but quieter ── */
+.shelf-cooling {
+  opacity: 0.70;
+  filter: saturate(0.72);
+  transition: opacity .30s ease, filter .30s ease;
+}
+.shelf-cooling:hover { opacity: 0.92; filter: saturate(1); }
+
+/* ── Shelf silenced — paused 90+ days: near-ghostlike, the long absence speaks ── */
+/* On hover, the book stirs back — not gone, just very quiet.                    */
+.shelf-silenced {
+  opacity: 0.38;
+  filter: saturate(0.42) brightness(0.99);
+  transition: opacity .35s ease, filter .35s ease;
+}
+.shelf-silenced:hover { opacity: 0.70; filter: saturate(0.78); }
+
+/* ── Note archival — era 0 notes settled into a previous layer of reading ── */
+/* Warmer, more cream-like surface: these thoughts belong to an earlier reader.  */
+.note-archival {
+  background: var(--color-card-archival, #F5EFE4) !important;
+}
+
+/* ── Accent-colored primary button ── */
 .btn-accent {
   background: var(--ca, var(--color-gold));
   color: white;
@@ -164,8 +405,48 @@
 .mystery-resolved { opacity: .5; }
 .confetti-dot     { animation: confetti .8s ease-out forwards; }
 
-/* ── View transitions ── */
-.view-enter { animation: viewIn 0.22s ease-out; }
+/* ── View + route transitions ── */
+.view-enter   { animation: viewIn 0.38s ease; }
+.book-enter   { animation: bookEnter 0.42s cubic-bezier(.16,1,.3,1); }
+
+/* ── Note form / item animations ── */
+.note-form-emerge { animation: noteFormArrive 0.30s ease; }
+.note-arrive      { animation: noteArrive 0.28s ease-out; }
+.done-arrive      { animation: doneArrive 0.38s cubic-bezier(.16,1,.3,1); }
+.warm-settle      { animation: warmSettle 0.34s ease-out; }
+.animate-illuminate { animation: illuminateIn 0.42s ease-out; }
+.animate-settle     { animation: settleDown  0.36s ease-out; }
+/* Companion thread response — two-beat staged arrival */
+/* The glyph marks its place first; the words surface after. */
+.companion-glyph-settle { animation: companionGlyphSettle 0.5s ease forwards; }
+.companion-text-surface  { animation: companionTextSurface 1.1s ease 0.3s both; }
+.card-surface  { animation: cardSurface 0.70s ease backwards; }
+.note-land     { animation: noteLand   0.45s ease both; }
+.modal-soft    { animation: modalSoft  0.60s cubic-bezier(.16,1,.3,1); }
+
+/* ── Note writing mode — dims surrounding content ── */
+.note-writing-mode .note-dim {
+  opacity: 0.32;
+  pointer-events: none;
+  transition: opacity 380ms ease;
+}
+.note-writing-mode .note-dim-light {
+  opacity: 0.50;
+  transition: opacity 380ms ease;
+}
+
+/* ── Modal system ── */
+.modal-backdrop { animation: modalBackdrop 0.18s ease; }
+.modal-settle   { animation: modalSettle 0.38s cubic-bezier(.16,1,.3,1); }
+
+/* ── Ambient breathe — companion ambient presence ── */
+.ambient-breathe { animation: ambientBreathe 9s ease-in-out infinite; }
+
+/* ── Companion spark ── */
+.companion-spark { animation: companionSpark 6s ease-in-out infinite; }
+
+/* ── Ember drift — ✦ glyph float ── */
+.ember-drift { animation: emberDrift 4s ease-in-out infinite; }
 
 /* ── Grain overlay (paper texture) ── */
 body::after {
@@ -174,93 +455,308 @@ body::after {
   pointer-events: none;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23n)' opacity='1'/%3E%3C/svg%3E");
   background-size: 300px 300px;
-  opacity: 0.022;
+  opacity: 0.028;
   mix-blend-mode: multiply;
 }
 
-/* ── Companion accent theming (CSS vars per mood) ── */
-[data-mood="sage"]   { --ca: #3A6647; --ca-l: #4D8860; --ca-bg: #EBF3EE; --ca-border: #D4E8DA; }
-[data-mood="ember"]  { --ca: #9B2335; --ca-l: #C0392B; --ca-bg: #FDF0F0; --ca-border: #F5D0D4; }
-[data-mood="ink"]    { --ca: #44403C; --ca-l: #57534E; --ca-bg: #F5F5F4; --ca-border: #E7E5E0; }
-[data-mood="sienna"] { --ca: #8B4513; --ca-l: #A0521A; --ca-bg: #FDF4EE; --ca-border: #F0D5C0; }
-[data-mood="gold"]   { --ca: #B8860B; --ca-l: #D4AF37; --ca-bg: #FDF8EC; --ca-border: #E8D090; }
-[data-mood="steel"]  { --ca: #2D4A6B; --ca-l: #3D6A9B; --ca-bg: #EEF2F7; --ca-border: #C8D8EE; }
-
-/* ── Insight strip ── */
-.insight-strip {
-  border-bottom: 1px solid var(--color-ink-100);
-  background: color-mix(in srgb, var(--ca-bg, var(--color-cream-200)) 55%, var(--color-cream-50));
-}
-
-/* ── Ambient page gradient ── */
+/* ── Ambient page gradient — editorial window-light (daylight archive) ── */
 body::before {
   content: '';
   position: fixed; inset: 0; z-index: 0;
   pointer-events: none;
-  background: radial-gradient(ellipse 80% 60% at 50% -10%, rgba(184,134,11,.04) 0%, transparent 70%);
+  background:
+    radial-gradient(ellipse 90% 55% at -6% -10%,  rgba(210,195,150,.14) 0%, transparent 62%),
+    radial-gradient(ellipse 55% 42% at 88% 92%,   rgba(184,134,11,.055) 0%, transparent 55%),
+    radial-gradient(ellipse 40% 28% at 4% 96%,    rgba(92,72,40,.026) 0%, transparent 50%),
+    radial-gradient(ellipse 60% 30% at 50% 55%,   rgba(184,134,11,.012) 0%, transparent 60%),
+    /* bottom-center atmospheric ground — the library sits over warmth, not on a hard floor */
+    radial-gradient(ellipse 70% 25% at 50% 106%,  rgba(184,134,11,.020) 0%, transparent 55%);
 }
 #root { position: relative; z-index: 1; }
 
-/* ── Dark mode palette ── */
+/* ── Companion accent theming — frozen to gold; mood color system removed ── */
+/* All books share the archival gold accent. Dynamic mood colors are retired. */
+:root {
+  --ca:        #B8860B;
+  --ca-l:      #D4AF37;
+  --ca-bg:     #FDF8EC;
+  --ca-border: #E8D090;
+}
+
+/* Legacy data-mood selectors — preserved for data backward compat, frozen to gold */
+[data-mood="sage"],
+[data-mood="ember"],
+[data-mood="ink"],
+[data-mood="sienna"],
+[data-mood="gold"],
+[data-mood="steel"]  {
+  --ca:        #B8860B;
+  --ca-l:      #D4AF37;
+  --ca-bg:     #FDF8EC;
+  --ca-border: #E8D090;
+}
+
+/* ── Presence Strip — thin architectural companion layer above tabs ── */
+.presence-strip-wrapper {
+  border-bottom: 1px solid var(--color-ink-100);
+  background: transparent;
+}
+
+/* ── Companion presence zone ── */
+.companion-presence-zone {
+  border-bottom: 1px solid var(--color-ink-100);
+  background: color-mix(in srgb, var(--ca-bg, var(--color-cream-200)) 48%, var(--color-cream-50));
+}
+
+/* Legacy alias */
+.insight-strip {
+  border-bottom: 1px solid var(--color-ink-100);
+  background: color-mix(in srgb, var(--ca-bg, var(--color-cream-200)) 48%, var(--color-cream-50));
+}
+
+/* ── Active tension bar ── */
+.active-tension-bar {
+  border-bottom: 1px solid var(--color-ink-100);
+  background: color-mix(in srgb, var(--color-cream-200) 25%, var(--color-cream-50));
+}
+
+/* ── Companion orientation block ── */
+.companion-orientation-block {
+  padding: 20px 0 12px;
+  border-bottom: 1px solid var(--color-ink-100);
+}
+
+/* ── Companion Panel — gold foil border system ── */
+.companion-foil-outer {
+  background: var(--gradient-gold-foil);
+  padding: 1.5px;
+  border-radius: 20px;
+  box-shadow: var(--shadow-gold);
+  transform: translateY(0);
+  transition: all .28s ease;
+  position: sticky;
+  top: 24px;
+}
+.companion-foil-outer:hover {
+  box-shadow: var(--shadow-gold-hover);
+  transform: translateY(-3px);
+}
+.companion-foil-inner {
+  background: var(--color-companion-bg);
+  border-radius: 18.5px;
+  padding: 24px 22px;
+  min-height: 200px;
+  transition: background .28s ease;
+}
+.companion-foil-outer:hover .companion-foil-inner {
+  background: var(--color-companion-hover);
+}
+.companion-label {
+  font-family: var(--font-sans);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--color-text-dim);
+  transition: color .28s ease;
+}
+.companion-foil-outer:hover .companion-label {
+  color: var(--color-gold-accent);
+}
+.companion-thought {
+  font-family: var(--font-serif);
+  font-size: 17px;
+  font-weight: 400;
+  line-height: 1.75;
+  font-style: italic;
+  color: var(--color-text-secondary);
+  transition: color .28s ease;
+}
+.companion-foil-outer:hover .companion-thought {
+  color: var(--color-text-primary);
+}
+.companion-section-divider {
+  border: none;
+  border-top: 1px solid var(--color-separator-soft);
+  margin: 14px 0;
+  transition: border-color .28s ease;
+}
+.companion-foil-outer:hover .companion-section-divider {
+  border-color: var(--color-separator);
+}
+
+/* ── Gold rule divider (below nav) ── */
+.gold-rule {
+  height: 1px;
+  background: var(--gradient-gold-foil);
+  opacity: 0.40;
+  border-radius: 1px;
+}
+
+/* ── Sticky bottom bar ── */
+.sticky-bottom-bar {
+  position: fixed;
+  bottom: 0; left: 0; right: 0;
+  z-index: 30;
+  padding: 0.75rem 1.25rem;
+  padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
+  background: rgba(250,246,238,.96);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  border-top: 1px solid rgba(28,20,16,.04);
+}
+
+/* ── Dark mode palette — Scholar's Study II ── */
 html.dark {
-  /* Cream → warm dark surfaces */
-  --color-cream-50:  #1E1B19;
-  --color-cream:     #1A1714;
-  --color-cream-200: #252220;
-  --color-cream-300: #2E2B28;
+  /* Cream → deep teal-black study surfaces */
+  --color-cream-50:  #090F14;   /* companion bg — shadow entity, darkest */
+  --color-cream:     #0A1A1E;   /* page background                       */
+  --color-cream-200: #101E26;   /* card base                             */
+  --color-cream-300: #162836;   /* card deep                             */
 
   /* Ink → warm light text */
-  --color-ink:       #EDE8E3;
-  --color-ink-900:   #EDE8E3;
-  --color-ink-800:   #D4CEC8;
-  --color-ink-700:   #B5AFA9;
-  --color-ink-600:   #928C86;
-  --color-ink-500:   #736E69;
-  --color-ink-400:   #524E4A;
-  --color-ink-300:   #3A3633;
-  --color-ink-200:   #2A2724;
-  --color-ink-100:   #221F1C;
+  --color-ink:       #D8CCBA;
+  --color-ink-900:   #D8CCBA;   /* text primary — warm off-white */
+  --color-ink-800:   #C0B4A0;
+  --color-ink-700:   #A89E8E;   /* text secondary                */
+  --color-ink-600:   #8A8278;
+  --color-ink-500:   #5C7080;   /* text dim — cool slate         */
+  --color-ink-400:   #3C5068;
+  --color-ink-300:   #243848;
+  --color-ink-200:   #1C3040;   /* card hover                    */
+  --color-ink-100:   #0E1A26;   /* barely-visible separator      */
 
-  /* Gold backgrounds → deep amber */
-  --color-gold-pale:   #3A2E0A;
-  --color-gold-bg:     #2A2308;
-  --color-gold-border: #5A4A0F;
+  /* Gold in dark mode — cooler, more luminous */
+  --color-gold:          #C4A058;
+  --color-gold-light:    #E0C070;
+  --color-gold-pale:     #3A2E0A;
+  --color-gold-bg:       #1A1408;
+  --color-gold-border:   #4A3810;
 
-  /* Sage backgrounds */
-  --color-sage-bg:   #1A2C1F;
-  --color-sage-pale: #243A2A;
-
-  /* Ember backgrounds */
+  /* Sage/Ember/Sienna/Steel backgrounds (dark variants) */
+  --color-sage-bg:    #1A2C1F;
+  --color-sage-pale:  #243A2A;
   --color-ember-bg:   #2A1218;
   --color-ember-pale: #3A1A22;
-
-  /* Sienna backgrounds */
-  --color-sienna-bg:   #2A1C0E;
-  --color-sienna-pale: #3A2414;
-
-  /* Steel backgrounds */
+  --color-sienna-bg:  #2A1C0E;
+  --color-sienna-pale:#3A2414;
   --color-steel-bg:   #121C2A;
   --color-steel-pale: #1A2A3A;
+
+  /* Scholar's Study II dark semantic tokens */
+  --color-bg:                #0A1A1E;
+  --color-card-base:         #101E26;
+  --color-card-deep:         #162836;
+  --color-card-hover:        #1C3040;
+  --color-card-archival:     #0C1820;
+  --color-companion-bg:      #090F14;
+  --color-companion-hover:   #0F1E2C;
+  --color-text-primary:      #D8CCBA;
+  --color-text-secondary:    #A89E8E;
+  --color-text-dim:          #5C7080;
+  --color-accent:            #3C7AAA;
+  --color-accent-dim:        rgba(60, 122, 170, 0.18);
+  --color-separator:         rgba(60, 122, 170, 0.16);
+  --color-separator-soft:    rgba(60, 122, 170, 0.10);
+  --gradient-gold-foil:      linear-gradient(135deg, #7A5A28 0%, #C4A058 40%, #F0D898 60%, #8A6830 100%);
+  --color-gold-accent:       #C4A058;
+  --shadow-gold:             0 0 32px rgba(196,160,88,.18), 0 4px 28px rgba(0,0,0,.60);
+  --shadow-gold-hover:       0 0 52px rgba(196,160,88,.38), 0 8px 44px rgba(0,0,0,.70);
+  --gradient-glow:
+    radial-gradient(ellipse 80% 50% at 50% -5%, rgba(40,110,160,.16) 0%, transparent 65%);
 }
 
-/* Sticky bars in dark mode */
-html.dark .sticky-bar        { background: rgba(26,23,20,.96); }
-html.dark .sticky-bottom-bar { background: rgba(26,23,20,.96); }
+/* Dark mode — sticky bars */
+html.dark .sticky-bar        { background: rgba(10,26,30,.96); box-shadow: 0 1px 0 rgba(60,122,170,.05), 0 4px 8px rgba(10,26,30,.5); }
+html.dark .sticky-bottom-bar { background: rgba(10,26,30,.96); }
 
-/* Tab scroll fade in dark mode */
+/* ── Book document opening — the header reading record ── */
+/* Replaces the old product-card CompanionHeader structure. */
+/* No background fill — inherits page surface for environmental continuity. */
+/* Bottom border only — soft architectural separator before the sticky zone. */
+
+/* Dark mode — tab scroll fade */
 html.dark .tab-scroll-fade::after {
-  background: linear-gradient(to right, transparent, #1E1B19);
+  background: linear-gradient(to right, transparent, #0A1A1E);
 }
 
-/* Companion mood accent backgrounds in dark mode */
-html.dark [data-mood="sage"]   { --ca-bg: #1A2C1F; --ca-border: #243A2A; }
-html.dark [data-mood="ember"]  { --ca-bg: #2A1218; --ca-border: #3A1A22; }
-html.dark [data-mood="ink"]    { --ca-bg: #1E1B19; --ca-border: #2E2B28; }
-html.dark [data-mood="sienna"] { --ca-bg: #2A1C0E; --ca-border: #3A2414; }
-html.dark [data-mood="gold"]   { --ca-bg: #2A2308; --ca-border: #5A4A0F; }
-html.dark [data-mood="steel"]  { --ca-bg: #121C2A; --ca-border: #1A2A3A; }
+/* Dark mode — ambient gradient: teal glow + faint companion-column warmth from right */
+html.dark body::before {
+  background:
+    radial-gradient(ellipse 80% 50% at 50% -5%,  rgba(40,110,160,.16) 0%, transparent 65%),
+    radial-gradient(ellipse 32% 68% at 104% 52%, rgba(184,134,11,.048) 0%, transparent 56%);
+}
 
-/* Note tag pills in dark mode */
+/* Dark mode — reading-now zone */
+html.dark .reading-now-zone {
+  background: color-mix(in srgb, rgba(184,134,11,.07) 100%, var(--color-cream, #0A1A1E));
+  box-shadow: inset 0 1px 0 rgba(184,134,11,.04), 0 40px 48px -8px var(--color-cream, #0A1A1E);
+}
+
+/* Dark mode — inhabited depth */
+html.dark .surface-inhabited {
+  box-shadow: 0 3px 16px rgba(0,0,0,.55), 0 1px 5px rgba(0,0,0,.30) !important;
+}
+html.dark .surface-inhabited-deep {
+  box-shadow: 0 5px 28px rgba(0,0,0,.70), 0 1px 8px rgba(0,0,0,.40) !important;
+}
+
+/* Dark mode — atmospheric card */
+html.dark .atmospheric-card {
+  border-color: rgba(60,122,170,.04);
+  background: var(--color-card-base);
+  box-shadow: 0 1px 4px rgba(0,0,0,.45), 0 1px 10px rgba(0,0,0,.28);
+}
+html.dark .atmospheric-card:hover {
+  background: var(--color-card-hover);
+  box-shadow: 0 4px 22px rgba(0,0,0,.58), 0 1px 6px rgba(0,0,0,.32);
+}
+
+/* Dark mode — reading hero card */
+html.dark .reading-hero-card {
+  border: 1px solid rgba(60,122,170,.08);
+  background: var(--color-card-base);
+  box-shadow: 0 2px 18px rgba(0,0,0,.58), 0 1px 5px rgba(0,0,0,.38);
+}
+html.dark .reading-hero-card:hover {
+  box-shadow: 0 8px 42px rgba(0,0,0,.72), 0 2px 8px rgba(0,0,0,.42);
+}
+
+/* Dark mode — dissolved note card (borderless) */
+html.dark .note-card {
+  border: none;
+  box-shadow: 0 1px 4px rgba(0,0,0,.35);
+}
+
+/* Dark mode — archival note */
+html.dark .note-archival {
+  background: color-mix(in srgb, rgba(184,134,11,.06) 100%, var(--color-card-base)) !important;
+}
+
+/* Dark mode — cooling/silenced shelf states */
+html.dark .shelf-cooling  { opacity: 0.60; filter: saturate(0.60); }
+html.dark .shelf-silenced { opacity: 0.32; filter: saturate(0.35) brightness(0.95); }
+
+/* Dark mode — accent frozen to gold (dark variant) */
+html.dark {
+  --ca:        #C4A058;
+  --ca-l:      #E0C070;
+  --ca-bg:     #2A2308;
+  --ca-border: #5A4A0F;
+}
+html.dark [data-mood="sage"],
+html.dark [data-mood="ember"],
+html.dark [data-mood="ink"],
+html.dark [data-mood="sienna"],
+html.dark [data-mood="gold"],
+html.dark [data-mood="steel"]  {
+  --ca:        #C4A058;
+  --ca-l:      #E0C070;
+  --ca-bg:     #2A2308;
+  --ca-border: #5A4A0F;
+}
+
+/* Dark mode — note tag pills */
 html.dark .tag-theory    { background: #1A2C1F; color: #7DB88C; border-color: #243A2A; }
 html.dark .tag-favorite  { background: #2A2308; color: #D4AF37; border-color: #5A4A0F; }
 html.dark .tag-confusing { background: #2A1218; color: #E07080; border-color: #3A1A22; }
@@ -286,28 +782,16 @@ html.dark .tag-quote     { background: #121C2A; color: #6090C0; border-color: #1
 
 /* ── Mobile touch targets ── */
 @media (max-width: 640px) {
-  .tab-btn { height: 48px; padding: 0 14px; }
-
-  /* Chapter checklist rows — comfortable tap target */
+  .tab-btn { height: 44px; padding: 0 12px; }
   .chapter-row { min-height: 52px; }
-
-  /* Modal slides up from bottom on mobile with safe-area support */
-  .modal-sheet {
-    border-radius: 20px 20px 0 0;
-  }
-
-  /* Ensure sticky bars don't overlap content on small viewports */
+  .modal-sheet { border-radius: 20px 20px 0 0; }
   .sticky-bar { -webkit-overflow-scrolling: touch; }
-
-  /* Hide scrollbar on the tab strip */
   .tab-scroll-fade { scrollbar-width: none; }
   .tab-scroll-fade::-webkit-scrollbar { display: none; }
 }
 
 /* ── Tab scroll fade indicator ── */
-.tab-scroll-fade {
-  position: relative;
-}
+.tab-scroll-fade { position: relative; }
 .tab-scroll-fade::after {
   content: '';
   position: absolute; right: 0; top: 0; bottom: 0;
@@ -321,15 +805,17 @@ html.dark .tag-quote     { background: #121C2A; color: #6090C0; border-color: #1
   padding-bottom: max(1rem, env(safe-area-inset-bottom));
 }
 
-/* ── Sticky bottom action bar (mobile reading shortcut) ── */
-.sticky-bottom-bar {
-  position: fixed;
-  bottom: 0; left: 0; right: 0;
-  z-index: 30;
-  padding: 0.75rem 1.25rem;
-  padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
-  background: rgba(250,248,243,.96);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  border-top: 1px solid var(--color-ink-100);
+/* ── Mobile content safe-area scroll clearance ── */
+/* Ensures content isn't hidden under the home indicator on notched iPhones */
+.pb-safe {
+  padding-bottom: max(6rem, calc(5rem + env(safe-area-inset-bottom)));
+}
+
+/* ── Mobile: note writing area — prevent keyboard from burying the textarea ── */
+@media (max-width: 640px) {
+  /* When virtual keyboard is open (approximated by screen height), bump up the
+     textarea area so it floats above the keyboard rather than being pushed under it. */
+  .note-write-area {
+    scroll-margin-bottom: 120px;
+  }
 }

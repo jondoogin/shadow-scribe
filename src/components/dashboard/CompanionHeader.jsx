@@ -1,19 +1,17 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import BookCover from '../shared/BookCover.jsx'
-import StatusBadge from '../shared/StatusBadge.jsx'
-import ProgressBar from '../shared/ProgressBar.jsx'
-import WeightedProgressBar from '../shared/WeightedProgressBar.jsx'
 import ReadingMomentum from './ReadingMomentum.jsx'
 import { Ico } from '../shared/icons.jsx'
 import { getProgress } from '../../utils/progress.js'
-import { getChapterLabel } from '../../utils/chapterHelpers.js'
-import { MOOD_CONFIG } from '../../data/config.js'
 import { fmtDate } from '../../utils/date.js'
 import { useBooks } from '../../context/BooksContext.jsx'
 import { useSettings } from '../../context/SettingsContext.jsx'
 import { aiExtractNarrative } from '../../utils/aiExtractor.js'
 import { parseEpub } from '../../utils/epubParser.js'
+import { track } from '../../utils/analytics.js'
+import { generateCompletionAfterimageLine } from '../../utils/crossBookMemory.js'
+import { mysteryHauntScore } from '../../utils/hauntScore.js'
 
 const TEMPERAMENT_CONFIG = [
   { k: 'curious',      l: 'Curious',      d: 'Notices and wonders'       },
@@ -23,9 +21,6 @@ const TEMPERAMENT_CONFIG = [
   { k: 'quiet',        l: 'Quiet',        d: 'Still, watchful'           },
   { k: 'searching',    l: 'Searching',    d: 'Looking for something'     },
 ]
-
-const MOODS = Object.keys(MOOD_CONFIG)
-const RING_GAP = '#FFFDF9'
 
 function ordinal(n) {
   if (n === 11 || n === 12 || n === 13) return n + 'th'
@@ -52,7 +47,7 @@ const CONFIRM = {
     ok:     "Yes, it's done",
   },
   restart: {
-    body:   'Begin reading again? Your notes, reflections, and mysteries will stay with you.',
+    body:   'Begin this story again? Your notes, threads, and observations stay — they become the record of a first reading.',
     cancel: 'Keep it as it is',
     ok:     'Begin again',
   },
@@ -65,7 +60,6 @@ const CONFIRM = {
 
 export default function CompanionHeader({ book, onOpenUpdate, onUpdateBook }) {
   const pct          = getProgress(book)
-  const activeMood   = book.mood || 'gold'
   const rereadCount  = book.rereadCount || 0
   const navigate     = useNavigate()
   const { deleteBook } = useBooks()
@@ -73,19 +67,16 @@ export default function CompanionHeader({ book, onOpenUpdate, onUpdateBook }) {
   const { settings } = useSettings()
   const hasAiKey = !!settings.anthropicKey?.trim()
 
-  const [hoveredMood,    setHoveredMood]    = useState(null)
   const [pendingAction,  setPendingAction]  = useState(null)
   const [menuOpen,       setMenuOpen]       = useState(false)
   const [confirmDelete,  setConfirmDelete]  = useState(false)
   const [editingMeta,    setEditingMeta]    = useState(false)
   const [metaForm,       setMetaForm]       = useState({ title: book.title, author: book.author, temperament: book.temperament || '' })
   const [reextracting,   setReextracting]   = useState(false)
-  const [reextractMsg,   setReextractMsg]   = useState(null)  // { ok, text }
+  const [reextractMsg,   setReextractMsg]   = useState(null)
   const menuRef    = useRef()
   const epubRef    = useRef()
-  const displayMood = hoveredMood || activeMood
 
-  // Close stewardship menu on outside click
   useEffect(() => {
     if (!menuOpen) return
     const handler = e => {
@@ -118,7 +109,8 @@ export default function CompanionHeader({ book, onOpenUpdate, onUpdateBook }) {
     const url  = URL.createObjectURL(blob)
     const a    = document.createElement('a')
     a.href = url; a.download = `${book.title.replace(/\s+/g, '-').toLowerCase()}-companion.json`
-    a.click(); URL.revokeObjectURL(url)
+    a.click()
+    setTimeout(() => URL.revokeObjectURL(url), 100)
   }
 
   const handleReextractClick = () => {
@@ -183,6 +175,7 @@ export default function CompanionHeader({ book, onOpenUpdate, onUpdateBook }) {
     if (action === 'begin')   { onUpdateBook({ status: 'reading', lastUpdated: today }); return }
     if (action === 'restore') { onUpdateBook({ archived: false,   lastUpdated: today }); return }
     if (action === 'finish')  {
+      track('book_completed', { format: book.format, rereadCount })
       onUpdateBook({
         status: 'finished',
         completedAt: today,
@@ -193,20 +186,22 @@ export default function CompanionHeader({ book, onOpenUpdate, onUpdateBook }) {
       return
     }
     if (action === 'restart') {
+      track('reread_started', { rereadCount: rereadCount + 1, format: book.format })
       onUpdateBook({
-        status: 'reading',
-        currentChapter: 0,
-        chapters: book.chapters.map(c => ({ ...c, completed: false })),
-        lastUpdated: today,
-        restartedAt: today,
-        rereadCount: rereadCount + 1,
+        status:          'reading',
+        currentChapter:  0,
+        chapters:        book.chapters.map(c => ({ ...c, completed: false })),
+        lastUpdated:     today,
+        restartedAt:     today,
+        rereadCount:     rereadCount + 1,
+        reflectionCache: null,
+        mysteries:       (book.mysteries || []).map(m => ({ ...m, archivedEra: rereadCount })),
       })
       return
     }
     if (action === 'archive') { onUpdateBook({ archived: true, lastUpdated: today }) }
   }
 
-  // Context-sensitive lifecycle actions
   const actions = []
   if (isArchived) {
     actions.push({ key: 'restore', label: 'restore to shelf',       confirm: false })
@@ -217,26 +212,59 @@ export default function CompanionHeader({ book, onOpenUpdate, onUpdateBook }) {
     actions.push({ key: 'resume',  label: 'pick this back up',      confirm: false })
     actions.push({ key: 'finish',  label: 'mark as finished',       confirm: true  })
   } else if (isReading) {
-    actions.push({ key: 'pause',   label: 'put this aside',         confirm: false })
-    actions.push({ key: 'finish',  label: atEnd ? 'the story ends here ✦' : 'mark as finished', confirm: true })
+    if (!atEnd) {
+      // atEnd: primary completion block handles these — no redundant actions in secondary row
+      actions.push({ key: 'pause',  label: 'put this aside',  confirm: false })
+      actions.push({ key: 'finish', label: 'mark as finished', confirm: true })
+    }
   } else if (isWant) {
     actions.push({ key: 'begin',   label: 'begin reading',          confirm: false })
   }
 
+  // Quiet annotation: series position + reread count
+  const metaAnnotation = [
+    book.series?.name && `${book.series.name} · book ${book.series.position}${book.series.total > 0 ? ` of ${book.series.total}` : ''}`,
+    rereadCount > 0 && `${ordinal(rereadCount + 1)} reading`,
+  ].filter(Boolean).join('  ·  ')
+
   return (
-    <div className="bg-cream-50 border-b border-ink-200">
+    <div style={{ borderBottom: '1px solid rgba(28,20,16,.04)' }}>
       {/* Hidden EPUB file input for re-extraction */}
       <input ref={epubRef} type="file" accept=".epub" className="hidden" onChange={handleEpubFile} />
-      <div className="max-w-4xl mx-auto px-5 sm:px-8 py-6">
-        <div className="flex gap-5 items-start">
-          <div className="flex-shrink-0" style={{ boxShadow:'var(--shadow-panel)', borderRadius:12 }}>
-            <BookCover book={book} className="w-[76px] h-[114px]" rounded="rounded-xl" />
+
+      <div className="max-w-[1000px] mx-auto px-5 sm:px-10 py-6">
+        <div className="flex gap-4 sm:gap-5 items-start">
+
+          {/* ── Cover — atmospheric thumbnail, reduced ── */}
+          <div
+            className="flex-shrink-0 mt-1"
+            style={{
+              boxShadow: '0 2px 10px rgba(0,0,0,.13), 0 1px 3px rgba(0,0,0,.07)',
+              borderRadius: 8,
+            }}
+          >
+            <BookCover book={book} className="w-[50px] h-[75px]" rounded="rounded-[8px]" />
           </div>
 
+          {/* ── Document column ── */}
           <div className="flex-1 min-w-0">
-            <h1 className="font-serif text-xl font-bold text-ink-900 leading-tight mb-0.5 line-clamp-2">{book.title}</h1>
 
-            {/* ── Author row: name · edit · ··· menu ── */}
+            {/* Title — document opening, no label above it */}
+            <h1
+              className="font-serif line-clamp-2"
+              style={{
+                fontSize: 24,
+                fontWeight: 600,
+                letterSpacing: '-0.025em',
+                lineHeight: 1.15,
+                color: 'var(--color-ink-900)',
+                marginBottom: 5,
+              }}
+            >
+              {book.title}
+            </h1>
+
+            {/* Author row + edit + stewardship menu */}
             {editingMeta ? (
               <div className="mb-3 space-y-2 animate-fade-in">
                 <input
@@ -271,9 +299,14 @@ export default function CompanionHeader({ book, onOpenUpdate, onUpdateBook }) {
                 </div>
               </div>
             ) : (
-              <div className="flex items-center gap-1.5 mb-3">
-                <p className="text-[13px] text-ink-500">{book.author}</p>
-                <button onClick={openEditMeta} className="text-[11px] text-ink-300 hover:text-ink-500 transition-colors italic py-1 px-0.5">· edit</button>
+              <div className="flex items-center gap-2 mb-2">
+                <p
+                  className="font-serif italic truncate"
+                  style={{ fontSize: 14, color: 'var(--color-ink-500)' }}
+                >
+                  {book.author}
+                </p>
+                <button onClick={openEditMeta} className="text-[11px] text-ink-300 hover:text-ink-500 transition-colors italic py-1 px-0.5 flex-shrink-0">· edit</button>
                 <div className="relative ml-auto flex-shrink-0" ref={menuRef}>
                   <button
                     onClick={() => { setMenuOpen(v => !v); setConfirmDelete(false) }}
@@ -286,11 +319,11 @@ export default function CompanionHeader({ book, onOpenUpdate, onUpdateBook }) {
                       <div className="p-1.5">
                         <button onClick={openEditMeta}
                           className="w-full text-left text-[13px] text-ink-700 hover:bg-ink-100 px-3 py-2 rounded-lg transition-colors">
-                          Edit companion
+                          Edit
                         </button>
                         <button onClick={() => { handleExport(); setMenuOpen(false) }}
                           className="w-full text-left text-[13px] text-ink-700 hover:bg-ink-100 px-3 py-2 rounded-lg transition-colors">
-                          Export companion
+                          Save a copy
                         </button>
                         {hasAiKey && (
                           <button onClick={handleReextractClick}
@@ -332,66 +365,266 @@ export default function CompanionHeader({ book, onOpenUpdate, onUpdateBook }) {
               </div>
             )}
 
-            <div className="flex items-center gap-3 flex-wrap">
-              <StatusBadge status={book.status} />
-              {book.series && (
-                <span className="text-[11px] text-ink-400">{book.series.name} #{book.series.position}</span>
-              )}
-              {rereadCount > 0 && (
-                <span className="text-[11px] text-ink-300 italic">{ordinal(rereadCount + 1)} reading</span>
-              )}
-            </div>
+            {/* Series · reread count — quiet annotation, below author */}
+            {metaAnnotation && !editingMeta && (
+              <p
+                className="italic mb-1"
+                style={{ fontSize: 11, color: 'var(--color-ink-300)' }}
+              >
+                {metaAnnotation}
+              </p>
+            )}
 
-            <div className="mt-4 space-y-2 max-w-sm">
-              <div className="flex items-center justify-between text-[12px]">
-                <span className="text-ink-500">
-                  {(() => {
-                    const ch = book.chapters?.find(c => c.num === book.currentChapter)
-                    return ch ? getChapterLabel(ch, book.format) : `${book.format === 'audiobook' ? 'Part' : 'Chapter'} ${book.currentChapter}`
-                  })()} of {book.totalChapters}
-                </span>
-                <span className="font-bold tabular-nums" style={{ color:'var(--ca, #B8860B)' }}>{pct}%</span>
-              </div>
-              <WeightedProgressBar book={book} height="h-2" />
-              {book.series?.total > 0 && (
-                <div className="pt-1">
-                  <div className="flex items-center justify-between text-[11px] text-ink-400 mb-1.5">
-                    <span>Series progress</span>
-                    <span>Book {book.series.position} of {book.series.total}</span>
-                  </div>
-                  <ProgressBar value={(book.series.position / book.series.total) * 100} color="sage" height="h-1" />
+            {/* ── Finished: post-completion afterimage / archival statement ── */}
+            {/* Recently-finished books (≤ 30 days) show a quiet earned observation;  */}
+            {/* older completions settle into the archival date line.                 */}
+            {isFinished && (() => {
+              const daysAgo    = book.completedAt
+                ? Math.floor((Date.now() - new Date(book.completedAt).getTime()) / 86_400_000)
+                : 9999
+              const recentFinish = daysAgo <= 30
+              const afterimage   = recentFinish ? generateCompletionAfterimageLine(book) : null
+              return (
+                <div className="mt-3">
+                  <p className="italic" style={{ fontSize: 12, color: 'var(--color-ink-400)' }}>
+                    {afterimage ?? (book.completedAt ? fmtCompleted(book.completedAt) : 'The story is complete.')}
+                  </p>
+                  {recentFinish && daysAgo > 2 && book.completedAt && (
+                    <p className="italic" style={{ fontSize: 11, color: 'var(--color-ink-300)', marginTop: 3 }}>
+                      {fmtCompleted(book.completedAt)}
+                    </p>
+                  )}
                 </div>
-              )}
-            </div>
+              )
+            })()}
 
-            {/* ── Active: update button + momentum ── */}
-            {!isFinished ? (
-              <>
-                <div className="mt-4 flex items-center gap-4">
-                  <button
-                    onClick={onOpenUpdate}
-                    className="flex items-center gap-2 px-3.5 py-2 rounded-xl border text-[13px] font-semibold transition-all hover:text-white"
-                    style={{
-                      color:'var(--ca, #B8860B)',
-                      background:'var(--ca-bg, #FDF8EC)',
-                      borderColor:'var(--ca-border, #E8D090)',
-                    }}
-                    onMouseEnter={e => { e.currentTarget.style.background='var(--ca, #B8860B)'; e.currentTarget.style.color='white' }}
-                    onMouseLeave={e => { e.currentTarget.style.background='var(--ca-bg, #FDF8EC)'; e.currentTarget.style.color='var(--ca, #B8860B)' }}
+            {/* ── Reading gap archaeology — active book, unvisited for 7+ days ── */}
+            {/* For books still marked "reading" but untouched for a week or more, */}
+            {/* surface the last note as a quiet re-entry anchor. Not a prompt —   */}
+            {/* just a thread to pick back up. Only shows if there are notes.      */}
+            {isReading && !atEnd && !editingMeta && !pendingAction && (() => {
+              const daysAway = book.lastUpdated
+                ? Math.floor((Date.now() - new Date(book.lastUpdated).getTime()) / 86_400_000)
+                : 0
+              if (daysAway < 7) return null
+              const lastNote = (book.notes || []).slice(-1)[0]
+              if (!lastNote) return null
+              const lastText = lastNote.text || ''
+              // Most haunted unresolved mystery — only surface if gap ≥ 14 days and
+              // there's a mystery with meaningful weight (avoids cluttering short gaps)
+              const hauntedMystery = daysAway >= 14
+                ? (book.mysteries || [])
+                    .filter(m => !m.resolved)
+                    .sort((a, b) => mysteryHauntScore(b, book) - mysteryHauntScore(a, book))
+                    .find(m => mysteryHauntScore(m, book) >= 1.5)
+                : null
+              return (
+                <div
+                  className="animate-fade-in"
+                  style={{ marginTop: 12, paddingTop: 10, borderTop: '1px solid rgba(28,20,16,.04)' }}
+                >
+                  <p
+                    className="italic leading-relaxed"
+                    style={{ fontSize: 11, color: 'var(--color-ink-300)', marginBottom: hauntedMystery ? 4 : 0 }}
                   >
-                    <Ico.Refresh /> Tell the companion where you are
-                  </button>
+                    "{lastText.length > 110 ? lastText.slice(0, 110) + '…' : lastText}"
+                  </p>
+                  {hauntedMystery && (
+                    <p
+                      className="italic"
+                      style={{ fontSize: 11, color: 'var(--color-ink-300)', opacity: 0.72 }}
+                    >
+                      <span style={{ fontSize: 8, color: 'var(--ca, #B8860B)', opacity: 0.5, marginRight: 5 }}>✦</span>
+                      {hauntedMystery.text.length > 85
+                        ? hauntedMystery.text.slice(0, 85) + '…'
+                        : hauntedMystery.text}
+                    </p>
+                  )}
                 </div>
-                <ReadingMomentum book={book} />
-              </>
-            ) : (
-              // ── Finished: quiet completion statement ──
-              <div className="mt-4">
-                <p className="text-[12px] text-ink-400 italic">
-                  {book.completedAt ? fmtCompleted(book.completedAt) : 'The story is complete.'}
+              )
+            })()}
+
+            {/* ── Abandoned archaeology — paused book, long silence ──────────── */}
+            {/* When a paused book has been silent for 14+ days, quietly surface  */}
+            {/* what was in motion when the reader set it down. Not a prompt to   */}
+            {/* return — just archaeology. The story holding its place.           */}
+            {isPaused && !editingMeta && !pendingAction && (() => {
+              const daysAway = book.lastUpdated
+                ? Math.floor((Date.now() - new Date(book.lastUpdated).getTime()) / 86_400_000)
+                : 0
+              if (daysAway < 14) return null
+
+              const durationStr = daysAway >= 60
+                ? `${Math.round(daysAway / 30)} months`
+                : `${Math.round(daysAway / 7)} weeks`
+
+              const lastNote        = (book.notes || []).slice(-1)[0]
+              const lastNoteText    = lastNote?.text || ''
+              // Sort unresolved mysteries by haunt score — surface the most haunted one specifically
+              const openMysteriesArr = (book.mysteries || [])
+                .filter(m => !m.resolved)
+                .sort((a, b) => mysteryHauntScore(b, book) - mysteryHauntScore(a, book))
+              const topMystery       = openMysteriesArr[0] ?? null
+              const openCount        = openMysteriesArr.length
+
+              return (
+                <div
+                  className="animate-fade-in"
+                  style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid rgba(28,20,16,.05)' }}
+                >
+                  <p
+                    className="italic"
+                    style={{ fontSize: 11, color: 'var(--color-ink-400)', marginBottom: lastNote || openCount > 0 ? 5 : 0 }}
+                  >
+                    Set aside {durationStr} ago.
+                  </p>
+                  {lastNote && (
+                    <p
+                      className="italic leading-relaxed"
+                      style={{
+                        fontSize: 11,
+                        color: 'var(--color-ink-300)',
+                        marginBottom: openCount > 0 ? 4 : 0,
+                      }}
+                    >
+                      "{lastNoteText.length > 110 ? lastNoteText.slice(0, 110) + '…' : lastNoteText}"
+                    </p>
+                  )}
+                  {topMystery && (
+                    <p
+                      className="italic leading-relaxed"
+                      style={{ fontSize: 11, color: 'var(--color-ink-300)', marginBottom: openCount > 1 ? 3 : 0 }}
+                    >
+                      "{topMystery.text.length > 90 ? topMystery.text.slice(0, 90) + '…' : topMystery.text}"
+                    </p>
+                  )}
+                  {openCount > 1 && (
+                    <p className="italic" style={{ fontSize: 11, color: 'var(--color-ink-300)' }}>
+                      {openCount - 1} other {openCount - 1 === 1 ? 'thread' : 'threads'} still open.
+                    </p>
+                  )}
+                </div>
+              )
+            })()}
+
+            {/* ── Completion pathway — all chapters read, not yet marked finished ── */}
+            {/* When atEnd, the "Continue" ritual gives way to a quiet completion    */}
+            {/* ceremony. No confetti. No achievement. Just the story ending.        */}
+            {(isReading || isPaused) && atEnd && !editingMeta && !pendingAction && (
+              <div className="mt-4 animate-fade-in">
+                <p
+                  className="italic"
+                  style={{ fontSize: 12, color: 'var(--color-ink-400)', marginBottom: 10, lineHeight: 1.6 }}
+                >
+                  The final chapter.
                 </p>
+                <button
+                  onClick={() => setPendingAction('finish')}
+                  className="transition-all"
+                  style={{
+                    fontFamily:    'var(--font-serif)',
+                    fontSize:      15,
+                    fontWeight:    400,
+                    letterSpacing: '-0.01em',
+                    color:         'var(--color-ink-700)',
+                    padding:       '9px 20px',
+                    border:        '1px solid var(--color-ink-200)',
+                    borderRadius:  7,
+                    background:    'transparent',
+                    display:       'inline-flex',
+                    alignItems:    'center',
+                    gap:           10,
+                  }}
+                  onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--color-ink-400)'; e.currentTarget.style.color = 'var(--color-ink-900)' }}
+                  onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--color-ink-200)'; e.currentTarget.style.color = 'var(--color-ink-700)' }}
+                >
+                  The story ends here
+                  <span style={{ fontSize: 9, color: 'var(--ca, #B8860B)', opacity: 0.65 }}>✦</span>
+                </button>
               </div>
             )}
+
+            {/* ── Primary ritual action — progress update ─────────────────────── */}
+            {/* This is the central ritual of Lantern. Elevated in hierarchy above  */}
+            {/* lifecycle actions. Not a button — a ceremonial anchor.              */}
+            {(isReading || isPaused) && !atEnd && !editingMeta && !pendingAction && (
+              <div className="mt-4">
+                <button
+                  onClick={onOpenUpdate}
+                  className="transition-all"
+                  style={{
+                    fontFamily:    'var(--font-serif)',
+                    fontSize:      15,
+                    fontWeight:    400,
+                    letterSpacing: '-0.01em',
+                    color:         'var(--color-ink-700)',
+                    padding:       '9px 20px',
+                    border:        '1px solid var(--color-ink-200)',
+                    borderRadius:  7,
+                    background:    'transparent',
+                    display:       'inline-flex',
+                    alignItems:    'center',
+                    gap:           8,
+                  }}
+                  onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--color-ink-400)'; e.currentTarget.style.color = 'var(--color-ink-900)' }}
+                  onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--color-ink-200)'; e.currentTarget.style.color = 'var(--color-ink-700)' }}
+                >
+                  {isPaused
+                    ? `Return to chapter ${book.currentChapter || 1}`
+                    : (book.readingLog?.length ?? 0) === 0
+                      ? 'Begin your first chapter'
+                      : book.currentChapter > 0
+                        ? `Continue from chapter ${book.currentChapter}`
+                        : 'Begin your first chapter'}
+                  <span style={{ fontSize: 13, color: 'var(--color-ink-400)' }}>→</span>
+                </button>
+              </div>
+            )}
+
+            {/* ── Confirm dialog — surfaces whenever an action awaits confirmation ── */}
+            {/* Decoupled from actions.length so it renders even when atEnd clears  */}
+            {/* the action list (completion pathway uses setPendingAction directly). */}
+            {pendingAction && CONFIRM[pendingAction] && !editingMeta && (
+              <div className="mt-3 animate-fade-in">
+                <p className="text-[12px] text-ink-600 italic mb-3 leading-relaxed">
+                  {CONFIRM[pendingAction].body}
+                </p>
+                <div className="flex gap-2">
+                  <button onClick={() => setPendingAction(null)}
+                    className="text-[12px] text-ink-600 hover:text-ink-800 px-3 py-1.5 rounded-lg border border-ink-200 transition-colors">
+                    {CONFIRM[pendingAction].cancel}
+                  </button>
+                  <button onClick={() => { performAction(pendingAction); setPendingAction(null) }}
+                    className="text-[12px] font-semibold px-3 py-1.5 rounded-lg btn-accent">
+                    {CONFIRM[pendingAction].ok}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* ── Lifecycle actions — secondary register ─────────────────────── */}
+            {/* These are subordinate to the ritual action above.                 */}
+            {actions.length > 0 && !pendingAction && !editingMeta && (
+              <div className="mt-3">
+                <div className="flex items-center flex-wrap">
+                  {actions.map((a, i) => (
+                    <span key={a.key} className="flex items-center">
+                      {i > 0 && (
+                        <span className="text-ink-200 mx-2 select-none text-[11px]" aria-hidden="true">·</span>
+                      )}
+                      <button
+                        onClick={() => a.confirm ? setPendingAction(a.key) : performAction(a.key)}
+                        className="text-[11px] italic transition-colors text-ink-400 hover:text-ink-600">
+                        {a.label}
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* ── Reading momentum — ambient pacing awareness ── */}
+            {!isFinished && <ReadingMomentum book={book} />}
 
             {/* ── Re-extraction status ── */}
             {reextracting && (
@@ -401,90 +634,11 @@ export default function CompanionHeader({ book, onOpenUpdate, onUpdateBook }) {
             )}
             {reextractMsg && !reextracting && (
               <div className={`mt-3 px-3 py-2 rounded-lg border animate-fade-in ${
-                reextractMsg.ok ? 'bg-sage-bg border-sage-pale text-sage' : 'bg-ember-bg border-ember-pale text-ember'
+                reextractMsg.ok
+                  ? 'bg-gold-bg border-gold-border text-ink-600'
+                  : 'bg-ember-bg border-ember-pale text-ember'
               }`}>
                 <p className="text-[12px]">{reextractMsg.text}</p>
-              </div>
-            )}
-
-            {/* ── Mood selector ── */}
-            <div className="mt-4 pt-3 border-t border-ink-100">
-              <div className="flex items-center gap-2 flex-wrap">
-                {MOODS.map(m => {
-                  const cfg      = MOOD_CONFIG[m]
-                  const isActive = m === activeMood
-                  const isHov    = hoveredMood === m
-                  return (
-                    <button
-                      key={m}
-                      onClick={() => onUpdateBook({
-                        mood: m,
-                        coverBg: `linear-gradient(160deg,${MOOD_CONFIG[m].color}CC 0%,${MOOD_CONFIG[m].color}66 100%)`,
-                      })}
-                      onMouseEnter={() => setHoveredMood(m)}
-                      onMouseLeave={() => setHoveredMood(null)}
-                      aria-label={cfg.label}
-                      aria-pressed={isActive}
-                      className="w-3.5 h-3.5 rounded-full flex-shrink-0 transition-all duration-200"
-                      style={{
-                        background: cfg.color,
-                        boxShadow: isActive || isHov
-                          ? `0 0 0 1.5px ${RING_GAP}, 0 0 0 3px ${cfg.ring}`
-                          : 'none',
-                        opacity: hoveredMood && !isHov && !isActive ? 0.3 : 1,
-                        transform: isHov && !isActive ? 'scale(1.15)' : 'scale(1)',
-                      }}
-                    />
-                  )
-                })}
-                <span
-                  className="text-[11px] text-ink-400 italic ml-0.5 select-none"
-                  style={{ transition: 'opacity 0.18s ease', opacity: hoveredMood ? 0.85 : 0.45 }}
-                >
-                  {MOOD_CONFIG[displayMood]?.descriptor}
-                </span>
-              </div>
-            </div>
-
-            {/* ── Lifecycle actions ── */}
-            {actions.length > 0 && (
-              <div className="mt-3 pt-3 border-t border-ink-100">
-                {pendingAction && CONFIRM[pendingAction] ? (
-                  <div className="animate-fade-in">
-                    <p className="text-[12px] text-ink-600 italic mb-3 leading-relaxed">
-                      {CONFIRM[pendingAction].body}
-                    </p>
-                    <div className="flex gap-2">
-                      <button onClick={() => setPendingAction(null)}
-                        className="text-[12px] text-ink-600 hover:text-ink-800 px-3 py-1.5 rounded-lg border border-ink-200 transition-colors">
-                        {CONFIRM[pendingAction].cancel}
-                      </button>
-                      <button onClick={() => { performAction(pendingAction); setPendingAction(null) }}
-                        className="text-[12px] font-semibold px-3 py-1.5 rounded-lg btn-accent">
-                        {CONFIRM[pendingAction].ok}
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="flex items-center flex-wrap">
-                    {actions.map((a, i) => (
-                      <span key={a.key} className="flex items-center">
-                        {i > 0 && (
-                          <span className="text-ink-200 mx-2 select-none text-[11px]" aria-hidden="true">·</span>
-                        )}
-                        <button
-                          onClick={() => a.confirm ? setPendingAction(a.key) : performAction(a.key)}
-                          className={`text-[11px] italic transition-colors ${
-                            a.key === 'finish' && atEnd
-                              ? 'text-ink-600 hover:text-ink-800'
-                              : 'text-ink-400 hover:text-ink-600'
-                          }`}>
-                          {a.label}
-                        </button>
-                      </span>
-                    ))}
-                  </div>
-                )}
               </div>
             )}
 

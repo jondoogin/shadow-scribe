@@ -1,5 +1,5 @@
-# Shadow Scribe — Architecture
-**Last updated:** 2026-05-13 (Session 48)
+# Lantern — Architecture
+**Last updated:** 2026-05-20 (Session 79)
 
 ---
 
@@ -31,8 +31,7 @@ BrowserRouter
                 ├── /new           → NewCompanionPage → CreateCompanion
                 ├── /book/:bookId  → BookPage → BookDashboard
                 │                     ├── CompanionHeader
-                │                     ├── CompanionInsights
-                │                     ├── [sticky tab bar]
+                │                     ├── [sticky bar: PresenceStrip + tab bar]
                 │                     ├── ProgressTab
                 │                     ├── CharactersTab → RelationshipMap
                 │                     ├── PlotTab
@@ -57,7 +56,7 @@ shadow-scribe/
 │   ├── index.css                  ← @theme tokens, keyframes, data-mood, dark mode
 │   ├── context/
 │   │   ├── BooksContext.jsx       ← books[], updateBook, createBook, deleteBook, importLibrary, resetToDemo
-│   │   └── SettingsContext.jsx    ← settings{spoilerMode,insightStyle,defaultFormat,anthropicKey,darkMode}; useSettings()
+│   │   └── SettingsContext.jsx    ← settings{spoilerMode,insightStyle,defaultFormat,anthropicKey,darkMode,devMode}; useSettings()
 │   ├── hooks/useBooks.js          ← re-export of useBooks()
 │   ├── utils/
 │   │   ├── storage.js             ← loadBooks, saveBooks, resetBooks
@@ -76,7 +75,7 @@ shadow-scribe/
 │   ├── components/
 │   │   ├── layout/TopNav.jsx
 │   │   ├── library/Library.jsx + BookCard.jsx + CreateCompanion.jsx
-│   │   ├── dashboard/BookDashboard.jsx + CompanionHeader.jsx + CompanionInsights.jsx
+│   │   ├── dashboard/BookDashboard.jsx + CompanionHeader.jsx + PresenceStrip.jsx
 │   │   │             ReadingMomentum.jsx + RelationshipMap.jsx
 │   │   ├── modals/ChapterUpdateModal.jsx
 │   │   └── shared/ (icons, ProgressBar, StatusBadge, NoteTag, BookCover, SectionLabel, SectionHeading, EmptyState)
@@ -97,7 +96,7 @@ shadow-scribe/
 ```js
 const { books, updateBook, createBook, deleteBook, resetToDemo } = useBooks()
 const { settings, updateSetting } = useSettings()
-// settings shape: { spoilerMode, insightStyle, defaultFormat, anthropicKey, darkMode }
+// settings shape: { spoilerMode, insightStyle, defaultFormat, anthropicKey, darkMode, devMode }
 ```
 
 ### Update pattern
@@ -116,7 +115,7 @@ updateBook(book.id, { notes: [...book.notes, newNote] })
 - `resetToDemo()` clears books key only; settings are not reset
 
 ### Key local state
-- `Library` — `q`, `filter`, `sort`
+- `Library` — `q`, `filter`, `sort`; `showGrouped = filter === 'all' && !q` drives status-grouped vs flat layout
 - `BookDashboard` — `tab`, `showUpdate`
 - `CompanionInsights` — `idx`, `fade` (reflection generation side-effected via `updateBook`)
 - `SettingsPage` — `confirmReset`, `showKey`, `keyDraft`, `keySaved`, `importMsg`; real settings via context
@@ -298,10 +297,10 @@ Key stored in `settings.anthropicKey` (via SettingsContext → `shadowscribe_set
 ## Known Constraints
 
 - **No backend.** All data is localStorage. No cross-device sync, no accounts.
-- **Vite `.bin/vite` not a symlink.** Build via `node node_modules/vite/bin/vite.js build` only.
+- **Vite `.bin/vite` not a symlink.** Build via `node node_modules/vite/bin/vite.js build` only. In git worktrees, run vite from worktree dir but point to parent `node_modules`.
 - **Tailwind v4 CSS layer rule.** All custom resets must be inside `@layer base {}`. Unlayered rules silently win over all utility classes.
 - **`structureType` not on seed books.** Field set by CreateCompanion wizard; seed books fall back to format-based label detection.
-- **`markReflectionSurfaced` not yet wired.** Defined in `reflectionEngine.js` but not called by the carousel. Surface counts stay at 0; rotation logic still correct.
+- **Library `showGrouped` logic.** When `filter === 'all' && !q`, Library renders status-grouped sections. When either changes, it renders a flat filtered grid. `BookCard` receives `featured={true}` only when grouping is active AND the reading group has exactly 1 book.
 
 ---
 

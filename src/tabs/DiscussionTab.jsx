@@ -1,9 +1,8 @@
 import { useState, useMemo } from 'react'
-import { Ico } from '../components/shared/icons.jsx'
-import SectionLabel from '../components/shared/SectionLabel.jsx'
 import { getEffectiveMode, getDiscussionQuestionView } from '../utils/spoiler.js'
 import { useSettings } from '../context/SettingsContext.jsx'
 import { generateDiscussionQuestions } from '../utils/aiExtractor.js'
+import { fmtDate } from '../utils/date.js'
 
 export default function DiscussionTab({ book, onUpdateBook }) {
   const [input,       setInput]       = useState('')
@@ -13,20 +12,30 @@ export default function DiscussionTab({ book, onUpdateBook }) {
   const { settings } = useSettings()
   const mode = getEffectiveMode(book, settings)
 
-  // Continuity header reflection — prefer a thread the companion has already surfaced
-  // (surfaceCount > 0) for continuity feel; fall back to highest-priority unseen
-  const persistentReflection = useMemo(() => {
-    const reflections = book.reflectionCache?.reflections
-    if (!reflections?.length) return null
-    const unsuppressed = reflections.filter(r => !r.suppressed)
-    if (!unsuppressed.length) return null
-    const seen = unsuppressed.filter(r => (r.surfaceCount ?? 0) > 0)
-    if (seen.length) {
-      return seen.sort((a, b) => (b.priority ?? 1) - (a.priority ?? 1))[0]
-    }
-    return unsuppressed.sort((a, b) => (b.priority ?? 1) - (a.priority ?? 1))[0]
+  // Discussion companion line — forward-facing, present-tense, NOT a cached reflection.
+  // The carousel above already shows reflections. This should feel different:
+  // active, interrogative, derived from current reading state rather than past synthesis.
+  const discussionLine = useMemo(() => {
+    const notes      = book.notes      || []
+    const mysteries  = book.mysteries  || []
+    const theoryNotes    = notes.filter(n => n.tag === 'theory')
+    const confusingNotes = notes.filter(n => n.tag === 'confusing')
+    const openMyst       = mysteries.filter(m => !m.resolved)
+    if (theoryNotes.length >= 3 && openMyst.length >= 2)
+      return "The theories and the open questions are accumulating together."
+    if (theoryNotes.length >= 2 && confusingNotes.length >= 2)
+      return "You've been building explanations and holding confusion at the same time."
+    if (theoryNotes.length >= 2)
+      return "Some of what you've been theorising is worth following."
+    if (confusingNotes.length >= 2 && openMyst.length >= 1)
+      return "Several things still don't quite fit together."
+    if (openMyst.length >= 3)
+      return "There are more open threads than answers right now."
+    if (notes.length >= 5)
+      return "The reading has left a record. Some of it is worth sitting with."
+    return "Something in this story is worth sitting with."
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [book.reflectionCache?.contextHash, book.reflectionCache?.reflections?.length])
+  }, [book.notes?.length, book.mysteries?.length])
   const userQuestions = book.userDiscussionQuestions || []
   const hasAiKey = !!settings.anthropicKey?.trim()
   const hasGenerated = book.aiQuestionsGenerated
@@ -59,60 +68,50 @@ export default function DiscussionTab({ book, onUpdateBook }) {
     setInput('')
   }
 
+  // Cross-surface residue — oldest questioning note as ambient echo
+  const oldestNote = useMemo(() => {
+    const candidateNotes = (book.notes || []).filter(n => n.tag === 'theory' || n.tag === 'confusing')
+    if (candidateNotes.length < 1) return null
+    return [...candidateNotes].sort((a, b) => new Date(a.date) - new Date(b.date))[0]
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [book.notes?.length])
+
   return (
     <div className="max-w-2xl">
-      <div className="rounded-xl p-4 mb-6 border"
-        style={{ background:'var(--ca-bg, #FDF8EC)', borderColor:'var(--ca-border, #E8D090)' }}>
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 mb-1.5" style={{ color:'var(--ca, #B8860B)' }}>
-              <Ico.Chat />
-              <p className="text-[10px] font-semibold uppercase tracking-widest">Questions worth sitting with</p>
-            </div>
-            <p className="text-[12px] text-ink-600 leading-relaxed">
-              For book clubs, journalling, or the quiet space between chapters.
-            </p>
-            {questionViews.length === 0 && !userQuestions.length && !hasAiKey && (
-              <p className="text-[12px] text-ink-400 italic mt-2">
-                Questions will find their way here as the companion grows with you.
-              </p>
-            )}
-            {genError && (
-              <p className="text-[11px] text-ember mt-2">{genError}</p>
-            )}
-          </div>
-          {hasAiKey && (
-            <button
-              onClick={handleGenerate}
-              disabled={generating}
-              className="flex-shrink-0 flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1.5 rounded-lg border transition-all disabled:opacity-50"
-              style={{ color:'var(--ca, #B8860B)', borderColor:'var(--ca-border, #E8D090)', background:'var(--ca-bg, #FDF8EC)' }}>
-              {generating ? (
-                <span className="animate-pulse">Thinking…</span>
-              ) : (
-                <>✦ {hasGenerated ? 'Regenerate' : 'Generate with Claude'}</>
-              )}
-            </button>
-          )}
+
+      {/* Ambient companion line — forward-facing, present-tense */}
+      {discussionLine && (
+        <p className="text-[12px] text-ink-500 italic mb-6 leading-relaxed">{discussionLine}</p>
+      )}
+
+      {/* Claude generate — minimal text link only */}
+      {hasAiKey && (
+        <div className="flex justify-end mb-5">
+          <button
+            onClick={handleGenerate}
+            disabled={generating}
+            className="text-[11px] italic hover:opacity-75 transition-opacity disabled:opacity-40"
+            style={{ color:'var(--ca, #B8860B)' }}>
+            {generating ? 'thinking…' : hasGenerated ? 'draw out more →' : 'draw out questions →'}
+          </button>
         </div>
+      )}
+      {genError && <p className="text-[11px] text-ember mb-4">{genError}</p>}
 
-        {/* Continuity line — a thread the companion has been tracking */}
-        {(questionViews.length > 0 || userQuestions.length > 0) && persistentReflection && (
-          <div className="mt-3 pt-3 border-t" style={{ borderColor: 'var(--ca-border, #E8D090)' }}>
-            <p className="text-[12px] text-ink-400 italic leading-relaxed">
-              <span className="not-italic opacity-60" style={{ color: 'var(--ca, #B8860B)' }}>✦</span>{' '}
-              {persistentReflection.text}
-            </p>
-          </div>
-        )}
-      </div>
+      {/* Empty state */}
+      {questionViews.length === 0 && !userQuestions.length && !hasAiKey && (
+        <p className="text-[12px] text-ink-400 italic mb-6">
+          Questions will find their way here as the companion grows with you.
+        </p>
+      )}
 
+      {/* Companion-generated questions */}
       {questionViews.length > 0 && (
         <div className="space-y-3 mb-6">
           {questionViews.map((q, i) => (
-            <div key={i} className={`rounded-xl border p-4 ${q._veiled ? 'bg-ink-50 border-ink-100' : 'bg-cream-50 border-ink-200'}`}>
+            <div key={i} className={`rounded-xl border p-4 ${q._veiled ? 'bg-ink-50 border-ink-100' : 'bg-cream-50 border-ink-100'}`}>
               <div className="flex items-start gap-3">
-                <span className={`font-serif text-xl leading-none flex-shrink-0 mt-[-2px] ${q._veiled ? 'text-ink-300' : 'text-gold'}`}>"</span>
+                <span className={`font-serif text-xl leading-none flex-shrink-0 mt-[-2px] ${q._veiled ? 'text-ink-300' : 'text-gold opacity-60'}`}>"</span>
                 <p className={`text-[13px] leading-relaxed ${q._veiled ? 'text-ink-400 italic' : 'text-ink-700'}`}>{q.text}</p>
               </div>
             </div>
@@ -120,10 +119,12 @@ export default function DiscussionTab({ book, onUpdateBook }) {
         </div>
       )}
 
+      {/* Reader's own questions */}
       {userQuestions.length > 0 && (
         <div className="space-y-3 mb-6">
           {userQuestions.map((q, i) => (
-            <div key={i} className="bg-sage-bg rounded-xl border border-sage-pale p-4">
+            <div key={i} className="rounded-xl border border-ink-100 p-4"
+              style={{ background: 'var(--color-card-archival)' }}>
               {deletingIdx === i ? (
                 <div className="animate-fade-in">
                   <p className="text-[12px] text-ink-600 mb-2.5 leading-relaxed">
@@ -131,7 +132,7 @@ export default function DiscussionTab({ book, onUpdateBook }) {
                   </p>
                   <div className="flex gap-2">
                     <button onClick={() => setDeletingIdx(null)}
-                      className="text-[12px] text-ink-600 hover:text-ink-800 px-3 py-1.5 rounded-lg border border-ink-200 bg-white transition-colors">
+                      className="text-[12px] text-ink-600 hover:text-ink-800 px-3 py-1.5 rounded-lg border border-ink-200 transition-colors">
                       Keep it
                     </button>
                     <button onClick={() => deleteUserQ(i)}
@@ -144,7 +145,7 @@ export default function DiscussionTab({ book, onUpdateBook }) {
                 <>
                   <p className="text-[13px] text-ink-700 leading-relaxed">{q}</p>
                   <div className="flex items-center justify-between mt-2">
-                    <p className="text-[10px] text-sage font-medium">Your question</p>
+                    <p className="text-[11px] text-ink-300 italic">yours</p>
                     <button onClick={() => setDeletingIdx(i)}
                       className="text-[11px] text-ink-300 hover:text-ember transition-colors">
                       Remove
@@ -157,14 +158,26 @@ export default function DiscussionTab({ book, onUpdateBook }) {
         </div>
       )}
 
-      <div className="bg-cream-50 rounded-xl border border-ink-200 p-4">
-        <SectionLabel>A question of your own</SectionLabel>
+      {/* Cross-surface residue — oldest theory/confusing note as ambient echo */}
+      {(book.notes || []).length >= 5 && oldestNote && (
+        <div className="mt-2 mb-6 pl-4 border-l-2 border-ink-100" style={{ opacity: 0.55 }}>
+          <p className="text-[12px] text-ink-500 italic leading-relaxed">
+            "{oldestNote.text.length > 120 ? oldestNote.text.slice(0, 120) + '…' : oldestNote.text}"
+          </p>
+          <p className="text-[11px] text-ink-300 mt-1">{fmtDate(oldestNote.date)}</p>
+        </div>
+      )}
+
+      {/* Question input — written into the page, not mounted onto it */}
+      <div className="border-t border-ink-100 pt-5 mt-2">
         <textarea value={input} onChange={e => setInput(e.target.value)} rows={2}
-          placeholder="What are you carrying into the next chapter?"
-          className="w-full border border-ink-200 rounded-xl px-3.5 py-2.5 text-sm placeholder-ink-400 bg-white resize-none transition-all mb-3" />
-        <button onClick={addQ} className="text-sm font-semibold transition-colors hover:opacity-75"
+          placeholder="A question you're carrying into the next chapter…"
+          className="w-full border border-ink-100 rounded-xl px-3.5 py-2.5 text-sm placeholder-ink-400 resize-none transition-all mb-2"
+          style={{ background: 'var(--color-card-base)' }} />
+        <button onClick={addQ} disabled={!input.trim()}
+          className="text-[12px] italic hover:opacity-75 transition-opacity disabled:opacity-30"
           style={{ color:'var(--ca, #B8860B)' }}>
-          + Keep this question
+          keep this →
         </button>
       </div>
     </div>

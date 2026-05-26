@@ -1,21 +1,24 @@
-import { calcStreak } from '../../utils/date.js'
+import { calcStreak, logDates } from '../../utils/date.js'
 
 function recentCount(log = [], days = 7) {
+  const dates = logDates(log)
   const cutoff = new Date()
   cutoff.setDate(cutoff.getDate() - days)
-  return log.filter(d => new Date(d) >= cutoff).length
+  return dates.filter(d => new Date(d) >= cutoff).length
 }
 
 function daysSince(log = []) {
-  if (!log.length) return null
-  const last = [...log].sort().pop()
+  const dates = logDates(log)
+  if (!dates.length) return null
+  const last = [...dates].sort().pop()
   return Math.floor((Date.now() - new Date(last)) / 86400000)
 }
 
 function weeksSince(log = []) {
-  if (!log.length) return null
-  const first = [...log].sort()[0]
-  return Math.round((Date.now() - new Date(first)) / (86400000 * 7))
+  const dates = logDates(log)
+  if (!dates.length) return null
+  const first = [...dates].sort()[0]
+  return Math.floor((Date.now() - new Date(first)) / (86400000 * 7))
 }
 
 export default function ReadingMomentum({ book }) {
@@ -31,34 +34,37 @@ export default function ReadingMomentum({ book }) {
 
   if (streak >= 7) {
     primary = `${streak}-day reading streak`
-    secondary = "This story has its hooks in you."
+    secondary = `${streak} days straight.`
   } else if (streak >= 4) {
     primary = `${streak} days in a row`
     secondary = "Something is keeping you here."
   } else if (streak === 3) {
     primary = "Three days running"
+    secondary = "The story is holding."
   } else if (streak === 2) {
-    primary = "Reading two days in a row"
+    primary = "Back again today"
+    secondary = "Something in this is working on you."
   } else if (streak === 1) {
     primary = "Back to the story today"
-    if (gap !== null && gap === 0 && sessions > 3) secondary = `${sessions} sessions total`
+    if (gap !== null && gap === 0 && sessions > 3) secondary = `${sessions} ${sessions === 1 ? 'visit' : 'visits'} total`
   } else if (recent7 >= 4) {
     primary = "An absorbed stretch this week"
-    secondary = `${recent7} sessions in 7 days`
+    secondary = `${recent7} visits in 7 days`
   } else if (gap !== null && gap > 60 && sessions > 0) {
     primary = "A long time away from this story"
-    secondary = "It hasn't changed. You may have."
+    secondary = "It hasn't changed. You have."
   } else if (gap !== null && gap > 30 && sessions > 0) {
-    primary = "Over a month since your last session"
-    secondary = "It's still here, unchanged."
+    primary = "Over a month since your last visit"
+    secondary = "Everything in the story is still here."
   } else if (gap !== null && gap > 14 && sessions > 0) {
     primary = "Some time away from the story"
-    secondary = "It will be here when you return."
+    secondary = "The threads are still live."
   } else if (gap !== null && gap > 7 && sessions > 0) {
-    primary = "A week since your last session"
+    primary = "A week since your last visit"
+    secondary = "The story hasn't moved on without you."
   } else if (sessions > 0) {
-    primary = `${sessions} session${sessions !== 1 ? 's' : ''} recorded`
-    if (weeks !== null && weeks >= 2) secondary = `${weeks} weeks with this book`
+    primary = `${sessions} ${sessions === 1 ? 'visit' : 'visits'} to the story`
+    if (weeks !== null && weeks >= 2) secondary = `${weeks} ${weeks === 1 ? 'week' : 'weeks'} with this book`
   }
 
   if (!primary) return null

@@ -32,13 +32,18 @@ function normalizePath(path) {
   return result.join('/')
 }
 
+// Word-number ordinals for Part/Act detection ("Part One", "Act Two", etc.)
+const WORD_ORDINAL = /^(one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|first|second|third|fourth|fifth|sixth|seventh|eighth|ninth|tenth)\b/i
+
 // Detect chapter type from a title string
 function detectType(title) {
   const t = title.toLowerCase().trim()
   if (/^prologue/.test(t)) return 'prologue'
   if (/^epilogue/.test(t)) return 'epilogue'
   if (/^interlude/.test(t)) return 'interlude'
-  if (/^(part|act)\s/.test(t) || /^(part|act)\s*[ivxlcdm\d]/i.test(t)) return 'part'
+  if (/^(part|act)\s*[ivxlcdm\d]/i.test(t)) return 'part'
+  if (/^(part|act)\s+/.test(t) && WORD_ORDINAL.test(t.replace(/^(part|act)\s+/, ''))) return 'part'
+  if (/^(part|act)$/.test(t)) return 'part'
   if (/^section\s/.test(t)) return 'section'
   return 'chapter'
 }
@@ -129,7 +134,13 @@ function buildFileMap(files) {
 // ──────────────────────────────────────────────────
 // Main export
 // ──────────────────────────────────────────────────
+const MAX_EPUB_BYTES = 150 * 1024 * 1024  // 150 MB hard limit
+
 export async function parseEpub(file) {
+  if (file.size > MAX_EPUB_BYTES) {
+    throw new Error(`This file is too large to import (${Math.round(file.size / 1024 / 1024)} MB). Maximum supported size is 150 MB.`)
+  }
+
   const buffer = await file.arrayBuffer()
 
   let rawFiles
@@ -156,8 +167,16 @@ export async function parseEpub(file) {
   const opfDir = opfPath.includes('/') ? opfPath.slice(0, opfPath.lastIndexOf('/') + 1) : ''
 
   // 2. Metadata
-  const title  = getText(opf, 'title')   ?? 'Untitled'
-  const author = getText(opf, 'creator') ?? 'Unknown Author'
+  const title = getText(opf, 'title') ?? 'Untitled'
+
+  // Prefer creator with opf:role="aut"; fall back to first creator; then Unknown Author
+  const allCreators = findEls(opf, 'creator')
+  const primaryCreator =
+    allCreators.find(el => (el.getAttribute('opf:role') || el.getAttribute('role') || '').toLowerCase() === 'aut') ??
+    allCreators.find(el => !el.getAttribute('opf:role') && !el.getAttribute('role')) ??
+    allCreators[0] ??
+    null
+  const author = primaryCreator?.textContent?.trim() || 'Unknown Author'
 
   // ISBN — look for dc:identifier with ISBN scheme or 13-digit value
   let isbn = null
@@ -258,8 +277,15 @@ export async function parseEpub(file) {
     tocSource = 'spine'
   }
 
-  // Filter noise: skip entries with very short or suspiciously structural titles
-  const noisePatterns = /^(cover|title\s*page|copyright|contents|toc|table of contents|dedication|acknowledgements?|bibliography|index|about the author|colophon|half.?title|front matter|back matter|notes?)$/i
+  // Cap degenerate chapter counts — some EPUBs encode footnotes or sections as TOC entries
+  const MAX_CHAPTERS = 500
+  if (rawChapters.length > MAX_CHAPTERS) {
+    rawChapters = rawChapters.slice(0, MAX_CHAPTERS)
+    warnings.push(`This book has an unusually large number of sections. Only the first ${MAX_CHAPTERS} were imported.`)
+  }
+
+  // Filter noise: skip entries with structural/non-narrative titles
+  const noisePatterns = /^(cover|title\s*page|copyright|contents|toc|table of contents|dedication|acknowledgements?|bibliography|index|about the author|colophon|half.?title|front matter|back matter|notes?|foreword|preface|afterword|introduction|also by|further reading|glossary|maps?|permissions?|author.s note|note to (the )?reader|a note on|note on|from the author|by the same author|other (books|titles|works)|endorsements?|praise for|series page|newsletter|subscribe|connect)$/i
   const meaningful = rawChapters.filter(ch => {
     const t = ch.title.trim()
     return t.length > 0 && !noisePatterns.test(t)
@@ -351,8 +377,11 @@ export async function parseEpub(file) {
 function cleanTitle(raw) {
   if (!raw) return raw
   const t = raw.trim()
-  // "Chapter 1: Some Title" → "Some Title" (only strip if a subtitle exists)
-  const withSubtitle = t.replace(/^(chapter|part|section)\s+[\divxlcdm]+\s*[:–—\-]\s+/i, '')
-  if (withSubtitle !== t && withSubtitle.length > 2) return withSubtitle
+  // Match numeric, Roman numeral, or word-ordinal prefixes with a separator
+  // "Chapter 1: Some Title" → "Some Title"
+  // "Part One — The Beginning" → "The Beginning"
+  // "Chapter One: Title" → "Title"
+  const stripped = t.replace(/^(chapter|part|section)\s+(?:[\divxlcdm]+|[a-z]+)\s*[:–—\-]\s+/i, '')
+  if (stripped !== t && stripped.length > 2) return stripped
   return t
 }

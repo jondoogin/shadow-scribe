@@ -26,6 +26,29 @@ import {
   MIN_RESURFACE_MS,
 } from '../utils/reflectionEngine.js'
 import { buildAIReflectionContext } from '../utils/aiExtractor.js'
+import { extractResidueFragments, detectMotifs, detectAtmosphericSignature } from '../utils/residueMemory.js'
+import {
+  noteAgeCategory, noteAgeDistribution, computeChapterPatina, computeReadingDepth,
+} from '../utils/literaryPatina.js'
+import {
+  computeChapterGravity, detectSingularities, buildGravityMap,
+  classifySilence, amplifyPatina,
+} from '../utils/emotionalGravity.js'
+import { detectEmotionalLoading } from '../utils/readerState.js'
+import {
+  computePresenceVisibility,
+  shouldFadePresence,
+  shouldYieldToBook,
+  detectSelfSustainingNarrative,
+  computeInterruptionRisk,
+  computeNarrativeDominance,
+  detectNarrativeSaturation,
+  isSolitudeProtected,
+  computeSilenceDuration,
+  computeDormantObservationAge,
+  computeObservationCap,
+  CONFIDENCE_THRESHOLD,
+} from '../utils/invisiblePresence.js'
 
 function Badge({ children, color = 'ink' }) {
   const colors = {
@@ -517,6 +540,505 @@ function NoteIntelligencePanel({ book }) {
           )}
         </section>
 
+        {/* Residue fragments + motifs + atmospheric signature */}
+        <ResidueFragmentsSection book={book} resonanceWeights={resonanceW} />
+        <MotifsSection book={book} />
+        <AtmosphericSection book={book} />
+
+      </div>
+    </div>
+  )
+}
+
+function ResidueFragmentsSection({ book, resonanceWeights }) {
+  const notes     = book.notes     || []
+  const mysteries = book.mysteries || []
+  const frags     = extractResidueFragments(notes, mysteries, book.currentChapter || Infinity, resonanceWeights)
+  const TYPE_COLOR = { mystery: 'sienna', note: 'gold', quote: 'ember', name: 'sage' }
+
+  return (
+    <section>
+      <p className="text-[10px] font-semibold text-ink-400 uppercase tracking-widest mb-2">
+        Residue fragments ({frags.length}) — specificity anchors
+      </p>
+      {frags.length === 0 ? (
+        <p className="text-[12px] text-ink-300 italic">None — needs open mysteries with text, high-resonance notes, quote captures, or recurring names</p>
+      ) : (
+        <div className="space-y-1.5">
+          {frags.map((f, i) => (
+            <div key={i} className="flex items-center gap-2 text-[12px]">
+              <Badge color={TYPE_COLOR[f.type] ?? 'ink'}>{f.type}</Badge>
+              <span className="font-medium text-ink-700 flex-1 truncate">
+                {(f.type === 'note' || f.type === 'mystery' || f.type === 'quote') ? `"${f.text}"` : f.text}
+              </span>
+              {f.noteCount > 1 && (
+                <span className="text-ink-400 flex-shrink-0">×{f.noteCount} notes</span>
+              )}
+              {f.firstChapter > 0 && (
+                <span className="text-ink-300 flex-shrink-0">Ch. {f.firstChapter}</span>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </section>
+  )
+}
+
+function MotifsSection({ book }) {
+  const notes  = book.notes || []
+  const motifs = detectMotifs(notes, book.currentChapter || Infinity)
+
+  return (
+    <section>
+      <p className="text-[10px] font-semibold text-ink-400 uppercase tracking-widest mb-2">
+        Motifs ({motifs.length}) — recurring concrete words (3+ notes)
+      </p>
+      {motifs.length === 0 ? (
+        <p className="text-[12px] text-ink-300 italic">None — needs 3+ notes sharing a concrete word</p>
+      ) : (
+        <div className="flex flex-wrap gap-2">
+          {motifs.slice(0, 10).map((m, i) => (
+            <div key={i} className="flex items-center gap-1.5 text-[11px] bg-cream-50 border border-ink-100 rounded-lg px-2.5 py-1.5">
+              <span className="font-medium text-ink-700">{m.word}</span>
+              <span className="text-ink-400">×{m.count}</span>
+              {m.firstChapter > 0 && <span className="text-ink-300">ch.{m.firstChapter}</span>}
+            </div>
+          ))}
+        </div>
+      )}
+    </section>
+  )
+}
+
+function AtmosphericSection({ book }) {
+  const notes = book.notes || []
+  const sig   = detectAtmosphericSignature(notes)
+
+  return (
+    <section>
+      <p className="text-[10px] font-semibold text-ink-400 uppercase tracking-widest mb-2">
+        Atmospheric signature
+      </p>
+      {!sig ? (
+        <p className="text-[12px] text-ink-300 italic">None detected — needs 6+ notes with atmospheric language</p>
+      ) : (
+        <div className="flex items-center gap-2">
+          <Badge color="sienna">{sig.signature}</Badge>
+          <span className="text-[12px] text-ink-500">score {sig.score}</span>
+          <span className="text-[11px] text-ink-300">({notes.length} notes scanned)</span>
+        </div>
+      )}
+    </section>
+  )
+}
+
+// ── Emotional Gravity Inspector ───────────────────────────────────────────────
+
+function EmotionalGravityPanel({ book }) {
+  const notes     = book.notes     || []
+  const chapters  = book.chapters  || []
+
+  const resonanceW   = computeResonanceWeights(notes)
+  const motifs       = detectMotifs(notes, book.currentChapter || Infinity)
+  const gravityMap   = buildGravityMap(book, resonanceW, motifs)
+  const singularities = detectSingularities(book, resonanceW, motifs)
+  const silence      = classifySilence(book)
+
+  // Top gravity chapters
+  const gravityEntries = Object.entries(gravityMap)
+    .map(([num, gravity]) => {
+      const ch = chapters.find(c => c.num === Number(num))
+      const rawP = computeChapterPatina(Number(num), notes, book.mysteries || [], resonanceW, new Set(), ch?.important || false)
+      return { num: Number(num), gravity, amplified: amplifyPatina(rawP, gravity) }
+    })
+    .sort((a, b) => b.gravity - a.gravity)
+    .slice(0, 8)
+
+  const singNums = new Set(singularities.map(s => s.num))
+  const silenceColor = { dormant: 'ink', grieving: 'sienna', exhausted: 'gold', 'post-climax': 'gold', unresolved: 'sienna', peaceful: 'sage' }
+
+  return (
+    <div className="border border-ink-100 rounded-xl overflow-hidden mb-4">
+      <div className="px-4 py-3 bg-cream-50 flex items-center gap-3">
+        <span className="font-serif text-[13px] font-semibold text-ink-900 flex-1 truncate">{book.title}</span>
+        <div className="flex items-center gap-1.5">
+          <Badge color="sienna">{singularities.length} singularit{singularities.length === 1 ? 'y' : 'ies'}</Badge>
+          <Badge color="ink">{Object.keys(gravityMap).length} ch scored</Badge>
+        </div>
+      </div>
+      <div className="px-4 py-3 space-y-4 bg-white">
+
+        {/* Silence state */}
+        <section>
+          <p className="text-[10px] font-semibold text-ink-400 uppercase tracking-widest mb-2">Silence state</p>
+          {!silence ? (
+            <p className="text-[12px] text-ink-300 italic">Active — gap &lt; 3 days or no sessions</p>
+          ) : (
+            <div className="flex items-center gap-2">
+              <Badge color={silenceColor[silence.type] ?? 'ink'}>{silence.type}</Badge>
+              <span className="text-[12px] text-ink-500">{silence.gapDays} days</span>
+            </div>
+          )}
+        </section>
+
+        {/* Singularities */}
+        <section>
+          <p className="text-[10px] font-semibold text-ink-400 uppercase tracking-widest mb-2">
+            Memory singularities — gravity ≥ 0.45 and ≥ 1.7× average
+          </p>
+          {singularities.length === 0 ? (
+            <p className="text-[12px] text-ink-300 italic">None — needs 3+ completed chapters with enough density to create asymmetry</p>
+          ) : (
+            <div className="flex flex-wrap gap-2">
+              {singularities.map(s => (
+                <div key={s.num} className="flex items-center gap-1.5 text-[11px] bg-cream-50 border rounded-lg px-2.5 py-1.5"
+                  style={{ borderColor: 'rgba(184, 134, 11, 0.30)' }}>
+                  <span className="font-semibold" style={{ color: 'rgba(184, 134, 11, 0.85)' }}>Ch. {s.num}</span>
+                  <span className="text-ink-400">{Math.round(s.gravity * 100)}%</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+
+        {/* Gravity scores — top 8 */}
+        <section>
+          <p className="text-[10px] font-semibold text-ink-400 uppercase tracking-widest mb-2">
+            Chapter gravity — top {gravityEntries.length} completed
+          </p>
+          {gravityEntries.length === 0 ? (
+            <p className="text-[12px] text-ink-300 italic">No completed chapters</p>
+          ) : (
+            <div className="space-y-1.5">
+              {gravityEntries.map(e => (
+                <div key={e.num} className="flex items-center gap-2 text-[11px]">
+                  <span className="text-ink-400 w-10 flex-shrink-0">Ch. {e.num}</span>
+                  <div className="flex-1 h-1.5 rounded-full bg-ink-100 overflow-hidden">
+                    <div className="h-full rounded-full transition-all"
+                      style={{
+                        width: `${Math.round(e.gravity * 100)}%`,
+                        background: singNums.has(e.num) ? 'rgba(184, 134, 11, 0.8)' : 'var(--color-sage, #6B8F71)',
+                      }}
+                    />
+                  </div>
+                  <span className="text-ink-500 w-8 text-right">{Math.round(e.gravity * 100)}%</span>
+                  <span className="text-ink-300">→{Math.round(e.amplified * 100)}%</span>
+                  {singNums.has(e.num) && <span style={{ color: 'rgba(184, 134, 11, 0.8)' }}>◆</span>}
+                </div>
+              ))}
+            </div>
+          )}
+          <p className="text-[10px] text-ink-300 mt-2">gravity → amplified patina (gravity × 0.30 added to raw patina). ◆ = singularity</p>
+        </section>
+
+        {/* Motif origins */}
+        <section>
+          <p className="text-[10px] font-semibold text-ink-400 uppercase tracking-widest mb-2">
+            Motif origins (contribute to gravity)
+          </p>
+          {motifs.length === 0 ? (
+            <p className="text-[12px] text-ink-300 italic">No motifs detected</p>
+          ) : (
+            <div className="flex flex-wrap gap-1.5">
+              {motifs.slice(0, 8).map(m => (
+                <div key={m.word} className="text-[11px] bg-cream-50 border border-ink-100 rounded-lg px-2 py-1">
+                  <span className="text-ink-600 font-medium">{m.word}</span>
+                  <span className="text-ink-300 ml-1">×{m.count} ch.{m.firstChapter}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+
+      </div>
+    </div>
+  )
+}
+
+// ── Literary Patina Inspector ─────────────────────────────────────────────────
+
+function LiteraryPatinaPanel({ book }) {
+  const notes      = book.notes     || []
+  const mysteries  = book.mysteries || []
+  const chapters   = book.chapters  || []
+
+  const resonanceW  = computeResonanceWeights(notes)
+  const ageDist     = noteAgeDistribution(notes)
+  const depth       = computeReadingDepth(book)
+  const atmoSig     = detectAtmosphericSignature(notes)
+
+  // Top chapter patinas
+  const loaded         = detectEmotionalLoading(notes)
+  const peakChapters   = new Set(loaded.filter(l => l.density >= (loaded[0]?.density ?? 1) * 0.8).map(l => l.chapter))
+  const completedChs   = chapters.filter(c => c.completed)
+  const patinaEntries  = completedChs.map(ch => ({
+    num:     ch.num,
+    score:   computeChapterPatina(ch.num, notes, mysteries, resonanceW, peakChapters, ch.important || false),
+    notes:   notes.filter(n => (n.chapter || 0) === ch.num).length,
+    important: ch.important || false,
+  })).sort((a, b) => b.score - a.score).slice(0, 8)
+
+  const depthLabel = depth >= 0.7 ? 'deep' : depth >= 0.4 ? 'inhabited' : depth >= 0.2 ? 'emerging' : 'early'
+  const depthColor = depth >= 0.7 ? 'sienna' : depth >= 0.4 ? 'gold' : 'ink'
+
+  return (
+    <div className="border border-ink-100 rounded-xl overflow-hidden mb-4">
+      <div className="px-4 py-3 bg-cream-50 flex items-center gap-3">
+        <span className="font-serif text-[13px] font-semibold text-ink-900 flex-1 truncate">{book.title}</span>
+        <div className="flex items-center gap-1.5">
+          <Badge color={depthColor}>{depthLabel} ({Math.round(depth * 100)}%)</Badge>
+          <Badge color="ink">{completedChs.length} ch read</Badge>
+        </div>
+      </div>
+      <div className="px-4 py-3 space-y-4 bg-white">
+
+        {/* Reading depth */}
+        <section>
+          <p className="text-[10px] font-semibold text-ink-400 uppercase tracking-widest mb-2">Reading depth</p>
+          <div className="h-1.5 rounded-full bg-ink-100 overflow-hidden mb-1">
+            <div className="h-full rounded-full bg-gold transition-all" style={{ width: `${Math.round(depth * 100)}%` }} />
+          </div>
+          <p className="text-[11px] text-ink-400">{Math.round(depth * 100)}% — {depthLabel}</p>
+        </section>
+
+        {/* Note age distribution */}
+        <section>
+          <p className="text-[10px] font-semibold text-ink-400 uppercase tracking-widest mb-2">Note age distribution</p>
+          {notes.length === 0 ? (
+            <p className="text-[12px] text-ink-300 italic">No notes</p>
+          ) : (
+            <div className="flex gap-2 flex-wrap">
+              {[['fresh','sage'],['recent','gold'],['settled','ink'],['archival','sienna']].map(([cat, col]) => (
+                ageDist[cat] > 0 && (
+                  <div key={cat} className="flex items-center gap-1.5 text-[11px] bg-cream-50 border border-ink-100 rounded-lg px-2.5 py-1.5">
+                    <Badge color={col}>{cat}</Badge>
+                    <span className="font-medium text-ink-700">×{ageDist[cat]}</span>
+                  </div>
+                )
+              ))}
+            </div>
+          )}
+        </section>
+
+        {/* Atmospheric signature */}
+        <section>
+          <p className="text-[10px] font-semibold text-ink-400 uppercase tracking-widest mb-2">Atmospheric signature</p>
+          {!atmoSig ? (
+            <p className="text-[12px] text-ink-300 italic">None — needs 6+ notes with atmospheric language</p>
+          ) : (
+            <div className="flex items-center gap-2">
+              <Badge color="sienna">{atmoSig.signature}</Badge>
+              <span className="text-[12px] text-ink-500">cluster score {atmoSig.score}</span>
+            </div>
+          )}
+        </section>
+
+        {/* Chapter patina — top 8 by score */}
+        <section>
+          <p className="text-[10px] font-semibold text-ink-400 uppercase tracking-widest mb-2">
+            Chapter patina — top {patinaEntries.length} completed
+          </p>
+          {patinaEntries.length === 0 ? (
+            <p className="text-[12px] text-ink-300 italic">No completed chapters</p>
+          ) : (
+            <div className="space-y-1.5">
+              {patinaEntries.map(e => (
+                <div key={e.num} className="flex items-center gap-2 text-[11px]">
+                  <span className="text-ink-400 w-10 flex-shrink-0">Ch. {e.num}</span>
+                  <div className="flex-1 h-1.5 rounded-full bg-ink-100 overflow-hidden">
+                    <div className="h-full rounded-full bg-gold transition-all" style={{ width: `${Math.round(e.score * 100)}%` }} />
+                  </div>
+                  <span className="text-ink-500 w-8 text-right">{Math.round(e.score * 100)}%</span>
+                  <span className="text-ink-300">×{e.notes}n</span>
+                  {e.important && <span className="text-gold">★</span>}
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+
+        {/* Note patina sample */}
+        <section>
+          <p className="text-[10px] font-semibold text-ink-400 uppercase tracking-widest mb-2">
+            Note aging sample (top 5 by resonance)
+          </p>
+          {notes.length === 0 ? (
+            <p className="text-[12px] text-ink-300 italic">No notes</p>
+          ) : (
+            <div className="space-y-1.5">
+              {[...notes]
+                .sort((a, b) => (resonanceW[b.id] || 1) - (resonanceW[a.id] || 1))
+                .slice(0, 5)
+                .map(n => {
+                  const cat = noteAgeCategory(n)
+                  const catColor = cat === 'fresh' ? 'sage' : cat === 'recent' ? 'gold' : cat === 'settled' ? 'ink' : 'sienna'
+                  const res = resonanceW[n.id] || 1
+                  return (
+                    <div key={n.id} className="flex items-center gap-2 text-[11px]">
+                      <Badge color={catColor}>{cat}</Badge>
+                      <Badge color="gold">{res}</Badge>
+                      <span className="text-ink-600 flex-1 truncate italic">"{n.text.slice(0, 60)}{n.text.length > 60 ? '…' : ''}"</span>
+                    </div>
+                  )
+                })}
+            </div>
+          )}
+        </section>
+
+      </div>
+    </div>
+  )
+}
+
+// ── Invisible Presence Inspector ──────────────────────────────────────────────
+
+function InvisiblePresencePanel({ book, settings }) {
+  const visibility      = computePresenceVisibility(book, settings)
+  const faded           = shouldFadePresence(book, settings)
+  const yields          = shouldYieldToBook(book, settings)
+  const cap             = computeObservationCap(book, settings)
+  const risk            = computeInterruptionRisk(book)
+  const dominance       = computeNarrativeDominance(book, settings)
+  const solitude        = isSolitudeProtected(book)
+  const silence         = computeSilenceDuration(book)
+  const dormantAge      = computeDormantObservationAge(book)
+  const { selfSustaining, signals } = detectSelfSustainingNarrative(book)
+  const { saturated, signals: satSignals } = detectNarrativeSaturation(book)
+
+  const visLabel = visibility >= 0.65 ? 'full' : visibility >= 0.40 ? 'fading' : 'deep fade'
+  const visColor = visibility >= 0.65 ? 'sage' : visibility >= 0.40 ? 'gold' : 'sienna'
+
+  return (
+    <div className="border border-ink-100 rounded-xl overflow-hidden mb-4">
+      <div className="px-4 py-3 bg-cream-50 flex items-center gap-3">
+        <span className="font-serif text-[13px] font-semibold text-ink-900 flex-1 truncate">{book.title}</span>
+        <div className="flex items-center gap-1.5 flex-wrap justify-end">
+          <Badge color={visColor}>{visLabel}</Badge>
+          {yields    && <Badge color="sienna">yielding</Badge>}
+          {faded     && !yields && <Badge color="gold">faded</Badge>}
+          {solitude  && <Badge color="sienna">solitude</Badge>}
+          {saturated && <Badge color="gold">saturated</Badge>}
+          {selfSustaining && <Badge color="ink">self-sustaining</Badge>}
+        </div>
+      </div>
+
+      <div className="px-4 py-3 space-y-4 bg-white">
+
+        {/* Key metrics grid */}
+        <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+          {[
+            ['Visibility',   `${Math.round(visibility * 100)}%`],
+            ['Dominance',    `${Math.round(dominance * 100)}%`],
+            ['Int. risk',    `${Math.round(risk * 100)}%`],
+            ['Obs. cap',     cap],
+            ['Silence',      silence != null ? `${silence}h` : '—'],
+            ['Dormant age',  dormantAge != null ? `${dormantAge}h` : '—'],
+          ].map(([label, val]) => (
+            <div key={label} className="bg-cream-50 rounded-lg px-2.5 py-2 border border-ink-100 text-center">
+              <p className="text-[16px] font-bold text-ink-900 tabular-nums">{val}</p>
+              <p className="text-[10px] text-ink-400">{label}</p>
+            </div>
+          ))}
+        </div>
+
+        {/* Presence visibility bar */}
+        <section>
+          <p className="text-[10px] font-semibold text-ink-400 uppercase tracking-widest mb-1.5">Presence visibility</p>
+          <div className="h-1.5 rounded-full bg-ink-100 overflow-hidden">
+            <div
+              className="h-full rounded-full transition-all"
+              style={{
+                width: `${Math.round(visibility * 100)}%`,
+                background: visibility >= 0.65 ? 'var(--color-sage)' : visibility >= 0.40 ? 'var(--ca, #B8860B)' : 'var(--color-ember)',
+              }}
+            />
+          </div>
+          <div className="flex justify-between mt-1">
+            <span className="text-[10px] text-ink-300">deep fade</span>
+            <span className="text-[10px] text-ink-400 font-medium">{Math.round(visibility * 100)}%</span>
+            <span className="text-[10px] text-ink-300">full presence</span>
+          </div>
+        </section>
+
+        {/* Narrative dominance bar */}
+        <section>
+          <p className="text-[10px] font-semibold text-ink-400 uppercase tracking-widest mb-1.5">
+            Narrative dominance {yields ? '— companion yielding' : dominance >= 0.55 ? '— companion diminished' : ''}
+          </p>
+          <div className="h-1.5 rounded-full bg-ink-100 overflow-hidden">
+            <div
+              className="h-full rounded-full transition-all"
+              style={{
+                width: `${Math.round(dominance * 100)}%`,
+                background: dominance >= 0.75 ? 'var(--color-ember)' : dominance >= 0.55 ? 'var(--ca, #B8860B)' : 'var(--color-sage)',
+              }}
+            />
+          </div>
+          <div className="flex justify-between mt-1">
+            <span className="text-[10px] text-ink-300">companion free</span>
+            <span className={`text-[10px] font-medium ${dominance >= 0.75 ? 'text-ember' : dominance >= 0.55 ? 'text-gold' : 'text-ink-400'}`}>
+              {Math.round(dominance * 100)}%
+            </span>
+            <span className="text-[10px] text-ink-300">book speaks alone (≥75%)</span>
+          </div>
+        </section>
+
+        {/* Interruption risk bar */}
+        <section>
+          <p className="text-[10px] font-semibold text-ink-400 uppercase tracking-widest mb-1.5">Interruption risk</p>
+          <div className="h-1.5 rounded-full bg-ink-100 overflow-hidden">
+            <div
+              className="h-full rounded-full transition-all"
+              style={{
+                width: `${Math.round(risk * 100)}%`,
+                background: risk >= 0.60 ? 'var(--color-ember)' : risk >= 0.30 ? 'var(--ca, #B8860B)' : 'var(--color-sage)',
+              }}
+            />
+          </div>
+          <div className="flex justify-between mt-1">
+            <span className="text-[10px] text-ink-300">safe</span>
+            <span className={`text-[10px] font-medium ${risk >= 0.60 ? 'text-ember' : risk >= 0.30 ? 'text-gold' : 'text-sage'}`}>
+              {Math.round(risk * 100)}%
+            </span>
+            <span className="text-[10px] text-ink-300">high risk</span>
+          </div>
+        </section>
+
+        {/* Immersion protection signals */}
+        <section>
+          <p className="text-[10px] font-semibold text-ink-400 uppercase tracking-widest mb-2">
+            Immersion protection {selfSustaining ? '— active' : '— inactive'}
+          </p>
+          {signals.length === 0 ? (
+            <p className="text-[12px] text-ink-300 italic">No signals</p>
+          ) : (
+            <div className="flex flex-wrap gap-1.5">
+              {signals.map(s => <Badge key={s} color="gold">{s}</Badge>)}
+            </div>
+          )}
+        </section>
+
+        {/* Narrative saturation */}
+        {satSignals.length > 0 && (
+          <section>
+            <p className="text-[10px] font-semibold text-ink-400 uppercase tracking-widest mb-2">
+              Saturation {saturated ? '— active' : '— signals present'}
+            </p>
+            <div className="flex flex-wrap gap-1.5">
+              {satSignals.map(s => <Badge key={s} color={saturated ? 'sienna' : 'gold'}>{s}</Badge>)}
+            </div>
+          </section>
+        )}
+
+        {/* Carousel and strip state */}
+        <div className="text-[11px] text-ink-400 border-t border-ink-100 pt-2 space-y-1">
+          <p>Rotation: <span className="font-medium text-ink-600">{yields ? 'suppressed (yielding)' : visibility < 0.40 ? 'static (paused)' : visibility < 0.65 ? '14s (slowed)' : '7s (full)'}</span></p>
+          <p>Strip opacity: <span className="font-medium text-ink-600">{yields ? 'hidden' : visibility < 0.40 ? '50%' : visibility < 0.65 ? '72%' : '100%'}</span></p>
+          <p>Solitude protection: <span className={`font-medium ${solitude ? 'text-ember' : 'text-ink-600'}`}>{solitude ? 'active' : 'inactive'}</span></p>
+          <p>Confidence gate: <span className="font-medium text-ink-600">{CONFIDENCE_THRESHOLD}</span></p>
+        </div>
+
       </div>
     </div>
   )
@@ -527,7 +1049,7 @@ export default function DebugPage() {
   const { settings }          = useSettings()
   const storage = estimateLocalStorageUsage()
   const [filter, setFilter] = useState('all')     // 'all' | 'extracted' | 'manual'
-  const [panel,  setPanel]  = useState('extraction') // 'extraction' | 'reflection' | 'intelligence'
+  const [panel,  setPanel]  = useState('extraction') // 'extraction' | 'reflection' | 'intelligence' | 'presence'
 
   const visible = books.filter(b => {
     if (filter === 'extracted') return b.narrativeExtracted
@@ -557,6 +1079,9 @@ export default function DebugPage() {
           ['extraction',   'Narrative Extraction'],
           ['reflection',   'Reflection Engine'],
           ['intelligence', 'Note Intelligence'],
+          ['presence',     'Invisible Presence'],
+          ['patina',   'Literary Patina'],
+          ['gravity',  'Emotional Gravity'],
         ].map(([k, l]) => (
           <button key={k} onClick={() => setPanel(k)}
             className={`px-3.5 py-1.5 rounded-full text-[12px] font-medium transition-all ${
@@ -590,6 +1115,47 @@ export default function DebugPage() {
           </p>
           {books.map(b => (
             <NoteIntelligencePanel key={b.id} book={b} />
+          ))}
+        </div>
+      )}
+
+      {/* Invisible Presence panel */}
+      {panel === 'presence' && (
+        <div className="mb-10">
+          <p className="text-[12px] text-ink-500 mb-5 leading-relaxed">
+            Companion fade architecture — visibility scores, immersion protection, interruption risk,
+            and carousel behaviour. The companion recedes when the book is already carrying the experience.
+          </p>
+          {books.map(b => (
+            <InvisiblePresencePanel key={b.id} book={b} settings={settings} />
+          ))}
+        </div>
+      )}
+
+      {/* Emotional Gravity panel */}
+      {panel === 'gravity' && (
+        <div className="mb-10">
+          <p className="text-[12px] text-ink-500 mb-5 leading-relaxed">
+            Emotional gravity — which chapters exert disproportionate pull.
+            Singularities are chapters with gravity ≥ 0.45 and ≥ 1.7× the book average.
+            Gravity amplifies chapter patina. Silence taxonomy classifies reading absence.
+          </p>
+          {books.map(b => (
+            <EmotionalGravityPanel key={b.id} book={b} />
+          ))}
+        </div>
+      )}
+
+      {/* Literary Patina panel */}
+      {panel === 'patina' && (
+        <div className="mb-10">
+          <p className="text-[12px] text-ink-500 mb-5 leading-relaxed">
+            Environmental memory — how the interface accumulates reading history.
+            Note aging, chapter patina scores, atmospheric signatures, and reading depth.
+            Everything computed on-demand from existing data.
+          </p>
+          {books.map(b => (
+            <LiteraryPatinaPanel key={b.id} book={b} />
           ))}
         </div>
       )}
@@ -640,7 +1206,7 @@ export default function DebugPage() {
       </>)}
 
       <p className="text-center text-[11px] text-ink-300 italic mt-8">
-        Shadow Scribe · Companion inspector · Dev/QA only
+        Lantern · Companion inspector · Dev/QA only
       </p>
     </main>
   )

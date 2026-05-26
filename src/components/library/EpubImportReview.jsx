@@ -1,4 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
+import { uid } from '../../utils/uid.js'
+import { useNavigate } from 'react-router-dom'
 import { Ico } from '../shared/icons.jsx'
 import SectionLabel from '../shared/SectionLabel.jsx'
 import { MOOD_CONFIG, STRUCTURE_TYPES, CHAPTER_TYPES } from '../../data/config.js'
@@ -57,7 +59,7 @@ function buildBook(epubData, form) {
   }
 
   return {
-    id: `book_${Date.now()}`,
+    id: uid('book_'),
     title: form.title || 'Untitled',
     author: form.author || 'Unknown Author',
     isbn: form.isbn || null,
@@ -102,8 +104,9 @@ const AI_EXTRACTION_PHRASES = [
 ]
 
 // ── Main component ────────────────────────────────────────────────────────────
-export default function EpubImportReview({ importData, onCreate, onBack }) {
+export default function EpubImportReview({ importData, duplicateWarning, onCreate, onBack }) {
   const { settings } = useSettings()
+  const navigate = useNavigate()
   const [step, setStep] = useState(1)
   const [editingIdx, setEditingIdx] = useState(null)
   const [showAllChapters, setShowAllChapters] = useState(false)
@@ -145,7 +148,6 @@ export default function EpubImportReview({ importData, onCreate, onBack }) {
 
   const handleCreate = async () => {
     const hasContent = importData.chapterContents && Object.keys(importData.chapterContents).length > 0
-    const hasAiKey   = !!settings.anthropicKey?.trim()
 
     // Pick phrase set before showing overlay
     const phrases = hasAiKey ? AI_EXTRACTION_PHRASES : EXTRACTION_PHRASES
@@ -174,10 +176,14 @@ export default function EpubImportReview({ importData, onCreate, onBack }) {
           } catch (aiErr) {
             console.warn('AI extraction failed, falling back to rule-based:', aiErr)
             result = extractNarrative(importData.chapterContents, book.chapters)
-            result.extractionMeta.warnings = [
-              ...(result.extractionMeta.warnings ?? []),
-              `AI extraction failed: ${aiErr.message}`,
-            ]
+            result.extractionMeta = {
+              ...result.extractionMeta,
+              aiFailedFallback: true,
+              warnings: [
+                ...(result.extractionMeta.warnings ?? []),
+                `AI extraction failed: ${aiErr.message}`,
+              ],
+            }
           }
         } else {
           // ── Rule-based extraction path ─────────────────────────────────
@@ -207,6 +213,8 @@ export default function EpubImportReview({ importData, onCreate, onBack }) {
       onCreate(buildBook(importData, form))
     }
   }
+
+  const hasAiKey = !!settings.anthropicKey?.trim()
 
   const inputCls = "w-full border border-ink-200 rounded-xl px-3.5 py-2.5 text-sm text-ink-800 placeholder-ink-400 bg-white transition-all"
 
@@ -252,11 +260,17 @@ export default function EpubImportReview({ importData, onCreate, onBack }) {
         {step === 1 && (
           <div>
             <div className="flex items-center gap-2 mb-5">
-              <span className="text-[10px] font-semibold uppercase tracking-widest px-2 py-0.5 rounded-full bg-sage-bg text-sage border border-sage-pale">
+              <span className="text-[10px] font-semibold uppercase tracking-widest px-2 py-0.5 rounded-full" style={{ background: 'var(--color-gold-bg)', color: 'var(--color-gold)', border: '1px solid var(--color-gold-pale)' }}>
                 From EPUB
               </span>
               <span className="text-[11px] text-ink-400 italic">Review and adjust before continuing</span>
             </div>
+
+            {duplicateWarning && (
+              <div className="mb-4 p-3 rounded-xl" style={{ background: 'var(--color-gold-bg)', border: '1px solid var(--color-gold-pale)' }}>
+                <p className="text-[12px] leading-relaxed" style={{ color: 'var(--color-gold)' }}>{duplicateWarning}</p>
+              </div>
+            )}
 
             {importData.warnings.length > 0 && (
               <div className="mb-5 p-3 rounded-xl bg-sienna-bg border border-sienna-pale">
@@ -495,7 +509,7 @@ export default function EpubImportReview({ importData, onCreate, onBack }) {
         {step === 3 && (
           <div>
             <h1 className="font-serif text-2xl font-bold text-ink-900 mb-1">Spoiler settings</h1>
-            <p className="text-sm text-ink-500 mb-7">How careful should Shadow Scribe be about future chapters?</p>
+            <p className="text-sm text-ink-500 mb-7">How carefully should Lantern handle future chapter details?</p>
 
             <div className="space-y-2.5 mb-7">
               {spoilerModes.map(m => (
@@ -530,8 +544,8 @@ export default function EpubImportReview({ importData, onCreate, onBack }) {
                   {importData.chapters.length} chapters detected from EPUB
                   {importData.chapterContents && Object.keys(importData.chapterContents).length > 0 && (
                     settings.anthropicKey?.trim()
-                      ? <span className="text-sage ml-1">· Claude AI extraction ready ✦</span>
-                      : <span className="text-ink-400 ml-1">· rule-based extraction ready</span>
+                      ? <span className="ml-1" style={{ color: 'var(--color-gold)' }}>· Claude AI extraction ready ✦</span>
+                      : <span className="ml-1" style={{ color: 'var(--color-ink-400)' }}>· pattern matching only</span>
                   )}
                 </p>
               )}
@@ -540,6 +554,22 @@ export default function EpubImportReview({ importData, onCreate, onBack }) {
                 <span className="text-[11px] text-ink-400">{MOOD_CONFIG[form.mood]?.label} mood</span>
               </div>
             </div>
+
+            {/* Key-missing notice — shown before importing without AI ─────────── */}
+            {!hasAiKey && importData.chapterContents && Object.keys(importData.chapterContents).length > 0 && (
+              <div className="px-4 py-3 rounded-xl mb-1" style={{ background: 'var(--color-gold-bg)', border: '1px solid var(--color-gold-border)' }}>
+                <p className="italic leading-relaxed" style={{ fontSize: 12, color: 'var(--color-ink-600)' }}>
+                  Without an Anthropic key, the companion will use basic pattern matching to read this EPUB — characters and themes may be less fully understood than with AI extraction.
+                </p>
+                <button
+                  onClick={() => navigate('/settings')}
+                  className="mt-2 italic underline decoration-dotted underline-offset-2 hover:text-ink-800 transition-colors"
+                  style={{ fontSize: 11, color: 'var(--color-ink-500)' }}
+                >
+                  Add an API key in Settings for deeper analysis →
+                </button>
+              </div>
+            )}
 
             <div className="flex gap-3">
               <button onClick={() => setStep(2)} className="flex-1 py-3 rounded-xl border border-ink-200 text-sm font-semibold text-ink-600 hover:bg-ink-100 transition-all">← Back</button>

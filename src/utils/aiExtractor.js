@@ -10,40 +10,60 @@
  */
 
 import { cleanChapterHtml } from './narrativeExtractor.js'
+import { PROVIDER_CONFIG, AI_OP, devLog, dedupRequest } from './aiRequest.js'
 
-const API_URL  = 'https://api.anthropic.com/v1/messages'
-const MODEL    = 'claude-3-5-haiku-20241022'
 const MAX_CHAPTER_CHARS = 2500  // chars per chapter excerpt — ~600 tokens each
 const MAX_CHAPTERS      = 60    // hard cap for very long books
 
 // ── Shared API call helper ────────────────────────────────────────────────────
 
-async function callClaude(apiKey, prompt, maxTokens = 2048) {
-  const response = await fetch(API_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': apiKey.trim(),
-      'anthropic-version': '2023-06-01',
-      'anthropic-dangerous-direct-browser-access': 'true',
-    },
-    body: JSON.stringify({
-      model: MODEL,
-      max_tokens: maxTokens,
-      messages: [{ role: 'user', content: prompt }],
-    }),
-  })
+async function callClaude(apiKey, prompt, maxTokens = 2048, op = 'api') {
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), PROVIDER_CONFIG.timeoutMs)
+
+  devLog(op, 'request:start', { maxTokens })
+
+  let response
+  try {
+    response = await fetch(PROVIDER_CONFIG.apiUrl, {
+      signal: controller.signal,
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey.trim(),
+        'anthropic-version': PROVIDER_CONFIG.version,
+        'anthropic-dangerous-direct-browser-access': 'true',
+      },
+      body: JSON.stringify({
+        model: PROVIDER_CONFIG.model,
+        max_tokens: maxTokens,
+        messages: [{ role: 'user', content: prompt }],
+      }),
+    })
+  } catch (err) {
+    if (err.name === 'AbortError') {
+      devLog(op, 'request:timeout')
+      throw new Error('Request timed out — please try again')
+    }
+    devLog(op, 'request:network-error', { message: err.message })
+    throw err
+  } finally {
+    clearTimeout(timer)
+  }
 
   if (!response.ok) {
     const errData = await response.json().catch(() => ({}))
     const msg = errData.error?.message || `API error ${response.status}`
+    devLog(op, 'request:error', { status: response.status, msg })
     if (response.status === 401) throw new Error('Invalid API key — check your key in Settings')
     if (response.status === 429) throw new Error('Rate limit reached — please try again in a moment')
     throw new Error(msg)
   }
 
   const data = await response.json()
-  return data.content?.[0]?.text ?? ''
+  const text = data.content?.[0]?.text ?? ''
+  devLog(op, 'request:complete', { chars: text.length })
+  return text
 }
 
 // ── Main exports ──────────────────────────────────────────────────────────────
@@ -78,7 +98,7 @@ export async function aiExtractNarrative(chapterContents, chapters, apiKey, { ti
     : 'this novel'
 
   const prompt  = buildPrompt(bookRef, excerpts)
-  const rawText = await callClaude(apiKey, prompt, 6000)
+  const rawText = await callClaude(apiKey, prompt, 6000, AI_OP.EXTRACTION)
 
   // Parse JSON — handle potential markdown fences
   let parsed
@@ -121,9 +141,9 @@ Return ONLY a valid JSON object — no markdown fences, no explanation outside t
 }
 
 Rules:
-- characters: identify 4–12 significant named characters. tier "main" = protagonist(s) and central antagonists (4 max total). tier "secondary" = supporting cast.
-- summaries: one entry per chapter provided, keyed by chapter number as a string. Past tense, literary tone, no spoilers beyond that chapter's excerpt. Keep each under 60 words.
-- mysteries: 5–15 genuinely unresolved questions raised by the narrative. Focus on withheld information, unexplained events, and character motivations. Skip trivial or mundane questions.
+- characters: identify 4–12 significant named characters. tier "main" = protagonist(s) and central antagonists (4 max total). tier "secondary" = supporting cast. Set revealChapter to the chapter number where the character first meaningfully appears. Character descriptions must be based only on what is established up to and including their revealChapter — do NOT reference deaths, betrayals, identity reveals, or outcomes from later chapters. When uncertain, describe less.
+- summaries: one entry per chapter provided, keyed by chapter number as a string. Past tense, literary tone. Each summary must cover only what happens within that chapter's excerpt — do not reference events from other chapters. Keep each under 60 words.
+- mysteries: 5–15 genuinely unresolved questions the narrative raises and does not yet answer. Phrase each as an open question or a statement of withheld information. Skip observations, mundane questions, and anything already resolved within the excerpts. Minimum 25 characters each.
 
 Chapter excerpts:
 
@@ -154,17 +174,21 @@ function normalizeAIResult(json, chapters) {
   const mainChars = []
   const secChars  = []
 
+  const totalChapters = chapters.length || Infinity
+
   rawChars.forEach((c, i) => {
-    if (!c.name || typeof c.name !== 'string') return
+    if (!c.name || typeof c.name !== 'string' || !c.name.trim()) return
+    const rawReveal = typeof c.revealChapter === 'number' ? Math.floor(c.revealChapter) : 1
     const char = {
-      id:           `char_ai_${ts}_${i}`,
-      name:         c.name.trim(),
-      role:         c.role        || 'supporting',
-      description:  c.description || '',
-      allegiance:   undefined,
-      revealChapter: typeof c.revealChapter === 'number' ? c.revealChapter : 1,
-      extracted:    true,
-      spoilerSafe:  false,
+      id:            `char_ai_${ts}_${i}`,
+      name:          c.name.trim(),
+      role:          c.role        || 'supporting',
+      description:   c.description || '',
+      allegiance:    undefined,
+      // Clamp revealChapter: must be ≥1 and ≤ totalChapters. Prevents spoiler-gating failures.
+      revealChapter: Math.min(Math.max(rawReveal, 1), totalChapters),
+      extracted:     true,
+      spoilerSafe:   false,
     }
     if (c.tier === 'main') mainChars.push(char)
     else                   secChars.push(char)
@@ -179,7 +203,8 @@ function normalizeAIResult(json, chapters) {
 
   chapters.forEach(ch => {
     const s = rawSummaries[String(ch.num)] ?? rawSummaries[ch.num]
-    if (s && typeof s === 'string' && s.trim()) {
+    // Require ≥25 chars — rejects placeholder/truncated summaries
+    if (s && typeof s === 'string' && s.trim().length >= 25) {
       summaries[ch.num] = s.trim()
       summariesGenerated++
     }
@@ -190,16 +215,21 @@ function normalizeAIResult(json, chapters) {
   // ── Mysteries ──────────────────────────────────────────────────────────────
   const rawMysteries = Array.isArray(json.mysteries) ? json.mysteries : []
   const mysteries = rawMysteries
-    .filter(m => m.text && typeof m.text === 'string')
+    // Require ≥25 chars and filter out purely declarative statements with no interrogative quality
+    .filter(m => m.text && typeof m.text === 'string' && m.text.trim().length >= 25)
     .slice(0, 15)
-    .map((m, i) => ({
-      id:       `myst_ai_${ts}_${i}`,
-      text:     m.text.trim(),
-      chapter:  typeof m.chapter === 'number' ? m.chapter : 1,
-      status:   'open',
-      resolved: false,
-      extracted: true,
-    }))
+    .map((m, i) => {
+      const rawChap = typeof m.chapter === 'number' ? Math.floor(m.chapter) : 1
+      return {
+        id:        `myst_ai_${ts}_${i}`,
+        text:      m.text.trim(),
+        // Clamp chapter attribution to valid range
+        chapter:   Math.min(Math.max(rawChap, 1), totalChapters),
+        status:    'open',
+        resolved:  false,
+        extracted: true,
+      }
+    })
 
   if (mysteries.length === 0) warnings.push('No mysteries were extracted by AI')
 
@@ -209,7 +239,7 @@ function normalizeAIResult(json, chapters) {
     mysteries,
     extractionMeta: {
       method:              'ai',
-      model:               MODEL,
+      model:               PROVIDER_CONFIG.model,
       chaptersExtracted:   chapters.length,
       summariesGenerated,
       characterCount:      mainChars.length + secChars.length,
@@ -230,45 +260,46 @@ function normalizeAIResult(json, chapters) {
  * @param {string} apiKey   Anthropic API key
  * @returns {string[]}      Array of question strings
  */
-export async function generateDiscussionQuestions(book, apiKey) {
+export function generateDiscussionQuestions(book, apiKey) {
   if (!apiKey?.trim()) throw new Error('No API key provided')
 
-  const pct          = Math.round((book.currentChapter / book.totalChapters) * 100)
-  const visibleChaps = book.chapters?.filter(c => c.completed && c.summary) ?? []
-  const notes        = (book.notes || []).slice(-12)   // most recent 12
-  const mysteries    = (book.mysteries || []).filter(m => !m.resolved).slice(0, 8)
+  return dedupRequest(`discussion:${book.id}`, async () => {
+    const pct          = Math.round((book.currentChapter / book.totalChapters) * 100)
+    const visibleChaps = book.chapters?.filter(c => c.completed && c.summary) ?? []
+    const notes        = (book.notes || []).slice(-12)   // most recent 12
+    const mysteries    = (book.mysteries || []).filter(m => !m.resolved).slice(0, 8)
 
-  // Build context block
-  const parts = []
+    // Build context block
+    const parts = []
 
-  if (visibleChaps.length > 0) {
-    parts.push('Chapter summaries so far:\n' +
-      visibleChaps.slice(-8).map(c => `  Ch.${c.num} ${c.title}: ${c.summary}`).join('\n'))
-  }
+    if (visibleChaps.length > 0) {
+      parts.push('Chapter summaries so far:\n' +
+        visibleChaps.slice(-8).map(c => `  Ch.${c.num} ${c.title}: ${c.summary}`).join('\n'))
+    }
 
-  if (notes.length > 0) {
-    parts.push('Reader notes:\n' +
-      notes.map(n => `  [${n.tag}] ${n.text}`).join('\n'))
-  }
+    if (notes.length > 0) {
+      parts.push('Reader notes:\n' +
+        notes.map(n => `  [${n.tag}] ${n.text}`).join('\n'))
+    }
 
-  if (mysteries.length > 0) {
-    parts.push('Open mysteries the reader is tracking:\n' +
-      mysteries.map(m => `  "${m.text}"`).join('\n'))
-  }
+    if (mysteries.length > 0) {
+      parts.push('Open mysteries the reader is tracking:\n' +
+        mysteries.map(m => `  "${m.text}"`).join('\n'))
+    }
 
-  const context = parts.length > 0
-    ? `\n\nContext from their reading so far:\n${parts.join('\n\n')}`
-    : ''
+    const context = parts.length > 0
+      ? `\n\nContext from their reading so far:\n${parts.join('\n\n')}`
+      : ''
 
-  const position = pct >= 99
-    ? 'has just finished the book'
-    : pct >= 75
-      ? `is in the final quarter (${pct}% through)`
-      : pct >= 50
-        ? `is past the midpoint (${pct}% through)`
-        : `is ${pct}% through`
+    const position = pct >= 99
+      ? 'has just finished the book'
+      : pct >= 75
+        ? `is in the final quarter (${pct}% through)`
+        : pct >= 50
+          ? `is past the midpoint (${pct}% through)`
+          : `is ${pct}% through`
 
-  const prompt = `You are generating literary discussion questions for a reader of "${book.title}" by ${book.author}. The reader ${position} (chapter ${book.currentChapter} of ${book.totalChapters}).${context}
+    const prompt = `You are generating literary discussion questions for a reader of "${book.title}" by ${book.author}. The reader ${position} (chapter ${book.currentChapter} of ${book.totalChapters}).${context}
 
 Generate 6-8 thoughtful discussion questions that:
 - Are genuinely tailored to THIS book's themes, characters, and situations
@@ -279,22 +310,23 @@ Generate 6-8 thoughtful discussion questions that:
 Return ONLY a JSON array of strings — no markdown, no explanation:
 ["Question one?", "Question two?", ...]`
 
-  const rawText = await callClaude(apiKey, prompt, 1500)
+    const rawText = await callClaude(apiKey, prompt, 1500, AI_OP.DISCUSSION)
 
-  // Parse the array
-  const jsonText = extractJSON(rawText)
-  let questions
-  try {
-    questions = JSON.parse(jsonText)
-  } catch {
-    throw new Error('AI returned an unexpected format — try again')
-  }
+    // Parse the array
+    const jsonText = extractJSON(rawText)
+    let questions
+    try {
+      questions = JSON.parse(jsonText)
+    } catch {
+      throw new Error('AI returned an unexpected format — try again')
+    }
 
-  if (!Array.isArray(questions) || questions.length === 0) {
-    throw new Error('No questions were generated — try again')
-  }
+    if (!Array.isArray(questions) || questions.length === 0) {
+      throw new Error('No questions were generated — try again')
+    }
 
-  return questions.filter(q => typeof q === 'string' && q.trim()).map(q => q.trim())
+    return questions.filter(q => typeof q === 'string' && q.trim()).map(q => q.trim())
+  })
 }
 
 // ── AI reflection context assembly ───────────────────────────────────────────
@@ -385,7 +417,28 @@ export function buildAIReflectionContext(ctx) {
     signals.push('character-focus')
   }
 
-  const bounded = lines.slice(0, 10)   // hard cap — no prompt bloat
+  // 10. Reading gap — signal for temporal context (only when meaningfully long)
+  if (ctx.daysSinceLast !== null && ctx.daysSinceLast > 7) {
+    lines.push(`Days since last reading session: ${ctx.daysSinceLast}`)
+    signals.push('reading-gap')
+  }
+
+  // 11. Reread context — lets AI acknowledge the reader's prior familiarity
+  if ((ctx.currentEra ?? 0) > 0) {
+    const ordinals = ['second', 'third', 'fourth', 'fifth']
+    const ordinal  = ordinals[ctx.currentEra - 1] ?? `${ctx.currentEra + 1}th`
+    lines.push(`Reading era: ${ordinal} reading of this book`)
+    signals.push('reread-context')
+  }
+
+  // 12. Cross-era character shift — strongest reread recognition signal
+  if (ctx.crossEraShifts?.length > 0) {
+    const s = ctx.crossEraShifts[0]
+    lines.push(`Cross-reading shift: ${s.name} read as ${s.prevValence} before, ${s.currValence} now`)
+    signals.push('cross-era-shift')
+  }
+
+  const bounded = lines.slice(0, 12)  // expanded hard cap for reread context
   return {
     lines:          bounded,
     signals,
@@ -407,7 +460,7 @@ export function buildAIReflectionContext(ctx) {
  * @param {string} apiKey  Anthropic API key
  * @returns {Array}        ReflectionEntry[]
  */
-export async function generateCompanionReflections(ctx, apiKey) {
+export async function generateCompanionReflections(ctx, apiKey, insightStyle = 'observational') {
   if (!apiKey?.trim()) throw new Error('No API key provided')
   if (ctx.noteCount < 5) throw new Error('Not enough notes for AI reflection')
 
@@ -416,12 +469,24 @@ export async function generateCompanionReflections(ctx, apiKey) {
 
   const bookRef = `"${ctx.title}"${ctx.author ? ` by ${ctx.author}` : ''}`
 
-  const prompt = `You are writing 3 companion reflections for a reader of ${bookRef}. They are ${ctx.pct}% through (chapter ${ctx.currentChapter} of ${ctx.totalChapters}).
+  const styleInstruction = insightStyle === 'analytical'
+    ? 'Name patterns directly and precisely. You may state what a reading behavior suggests, but stay close to the evidence — do not drift into literary criticism or interpretation of the book itself.'
+    : insightStyle === 'minimal'
+    ? 'Be extremely spare — one short sentence each. Barely there. No elaboration.'
+    : 'Write as if watching quietly from a distance — name what you observe, not what it means.'
+
+  const rereadNote = (ctx.currentEra ?? 0) > 0
+    ? `\nThis is not their first reading — reflections may acknowledge that prior familiarity has shaped how they approach this book now. Do not reference events beyond chapter ${ctx.currentChapter}.`
+    : ''
+
+  const prompt = `You are writing 3 companion reflections for a reader of ${bookRef}. They are ${ctx.pct}% through (chapter ${ctx.currentChapter} of ${ctx.totalChapters}).${rereadNote}
 
 What you know about how they have been reading:
 ${lines.join('\n')}
 
 Write 3 short companion reflections. These notice patterns in how this reader has been engaging — what they keep returning to, how their understanding has shifted, what remains unresolved. Not summaries of the book.
+
+Writing style: ${styleInstruction}
 
 Requirements:
 - 1–2 sentences each. No longer.
@@ -429,14 +494,14 @@ Requirements:
 - Each reflection notices something different: vary the angle across character, pattern, emotional register, or interpretive shift.
 - Do NOT quote the reader's notes directly.
 - Do NOT reference future chapters or events past chapter ${ctx.currentChapter}.
-- Prohibited phrases: "I notice", "It seems", "You might", "It appears", "As a reader", "This reader", "Your journey", "You seem", "You have been", "One can see", "There is a", "This speaks to", "This resonates".
+- Prohibited phrases: "I notice", "It seems", "You might", "It appears", "As a reader", "This reader", "Your journey", "You seem", "You have been", "One can see", "There is a", "This speaks to", "This resonates", "That's a sign", "That kind of reading", "You are a reader who", "What this suggests", "This is a reading that".
 - Do not open a reflection with "The [abstract noun]" (e.g. "The tension", "The weight", "The sense").
-- No therapy-speak. No faux profundity. No chatbot wisdom.
-- Write as if watching quietly — not analysing loudly.
+- Do not repeat "still open", "still here", or "still unresolved" across the 3 reflections — vary how you hold absence and uncertainty.
+- No therapy-speak. No faux profundity. No chatbot wisdom. No evaluative praise ("that's a deep reading", "well-noticed").
 
 Return ONLY a JSON array of 3 strings. No markdown, no explanation.`
 
-  const raw = await callClaude(apiKey, prompt, 480)
+  const raw = await callClaude(apiKey, prompt, 480, AI_OP.REFLECTIONS)
 
   let arr
   try {

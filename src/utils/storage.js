@@ -2,6 +2,12 @@ import { INITIAL_BOOKS } from '../data/books.js'
 
 const KEY = 'shadowscribe_books'
 
+// ── Schema versioning ─────────────────────────────────────────────────────────
+// Increment SCHEMA_VERSION when the data model changes in a breaking way.
+// Exports carry this version; imports warn when the file is from a newer schema.
+export const SCHEMA_VERSION = 1
+export const APP_VERSION    = '1.0'
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Storage strategy notes (Session 43)
 //
@@ -29,7 +35,163 @@ const NARRATIVE_DB_NAME    = 'shadowscribe_narrative'
 const NARRATIVE_DB_VERSION = 1
 const CHAPTER_TEXT_STORE   = 'chapterTexts'
 
-// Migrate old string[] readingLog entries to SessionEntry objects
+// ── Book sanitization ─────────────────────────────────────────────────────────
+// Applied on both load and import. Guards against:
+//   - null/malformed book objects
+//   - corrupted reflectionCache
+//   - negative/NaN rereadCount
+//   - malformed notes, mysteries, chapters, characters
+// Returns null for books that are unrecoverable (missing id or title).
+
+function sanitizeReflectionCache(cache) {
+  if (!cache || typeof cache !== 'object') return null
+  if (!Array.isArray(cache.reflections)) return null
+  const reflections = cache.reflections.filter(r => r?.id && typeof r.text === 'string')
+  if (!reflections.length) return null
+  return { ...cache, reflections }
+}
+
+const VALID_STATUSES = new Set(['reading', 'paused', 'want', 'finished'])
+
+export function sanitizeBook(book) {
+  if (!book || typeof book !== 'object' || !book.id || !book.title) return null
+  const chars    = book.characters
+  const chapters = Array.isArray(book.chapters) ? book.chapters : []
+
+  // Field recovery — fill in missing or malformed scalar fields with safe defaults
+  const status         = VALID_STATUSES.has(book.status) ? book.status : 'reading'
+  const totalChapters  = (Number.isFinite(book.totalChapters) && book.totalChapters > 0)
+    ? book.totalChapters
+    : Math.max(chapters.length, 1)
+  const currentChapter = (Number.isFinite(book.currentChapter) && book.currentChapter >= 0)
+    ? book.currentChapter
+    : 1
+  const lastUpdated    = book.lastUpdated || new Date().toISOString().split('T')[0]
+
+  // Chapter sanitization — guard against corrupted num/title fields that break progress
+  const cleanChapters = chapters
+    .filter(c => c && Number.isFinite(c.num) && c.num > 0)
+    .map(c => ({
+      ...c,
+      num:       Math.floor(c.num),
+      title:     typeof c.title === 'string' ? c.title : `Chapter ${Math.floor(c.num)}`,
+      completed: !!c.completed,
+    }))
+
+  return {
+    ...book,
+    status,
+    totalChapters,
+    currentChapter,
+    lastUpdated,
+    notes:    Array.isArray(book.notes)
+      ? book.notes.filter(n => n?.id && typeof n.text === 'string' && n.text.trim().length > 0)
+      : [],
+    mysteries: Array.isArray(book.mysteries)
+      ? book.mysteries.filter(m => m?.id && typeof m.text === 'string' && m.text.trim().length > 0)
+      : [],
+    chapters: cleanChapters,
+    readingLog: normalizeReadingLog(book.readingLog),
+    rereadCount: (Number.isFinite(book.rereadCount) && book.rereadCount >= 0)
+      ? Math.floor(book.rereadCount)
+      : 0,
+    reflectionCache: sanitizeReflectionCache(book.reflectionCache),
+    characters: (chars && typeof chars === 'object') ? {
+      main:          Array.isArray(chars.main)          ? chars.main          : [],
+      secondary:     Array.isArray(chars.secondary)     ? chars.secondary     : [],
+      relationships: Array.isArray(chars.relationships) ? chars.relationships : [],
+    } : { main: [], secondary: [], relationships: [] },
+  }
+}
+
+// ── Export / Import ───────────────────────────────────────────────────────────
+
+/**
+ * Wraps books in a versioned export envelope for portability.
+ * exportType: 'library' | 'single'
+ */
+export function createExportEnvelope(books, exportType = 'library') {
+  return {
+    schemaVersion: SCHEMA_VERSION,
+    appVersion:    APP_VERSION,
+    exportedAt:    new Date().toISOString(),
+    exportType,
+    bookCount:     books.length,
+    books,
+  }
+}
+
+/**
+ * Parses and validates an import file (text string).
+ * Handles both legacy raw-array exports and new envelope format.
+ *
+ * Returns { books: Book[], meta: object|null, warnings: string[] }
+ *   - books    — sanitized, importable companions
+ *   - meta     — envelope fields if present, null for legacy format
+ *   - warnings — non-fatal notices (legacy format, version mismatch, skipped books)
+ *
+ * An empty books[] with a warning means nothing could be imported.
+ */
+export function parseImport(text) {
+  const warnings = []
+  let parsed
+  try {
+    parsed = JSON.parse(text)
+  } catch {
+    return { books: [], meta: null, warnings: ['Not valid JSON — make sure this is a Lantern export file.'] }
+  }
+
+  let rawBooks = []
+  let meta = null
+
+  if (Array.isArray(parsed)) {
+    rawBooks = parsed
+    warnings.push('Older export format — no schema version. Importing as-is.')
+  } else if (parsed && typeof parsed === 'object' && Array.isArray(parsed.books)) {
+    rawBooks = parsed.books
+    meta = {
+      schemaVersion: parsed.schemaVersion ?? null,
+      appVersion:    parsed.appVersion    ?? null,
+      exportedAt:    parsed.exportedAt    ?? null,
+      exportType:    parsed.exportType    ?? null,
+      bookCount:     parsed.bookCount     ?? null,
+    }
+    if (meta.schemaVersion !== null && meta.schemaVersion > SCHEMA_VERSION) {
+      warnings.push(
+        `This export uses schema v${meta.schemaVersion} — newer than this app (v${SCHEMA_VERSION}). ` +
+        `Some data may not import correctly.`
+      )
+    }
+  } else {
+    return { books: [], meta: null, warnings: ['Unrecognized file format. Expected a Lantern export file.'] }
+  }
+
+  const sanitized = rawBooks.map(sanitizeBook).filter(Boolean)
+  const skipped   = rawBooks.length - sanitized.length
+  if (skipped > 0) {
+    warnings.push(`${skipped} companion${skipped !== 1 ? 's' : ''} skipped — missing required fields.`)
+  }
+  if (sanitized.length === 0 && rawBooks.length > 0) {
+    warnings.push('No companions could be imported from this file.')
+  }
+
+  return { books: sanitized, meta, warnings }
+}
+
+/**
+ * Estimates the serialized size of an export envelope without writing it.
+ * Returns { bytes, kb, mb }
+ */
+export function estimateExportSize(books) {
+  try {
+    const envelope = createExportEnvelope(books)
+    const bytes = JSON.stringify(envelope).length * 2
+    return { bytes, kb: Math.round(bytes / 1024), mb: (bytes / (1024 * 1024)).toFixed(2) }
+  } catch {
+    return { bytes: 0, kb: 0, mb: '0.00' }
+  }
+}
+
 function normalizeReadingLog(log) {
   if (!Array.isArray(log)) return []
   return log.map((entry, i) => {
@@ -40,31 +202,66 @@ function normalizeReadingLog(log) {
   })
 }
 
-function normalizeBook(book) {
-  return { ...book, readingLog: normalizeReadingLog(book.readingLog) }
-}
-
 export function loadBooks() {
   try {
     const raw = localStorage.getItem(KEY)
-    if (!raw) return INITIAL_BOOKS.map(normalizeBook)
+    if (!raw) return INITIAL_BOOKS.map(b => sanitizeBook(b) ?? b)
     const parsed = JSON.parse(raw)
-    if (!Array.isArray(parsed) || parsed.length === 0) return INITIAL_BOOKS.map(normalizeBook)
-    return parsed.map(normalizeBook)
+    if (!Array.isArray(parsed) || parsed.length === 0) return INITIAL_BOOKS.map(b => sanitizeBook(b) ?? b)
+    const sanitized = parsed.map(sanitizeBook).filter(Boolean)
+    return sanitized.length ? sanitized : INITIAL_BOOKS.map(b => sanitizeBook(b) ?? b)
   } catch {
-    return INITIAL_BOOKS.map(normalizeBook)
+    return INITIAL_BOOKS.map(b => sanitizeBook(b) ?? b)
   }
 }
 
+// Storage pressure threshold: warn at 70% of 5 MB (aligned with the SettingsPage indicator).
+const STORAGE_WARN_BYTES = 5 * 1024 * 1024 * 0.7
+
+/**
+ * Persist books to localStorage.
+ * Returns { ok: true } on success, or { ok: false, quota: true } when storage is full.
+ * Callers should surface the quota case to the user — data is not saved when this returns false.
+ */
 export function saveBooks(books) {
   try {
-    localStorage.setItem(KEY, JSON.stringify(books))
-  } catch (err) {
-    // QuotaExceededError — storage full; books not saved this write
-    // Future: trigger IndexedDB migration here
-    if (err?.name === 'QuotaExceededError' || err?.code === 22) {
-      console.warn('[shadow-scribe] localStorage quota exceeded. Consider migrating to IndexedDB.')
+    // Strip any books that can't be serialized (e.g. circular refs from bugs)
+    const safe = books.filter(b => {
+      try { JSON.stringify(b); return true } catch { return false }
+    })
+    const serialized = JSON.stringify(safe)
+    if (serialized.length * 2 > STORAGE_WARN_BYTES) {
+      console.warn(`[lantern] Storage pressure: ~${Math.round(serialized.length * 2 / 1024)}KB used. Consider exporting and trimming.`)
     }
+    localStorage.setItem(KEY, serialized)
+    return { ok: true }
+  } catch (err) {
+    if (err?.name === 'QuotaExceededError' || err?.code === 22) {
+      console.warn('[lantern] localStorage quota exceeded. Export your library to avoid data loss.')
+      return { ok: false, quota: true }
+    }
+    return { ok: false, quota: false }
+  }
+}
+
+/**
+ * Check the health of the stored book data without loading it.
+ * Returns:
+ *   'empty'     — no data ever written (first use)
+ *   'ok'        — data exists and parses correctly
+ *   'corrupted' — data exists but cannot be parsed (partial write, storage truncation, etc.)
+ *
+ * A 'corrupted' result means loadBooks() fell back to demo data and the user's
+ * annotations may be recoverable only from an export file.
+ */
+export function checkStorageHealth() {
+  try {
+    const raw = localStorage.getItem(KEY)
+    if (!raw) return 'empty'
+    JSON.parse(raw)
+    return 'ok'
+  } catch {
+    return 'corrupted'
   }
 }
 
@@ -88,13 +285,25 @@ export function estimateLocalStorageUsage() {
   }
 }
 
-/** Estimate the serialized size of a single book object. */
+/** Estimate the serialized size of a single book object, with a breakdown by section. */
 export function estimateBookSize(book) {
   try {
-    const bytes = JSON.stringify(book).length * 2
-    return { bytes, kb: Math.round(bytes / 1024) }
+    const total      = JSON.stringify(book).length * 2
+    const cacheBytes = book.reflectionCache ? JSON.stringify(book.reflectionCache).length * 2 : 0
+    const notesBytes = book.notes?.length   ? JSON.stringify(book.notes).length * 2           : 0
+    const sessBytes  = book.readingLog?.length ? JSON.stringify(book.readingLog).length * 2   : 0
+    // coverData is a base64 string; each ASCII char costs 2 bytes in localStorage (UTF-16)
+    const coverBytes = book.coverData ? book.coverData.length * 2 : 0
+    return {
+      bytes:      total,
+      kb:         Math.round(total / 1024),
+      cacheKb:    Math.round(cacheBytes / 1024),
+      notesKb:    Math.round(notesBytes / 1024),
+      sessionsKb: Math.round(sessBytes / 1024),
+      coverKb:    Math.round(coverBytes / 1024),
+    }
   } catch {
-    return { bytes: 0, kb: 0 }
+    return { bytes: 0, kb: 0, cacheKb: 0, notesKb: 0, sessionsKb: 0, coverKb: 0 }
   }
 }
 
@@ -163,5 +372,5 @@ export function resetBooks() {
   } catch {
     // ignore
   }
-  return INITIAL_BOOKS
+  return INITIAL_BOOKS.map(b => sanitizeBook(b) ?? b)
 }

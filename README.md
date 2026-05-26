@@ -1,16 +1,52 @@
-# React + Vite
+# Lantern — A Literary Companion
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A quiet reading companion that sits alongside you as you read.
 
-Currently, two official plugins are available:
+Keep notes, track chapters, and let the text accumulate meaning over time.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## What it is
 
-## React Compiler
+Lantern is a local-first web app for readers who want a thoughtful companion for their books — not a social network, not a database, not a productivity tool. It holds your notes, marks your progress, and occasionally surfaces quiet observations drawn from what you've read.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+AI features (character extraction, companion reflections, discussion questions) use the Anthropic API with your own key. Everything else works offline.
 
-## Expanding the ESLint configuration
+## Getting started
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+```bash
+npm install
+npm run dev
+```
+
+Open [http://localhost:5230](http://localhost:5230).
+
+To use AI features, go to Settings and paste your [Anthropic API key](https://console.anthropic.com).
+
+## Environment variables
+
+See [`.env.example`](.env.example). All variables are optional — Lantern works without any of them.
+
+| Variable | Purpose |
+|---|---|
+| `VITE_PLAUSIBLE_DOMAIN` | Enables Plausible Analytics on your domain |
+| `VITE_FEEDBACK_URL` | Shows a feedback link in Settings |
+
+## Deployment
+
+Lantern deploys to Vercel as a static SPA. The `vercel.json` includes the SPA rewrite rule.
+
+```bash
+npm run build
+```
+
+Output is in `dist/`.
+
+## Architecture
+
+- React 19 + Vite + Tailwind CSS 4
+- `localStorage` for all persistence (no backend, no database)
+- Anthropic API via browser fetch (BYOK — user provides their own key)
+- React Router for SPA routing
+
+## Data model
+
+All reading companions, notes, and progress live in `localStorage` under the key `lantern_books`. Users can export and import their full library as JSON from Settings.

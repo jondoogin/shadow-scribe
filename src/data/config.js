@@ -1,8 +1,8 @@
 export const STATUS_CONFIG = {
-  reading:  { label:'Reading',      dot:'bg-sage',      text:'text-sage',      bg:'bg-sage-bg',    border:'border-sage-pale'    },
+  reading:  { label:'Reading',      dot:'bg-gold',      text:'text-ink-600',   bg:'bg-ink-100',    border:'border-ink-200'      },
   finished: { label:'Finished',     dot:'bg-gold',      text:'text-gold',      bg:'bg-gold-bg',    border:'border-gold-border'  },
   paused:   { label:'Paused',       dot:'bg-ink-400',   text:'text-ink-500',   bg:'bg-ink-100',    border:'border-ink-200'      },
-  want:     { label:'Want to Read', dot:'bg-sienna',    text:'text-sienna',    bg:'bg-sienna-bg',  border:'border-sienna-pale'  },
+  want:     { label:'Want to Read', dot:'bg-ink-300',   text:'text-ink-500',   bg:'bg-ink-100',    border:'border-ink-100'      },
 }
 
 export const MOOD_CONFIG = {

@@ -1,8 +1,12 @@
 import { useState, useRef } from 'react'
+
+const IS_DEV = import.meta.env.DEV
 import { useNavigate } from 'react-router-dom'
 import { useBooks } from '../context/BooksContext.jsx'
 import { useSettings } from '../context/SettingsContext.jsx'
 import { Ico } from '../components/shared/icons.jsx'
+import { createExportEnvelope, parseImport, estimateLocalStorageUsage } from '../utils/storage.js'
+import { track } from '../utils/analytics.js'
 
 function SettingsSection({ title, description, children }) {
   return (
@@ -56,11 +60,12 @@ function PlaceholderBadge() {
 
 export default function SettingsPage() {
   const navigate = useNavigate()
-  const { books, resetToDemo, importLibrary } = useBooks()
+  const { books, resetToDemo, importLibrary, clearStorageWarning } = useBooks()
   const { settings, updateSetting } = useSettings()
   const importRef = useRef()
 
   const [importMsg,    setImportMsg]    = useState(null)  // null | { ok, text }
+  const [exportDone,   setExportDone]   = useState(false)
   const [shadowMode,   setShadowMode]   = useState(false)
   const [confirmReset, setConfirmReset] = useState(false)
   const [showKey,      setShowKey]      = useState(false)
@@ -68,7 +73,9 @@ export default function SettingsPage() {
   const [keySaved,     setKeySaved]     = useState(false)
 
   const saveKey = () => {
-    updateSetting('anthropicKey', keyDraft.trim())
+    const trimmed = keyDraft.trim()
+    if (trimmed && !settings.anthropicKey) track('api_key_saved')
+    updateSetting('anthropicKey', trimmed)
     setKeySaved(true)
     setTimeout(() => setKeySaved(false), 2000)
   }
@@ -80,14 +87,22 @@ export default function SettingsPage() {
   }
 
   const handleExport = () => {
-    const date = new Date().toISOString().split('T')[0]
-    const blob = new Blob([JSON.stringify(books, null, 2)], { type: 'application/json' })
-    const url  = URL.createObjectURL(blob)
-    const a    = document.createElement('a')
-    a.href = url
-    a.download = `shadowscribe-library-${date}.json`
+    const date     = new Date().toISOString().split('T')[0]
+    const envelope = createExportEnvelope(books)
+    const blob     = new Blob([JSON.stringify(envelope, null, 2)], { type: 'application/json' })
+    const url      = URL.createObjectURL(blob)
+    const a        = document.createElement('a')
+    a.href     = url
+    a.download = `lantern-library-${date}.json`
     a.click()
-    URL.revokeObjectURL(url)
+    // Defer revoke so browser has time to initiate the download
+    setTimeout(() => URL.revokeObjectURL(url), 100)
+    // Record export timestamp + dismiss any storage quota banner
+    updateSetting('lastExportedAt', new Date().toISOString())
+    clearStorageWarning()
+    // Brief confirmation feedback (mirrors import "✓ Imported")
+    setExportDone(true)
+    setTimeout(() => setExportDone(false), 3000)
   }
 
   const handleImportFile = (e) => {
@@ -96,19 +111,31 @@ export default function SettingsPage() {
     e.target.value = ''
     const reader = new FileReader()
     reader.onload = (ev) => {
-      try {
-        const parsed = JSON.parse(ev.target.result)
-        const incoming = Array.isArray(parsed) ? parsed : []
-        if (incoming.length === 0) {
-          setImportMsg({ ok: false, text: 'No companions found in that file.' })
-          return
-        }
-        importLibrary(incoming)
-        setImportMsg({ ok: true, text: `${incoming.length} companion${incoming.length !== 1 ? 's' : ''} imported.` })
-        setTimeout(() => setImportMsg(null), 4000)
-      } catch {
-        setImportMsg({ ok: false, text: "Could not read that file — make sure it's a Shadow Scribe export." })
+      const { books: incoming, warnings } = parseImport(ev.target.result ?? '')
+      if (!incoming.length) {
+        const msg = warnings[0] ?? 'No companions found in that file.'
+        track('library_import_failed', { reason: msg.slice(0, 80) })
+        setImportMsg({ ok: false, text: msg })
+        return
       }
+      const existingIds = new Set(books.map(b => b.id))
+      const newCount    = incoming.filter(b => !existingIds.has(b.id)).length
+      const dupCount    = incoming.length - newCount
+      importLibrary(incoming)
+      track('library_imported', { count: newCount, skipped: dupCount })
+      let base
+      if (newCount === 0) {
+        base = 'All companions were already in your library.'
+      } else {
+        base = `${newCount} companion${newCount !== 1 ? 's' : ''} imported.`
+        if (dupCount > 0) base += ` ${dupCount} already present — skipped.`
+      }
+      const warn = warnings.filter(w => !w.startsWith('Older export')).join(' ')
+      setImportMsg({ ok: newCount > 0, text: warn ? `${base} ${warn}` : base })
+      setTimeout(() => setImportMsg(null), 6000)
+    }
+    reader.onerror = () => {
+      setImportMsg({ ok: false, text: 'The file could not be read. Try again.' })
     }
     reader.readAsText(file)
   }
@@ -127,7 +154,7 @@ export default function SettingsPage() {
       </div>
 
       {/* ── Appearance ── */}
-      <SettingsSection title="Appearance" description="How Shadow Scribe looks and feels.">
+      <SettingsSection title="Appearance" description="How Lantern looks and feels.">
         <SettingsRow
           label="Dark Mode"
           description="Easier on the eyes for late-night reading."
@@ -161,15 +188,6 @@ export default function SettingsPage() {
             <option value="minimal">Minimal</option>
           </select>
         </SettingsRow>
-        <SettingsRow
-          label="Presence Frequency"
-          description="How often the companion offers unsolicited observations."
-        >
-          <div className="flex items-center gap-2">
-            <span className="text-[12px] text-ink-500">Always on</span>
-            <PlaceholderBadge />
-          </div>
-        </SettingsRow>
       </SettingsSection>
 
       {/* ── AI & Extraction ── */}
@@ -191,7 +209,7 @@ export default function SettingsPage() {
               </p>
             </div>
             {settings.anthropicKey ? (
-              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-sage-bg text-sage border border-sage-pale flex-shrink-0">
+              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full flex-shrink-0" style={{ background: 'var(--color-gold-bg)', color: 'var(--color-gold)', border: '1px solid var(--color-gold-pale)' }}>
                 Active
               </span>
             ) : (
@@ -274,35 +292,74 @@ export default function SettingsPage() {
 
       {/* ── Data ── */}
       <SettingsSection title="Data & Privacy" description="Your reading data lives only on this device.">
+        {/* Storage usage indicator */}
+        {(() => {
+          const usage = estimateLocalStorageUsage()
+          const warn  = usage.pctOf5MB >= 70
+          const crit  = usage.pctOf5MB >= 90
+          if (usage.pctOf5MB < 10) return null
+          return (
+            <div className={`px-5 py-4 border-b border-ink-100 ${crit ? 'bg-sienna-bg' : warn ? 'bg-gold-bg/40' : ''}`}>
+              <div className="flex items-center justify-between mb-2">
+                <p className={`text-[12px] font-medium ${crit ? 'text-sienna' : warn ? 'text-gold' : 'text-ink-600'}`}>
+                  Local storage
+                </p>
+                <p className={`text-[11px] tabular-nums ${crit ? 'text-sienna' : warn ? 'text-gold' : 'text-ink-400'}`}>
+                  {usage.mb} MB · {usage.pctOf5MB}% of 5 MB
+                </p>
+              </div>
+              <div className="h-1.5 bg-ink-100 rounded-full overflow-hidden">
+                <div
+                  className={`h-full rounded-full transition-all ${crit ? 'bg-sienna' : warn ? 'bg-gold' : 'bg-ink-300'}`}
+                  style={{ width: `${Math.min(usage.pctOf5MB, 100)}%` }}
+                />
+              </div>
+              {crit && (
+                <p className="text-[11px] text-sienna mt-2 leading-relaxed">
+                  Storage is nearly full. Export your library to avoid data loss.
+                </p>
+              )}
+              {warn && !crit && (
+                <p className="text-[11px] text-ink-400 mt-2">
+                  Getting full. Consider exporting a backup.
+                </p>
+              )}
+            </div>
+          )
+        })()}
         <SettingsRow
           label="Export Library"
-          description={`Download all ${books.length} companion${books.length !== 1 ? 's' : ''} as a JSON file.`}
+          description={books.length > 0
+            ? `Download all ${books.length} companion${books.length !== 1 ? 's' : ''} as a backup file. Keep it somewhere safe.`
+            : 'No companions to export yet.'}
         >
           <button
             onClick={handleExport}
             disabled={books.length === 0}
-            className="text-[12px] font-medium text-ink-700 border border-ink-200 rounded-lg px-3 py-1.5 hover:bg-ink-100 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            className="text-[12px] font-medium border rounded-lg px-3 py-1.5 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            style={exportDone
+              ? { background: 'var(--color-gold-bg)', color: 'var(--color-gold)', borderColor: 'var(--color-gold-pale)' }
+              : { color: 'var(--color-ink-700)', borderColor: 'var(--color-ink-200)' }}
           >
-            Export
+            {exportDone ? '✓ Exported' : 'Export'}
           </button>
         </SettingsRow>
         <SettingsRow
           label="Import Library"
           description={importMsg
             ? importMsg.text
-            : "Add companions from a previous export. Duplicates are skipped."}
+            : "Restore companions from a previous export. Books already in your library are not re-imported."}
         >
           <div className="flex items-center gap-2">
             <input ref={importRef} type="file" accept=".json" className="hidden" onChange={handleImportFile} />
             <button
               onClick={() => importRef.current?.click()}
-              className={`text-[12px] font-medium border rounded-lg px-3 py-1.5 transition-colors ${
-                importMsg?.ok
-                  ? 'text-sage border-sage-pale bg-sage-bg'
-                  : importMsg
-                    ? 'text-ember border-ember-pale bg-ember-bg'
-                    : 'text-ink-700 border-ink-200 hover:bg-ink-100'
-              }`}
+              className={`text-[12px] font-medium border rounded-lg px-3 py-1.5 transition-colors ${!importMsg ? 'text-ink-700 border-ink-200 hover:bg-ink-100' : ''}`}
+              style={importMsg?.ok
+                ? { background: 'var(--color-gold-bg)', color: 'var(--color-gold)', borderColor: 'var(--color-gold-pale)' }
+                : importMsg
+                  ? { background: 'var(--color-ember-bg)', color: 'var(--color-ember)', borderColor: 'var(--color-ember-pale)' }
+                  : {}}
             >
               {importMsg?.ok ? '✓ Imported' : 'Import'}
             </button>
@@ -330,15 +387,45 @@ export default function SettingsPage() {
                   : 'text-ember border border-ember-pale hover:bg-ember-bg'
               }`}
             >
-              {confirmReset ? 'Reset' : 'Reset'}
+              {confirmReset ? 'Yes, reset' : 'Reset'}
             </button>
           </div>
         </SettingsRow>
       </SettingsSection>
 
+      {/* ── Developer — dev builds only ── */}
+      {IS_DEV && (
+        <SettingsSection
+          title="Developer"
+          description="Testing tools. Not intended for regular use."
+        >
+          <SettingsRow
+            label="Dev Mode"
+            description="Bypasses companion cooldowns and speeds up the observation carousel to 3 seconds. Use when testing companion behavior."
+          >
+            <Toggle value={settings.devMode} onChange={v => updateSetting('devMode', v)} />
+          </SettingsRow>
+        </SettingsSection>
+      )}
+
       <p className="text-center text-[11px] text-ink-300 mt-4">
-        Shadow Scribe · All data stored locally · No account required
+        Lantern · All data stored locally · No account required
       </p>
+      {import.meta.env.VITE_FEEDBACK_URL && (
+        <p className="text-center text-[11px] mt-2 mb-4">
+          <a
+            href={import.meta.env.VITE_FEEDBACK_URL}
+            target="_blank"
+            rel="noreferrer"
+            className="transition-colors"
+            style={{ color: 'var(--color-ink-400)' }}
+            onMouseEnter={e => { e.currentTarget.style.color = 'var(--color-ink-600)' }}
+            onMouseLeave={e => { e.currentTarget.style.color = 'var(--color-ink-400)' }}
+          >
+            Share thoughts on this build →
+          </a>
+        </p>
+      )}
     </main>
   )
 }

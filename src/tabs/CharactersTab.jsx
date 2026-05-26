@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { uid } from '../utils/uid.js'
 import { Ico } from '../components/shared/icons.jsx'
 import SectionHeading from '../components/shared/SectionHeading.jsx'
 import SectionLabel from '../components/shared/SectionLabel.jsx'
@@ -30,7 +31,7 @@ function AddCharForm({ book, onUpdateBook, onClose }) {
     if (!canSave) return
     const rc = form.revealChapter ? parseInt(form.revealChapter) : null
     const newChar = {
-      id:            `char_${Date.now()}`,
+      id:            uid('char_'),
       name:          form.name.trim(),
       role:          form.role.trim(),
       status:        form.status.trim() || 'Alive',
@@ -137,6 +138,63 @@ function AddCharForm({ book, onUpdateBook, onClose }) {
   )
 }
 
+// ── Note-derived character presence ──────────────────────────────────────────
+// Counts how many notes mention a character's first name (3+ chars).
+// Detects movement across early/late notes for instability and polarity signals.
+
+const CHAR_POS = ['trust', 'honest', 'kind', 'hero', 'brave', 'good', 'innocent', 'genuine', 'warm', 'care', 'love', 'protect', 'sympathy']
+const CHAR_NEG = ['distrust', 'guilty', 'liar', 'cruel', 'villain', 'evil', 'false', 'manipulative', 'dangerous', 'betray', 'deceive', 'suspicious', 'wrong']
+
+function charValence(noteTexts) {
+  const text = noteTexts.join(' ').toLowerCase()
+  const pos = CHAR_POS.filter(w => text.includes(w)).length
+  const neg = CHAR_NEG.filter(w => text.includes(w)).length
+  if (pos > neg + 1) return 'positive'
+  if (neg > pos + 1) return 'negative'
+  return 'mixed'
+}
+
+function charRelationalLine(ch, notes) {
+  const firstName = (ch.name || '').split(' ')[0]
+  if (!firstName || firstName.length < 3) return null
+  const lc = firstName.toLowerCase()
+  const matching = (notes || []).filter(n =>
+    (n.text + ' ' + (n.reflection || '')).toLowerCase().includes(lc)
+  )
+  const count = matching.length
+
+  // Instability signals — character whose interpretation is actively shifting
+  if (count >= 4) {
+    const sorted = [...matching].sort((a, b) => new Date(a.date) - new Date(b.date))
+    const mid = Math.floor(sorted.length / 2)
+    const earlyNotes = sorted.slice(0, mid)
+    const lateNotes  = sorted.slice(mid)
+    const earlyTags  = earlyNotes.map(n => n.tag)
+    const lateTags   = lateNotes.map(n => n.tag)
+    const earlyConfused = earlyTags.includes('confusing')
+    const lateTheory    = lateTags.includes('theory')
+    const earlyTheory   = earlyTags.includes('theory')
+    const lateConfused  = lateTags.includes('confusing')
+
+    if (earlyConfused && lateTheory)
+      return `${ch.name} has been shifting in your understanding.`
+    if (earlyTheory && lateConfused)
+      return `${ch.name} has become harder to read as the story progressed.`
+
+    // Polarity shift — emotional valence reversed between early and late
+    const earlyValence = charValence(earlyNotes.map(n => n.text))
+    const lateValence  = charValence(lateNotes.map(n => n.text))
+    if (earlyValence === 'positive' && lateValence === 'negative')
+      return `${ch.name} looked different in your earlier notes. Something in the story has changed that.`
+    if (earlyValence === 'negative' && lateValence === 'positive')
+      return `Your reading of ${ch.name} has softened. The earlier suspicion hasn't held.`
+  }
+
+  if (count >= 5) return `${ch.name} appears throughout your notes.`
+  if (count >= 3) return `${ch.name} keeps returning in what you write.`
+  return null
+}
+
 // ── Character card ─────────────────────────────────────────────────────────
 
 function CharCard({ ch, raw, veiled, book, visibleChars, onSave, onUpdateBook, onDelete }) {
@@ -240,15 +298,15 @@ function CharCard({ ch, raw, veiled, book, visibleChars, onSave, onUpdateBook, o
   }
 
   const aliveCls = ch.alive && !veiled
-    ? 'text-sage bg-sage-bg border-sage-pale'
-    : 'text-ink-500 bg-ink-100 border-ink-200'
+    ? 'text-ink-500 bg-ink-100 border-ink-200'
+    : 'text-ink-400 bg-ink-100 border-ink-100 opacity-60'
 
   const isUserAdded = raw?.userAdded
   const wasUpdated  = !isUserAdded && raw?.updatedAt
   const inputCls    = 'w-full border border-ink-200 rounded-lg px-2.5 py-1.5 text-sm text-ink-800 bg-white'
 
   return (
-    <div className={`rounded-xl border overflow-hidden ${veiled ? 'opacity-80' : ''} bg-cream-50 border-ink-200`}>
+    <div className={`note-card overflow-hidden ${veiled ? 'opacity-70' : ''}`}>
       <button
         className="w-full text-left p-4 flex items-center gap-3"
         onClick={() => {
@@ -406,11 +464,12 @@ function CharCard({ ch, raw, veiled, book, visibleChars, onSave, onUpdateBook, o
                 <p className="text-[13px] text-ink-600 leading-relaxed">{ch.description}</p>
               )}
 
-              {wasUpdated && (
-                <p className="text-[11px] text-ink-300 italic">
-                  Your understanding of this character has been revised.
-                </p>
-              )}
+              {(() => {
+                const relLine = charRelationalLine(ch, book.notes)
+                if (relLine) return <p className="text-[11px] text-ink-400 italic">{relLine}</p>
+                if (wasUpdated) return <p className="text-[11px] text-ink-300 italic">Your reading of this character has shifted.</p>
+                return null
+              })()}
 
               {/* Relationships ──────────────────────────────────────── */}
               {rels.length > 0 && (
@@ -514,8 +573,8 @@ function CharCard({ ch, raw, veiled, book, visibleChars, onSave, onUpdateBook, o
                 <div className="flex items-center justify-between border-t border-ink-100 pt-3">
                   {relTargets.length > 0 ? (
                     <button onClick={() => { setAddingRel(true); setEditingRelIdx(null) }}
-                      className="text-[11px] text-ink-400 hover:text-ink-600 transition-colors flex items-center gap-1">
-                      <Ico.Plus /> Add connection
+                      className="text-[11px] text-ink-400 hover:text-ink-600 italic transition-colors">
+                      note a connection →
                     </button>
                   ) : <span />}
                   <button onClick={startEdit}
@@ -548,6 +607,18 @@ export default function CharactersTab({ book, onUpdateBook }) {
 
   const allRaw = [...book.characters.main, ...book.characters.secondary]
   const userAddedCount = allRaw.filter(c => c.userAdded).length
+
+  // Cross-surface residue — open mysteries circling named figures
+  const openMysteryCount = (book.mysteries || []).filter(m => !m.resolved).length
+  const notesMentionFigures = visibleChars.some(ch => {
+    const firstName = (ch.name || '').split(' ')[0]
+    if (!firstName || firstName.length < 3) return false
+    const lc = firstName.toLowerCase()
+    return (book.notes || []).some(n =>
+      (n.text + ' ' + (n.reflection || '')).toLowerCase().includes(lc)
+    )
+  })
+  const showMysteryBleed = openMysteryCount >= 2 && notesMentionFigures && hasAny
 
   const saveChar = (charType, updated) => {
     const newTier = updated._tier || charType
@@ -600,9 +671,9 @@ export default function CharactersTab({ book, onUpdateBook }) {
       {/* Header row ─────────────────────────────────────────────────── */}
       <div className="flex items-center justify-end mb-5">
         <button onClick={() => setAdding(true)}
-          className="flex items-center gap-1 text-[12px] font-semibold hover:opacity-75 transition-opacity"
+          className="text-[12px] italic hover:opacity-75 transition-opacity"
           style={{ color: 'var(--ca, #B8860B)' }}>
-          <Ico.Plus /> Add a character
+          name a figure →
         </button>
       </div>
 
@@ -618,12 +689,19 @@ export default function CharactersTab({ book, onUpdateBook }) {
           body="Begin noting the people who matter in this story. They'll gather here as you read — named, described, connected."
           action={
             <button onClick={() => setAdding(true)}
-              className="text-sm font-medium hover:underline"
+              className="text-[13px] italic hover:opacity-75 transition-opacity"
               style={{ color: 'var(--ca, #B8860B)' }}>
-              Add the first character →
+              name the first figure →
             </button>
           }
         />
+      )}
+
+      {/* Cross-surface residue — open mysteries bleeding into character surfaces */}
+      {showMysteryBleed && (
+        <p className="text-[11px] text-ink-400 italic mb-5 leading-relaxed">
+          The open questions are still circling some of these figures.
+        </p>
       )}
 
       {/* Character lists ─────────────────────────────────────────────── */}
@@ -631,7 +709,7 @@ export default function CharactersTab({ book, onUpdateBook }) {
         <div className="space-y-8">
           {mainViews.length > 0 && (
             <div>
-              <SectionHeading>Main Characters</SectionHeading>
+              <SectionHeading>figures</SectionHeading>
               <div className="space-y-2">
                 {mainViews.map(sharedCardProps('main'))}
               </div>
@@ -640,7 +718,7 @@ export default function CharactersTab({ book, onUpdateBook }) {
 
           {secondaryViews.length > 0 && (
             <div>
-              <SectionHeading>Secondary Characters</SectionHeading>
+              <SectionHeading>also present</SectionHeading>
               <div className="space-y-2">
                 {secondaryViews.map(sharedCardProps('secondary'))}
               </div>

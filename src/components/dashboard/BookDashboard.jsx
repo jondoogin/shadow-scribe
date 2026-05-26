@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef } from 'react'
 import { useBooks } from '../../context/BooksContext.jsx'
+import { useSettings } from '../../context/SettingsContext.jsx'
 import { Ico } from '../shared/icons.jsx'
 import CompanionHeader from './CompanionHeader.jsx'
-import CompanionInsights from './CompanionInsights.jsx'
+import PresenceStrip from './PresenceStrip.jsx'
 import ChapterUpdateModal from '../modals/ChapterUpdateModal.jsx'
 import ProgressTab from '../../tabs/ProgressTab.jsx'
 import CharactersTab from '../../tabs/CharactersTab.jsx'
@@ -12,24 +13,39 @@ import MysteriesTab from '../../tabs/MysteriesTab.jsx'
 import DiscussionTab from '../../tabs/DiscussionTab.jsx'
 
 const TABS = [
-  { id:'progress',   label:'Progress',   icon:<Ico.Chart />   },
-  { id:'characters', label:'Characters', icon:<Ico.User />    },
-  { id:'plot',       label:'Chronicle',  icon:<Ico.Book />    },
-  { id:'notes',      label:'Notes',      icon:<Ico.Note />    },
-  { id:'mysteries',  label:'Mysteries',  icon:<Ico.Mystery /> },
-  { id:'discussion', label:'Discussion', icon:<Ico.Chat />    },
+  { id: 'progress',   label: 'Reading'    },
+  { id: 'characters', label: 'Characters' },
+  { id: 'plot',       label: 'Chronicle'  },
+  { id: 'notes',      label: 'Notes'      },
+  { id: 'mysteries',  label: 'Mysteries'  },
+  { id: 'discussion', label: 'Wondering'  },
 ]
 
 export default function BookDashboard({ bookId }) {
   const { books, updateBook } = useBooks()
+  const { settings } = useSettings()
   const book = books.find(b => b.id === bookId)
 
   const [tab,        setTab]        = useState('progress')
   const [showUpdate, setShowUpdate] = useState(false)
   const tabRefs = useRef({})
 
-  useEffect(() => { window.scrollTo({ top: 0, behavior:'smooth' }) }, [tab])
+  // Dynamic document title for book pages
+  useEffect(() => {
+    if (book?.title) document.title = `${book.title} — Lantern`
+    return () => { document.title = 'Lantern — Library' }
+  }, [book?.title])
 
+  // Invisible observation layer — stamp first open time once, stored in book data.
+  // Included in exports automatically. No new localStorage keys.
+  useEffect(() => {
+    if (!book.firstOpenedAt) {
+      updateBook(bookId, { firstOpenedAt: new Date().toISOString() })
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bookId])
+
+  // Scroll tab button into view but do NOT reset page scroll — tabs feel like document layers, not mode switches
   useEffect(() => {
     tabRefs.current[tab]?.scrollIntoView({ behavior: 'smooth', inline: 'nearest', block: 'nearest' })
   }, [tab])
@@ -39,43 +55,50 @@ export default function BookDashboard({ bookId }) {
   const onUpdateBook = changes => updateBook(bookId, changes)
 
   return (
-    <div data-mood={book.mood || 'gold'}>
-      <CompanionHeader book={book} onOpenUpdate={() => setShowUpdate(true)} onUpdateBook={onUpdateBook} />
-      <CompanionInsights book={book} />
+    <div className="book-enter">
 
-      <div className="sticky-bar top-14">
-        <div className="max-w-4xl mx-auto px-5 sm:px-8 overflow-x-auto tab-scroll-fade">
-          <div className="flex min-w-max">
+      {/* ── Full-width header ── */}
+      <CompanionHeader book={book} onOpenUpdate={() => setShowUpdate(true)} onUpdateBook={onUpdateBook} />
+
+      {/* ── Sticky zone: presence strip + tab bar ── */}
+      <div className="sticky-bar top-14 mb-0">
+        <PresenceStrip book={book} onUpdateBook={onUpdateBook} />
+        <div className="overflow-x-auto tab-scroll-fade">
+          <div className="flex min-w-max px-5 sm:px-10">
             {TABS.map(t => (
-              <button key={t.id}
+              <button
+                key={t.id}
                 ref={el => { tabRefs.current[t.id] = el }}
                 onClick={() => setTab(t.id)}
                 className={`tab-btn ${tab === t.id ? 'active' : ''}`}
-                style={tab === t.id ? { color:'var(--ca, #B8860B)', borderColor:'var(--ca, #B8860B)' } : {}}>
-                {t.icon}
-                <span>{t.label}</span>
+              >
+                {t.label}
               </button>
             ))}
           </div>
         </div>
       </div>
 
-      <main key={tab} className="max-w-4xl mx-auto px-5 sm:px-8 py-7 pb-28 sm:pb-16 animate-tab-in">
-        {tab === 'progress'   && <ProgressTab   book={book} onUpdateBook={onUpdateBook} onOpenUpdate={() => setShowUpdate(true)} />}
-        {tab === 'characters' && <CharactersTab book={book} onUpdateBook={onUpdateBook} />}
-        {tab === 'plot'       && <PlotTab       book={book} onUpdateBook={onUpdateBook} />}
-        {tab === 'notes'      && <NotesTab      book={book} onUpdateBook={onUpdateBook} />}
-        {tab === 'mysteries'  && <MysteriesTab  book={book} onUpdateBook={onUpdateBook} />}
-        {tab === 'discussion' && <DiscussionTab book={book} onUpdateBook={onUpdateBook} />}
-      </main>
+      {/* ── Full-width content ── */}
+      <div className="max-w-[1000px] mx-auto px-5 sm:px-10 pt-9 pb-safe">
+        <div key={tab} className="animate-tab-in">
+          {tab === 'progress'   && <ProgressTab   book={book} onUpdateBook={onUpdateBook} onOpenUpdate={() => setShowUpdate(true)} settings={settings} />}
+          {tab === 'characters' && <CharactersTab book={book} onUpdateBook={onUpdateBook} />}
+          {tab === 'plot'       && <PlotTab       book={book} onUpdateBook={onUpdateBook} />}
+          {tab === 'notes'      && <NotesTab      book={book} onUpdateBook={onUpdateBook} />}
+          {tab === 'mysteries'  && <MysteriesTab  book={book} onUpdateBook={onUpdateBook} />}
+          {tab === 'discussion' && <DiscussionTab book={book} onUpdateBook={onUpdateBook} />}
+        </div>
+      </div>
 
-      {/* Sticky mobile action — reading or paused only */}
+      {/* ── Mobile: sticky action bar ── */}
       {(book.status === 'reading' || book.status === 'paused') && !book.archived && (
-        <div className="sm:hidden sticky-bottom-bar" data-mood={book.mood || 'gold'}>
+        <div className="sm:hidden sticky-bottom-bar">
           <button
             onClick={() => setShowUpdate(true)}
-            className="w-full py-3 rounded-xl font-semibold text-sm btn-accent flex items-center justify-center gap-2">
-            <Ico.Refresh /> Tell the companion where you are
+            className="w-full py-3 rounded-xl font-semibold text-sm btn-accent flex items-center justify-center gap-2"
+          >
+            <Ico.Refresh /> {book.currentChapter > 0 ? `Continue from chapter ${book.currentChapter}` : 'Log your first session'}
           </button>
         </div>
       )}

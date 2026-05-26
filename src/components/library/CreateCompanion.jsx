@@ -1,10 +1,13 @@
 import { useState, useRef } from 'react'
+import { uid } from '../../utils/uid.js'
 import { Ico } from '../shared/icons.jsx'
 import SectionLabel from '../shared/SectionLabel.jsx'
 import { MOOD_CONFIG, STRUCTURE_TYPES } from '../../data/config.js'
 import { useSettings } from '../../context/SettingsContext.jsx'
+import { useBooks } from '../../context/BooksContext.jsx'
 import { parseEpub } from '../../utils/epubParser.js'
 import EpubImportReview from './EpubImportReview.jsx'
+import { track } from '../../utils/analytics.js'
 
 const MOOD_COLORS = {
   sage:   '#3A6647',
@@ -17,6 +20,7 @@ const MOOD_COLORS = {
 
 export default function CreateCompanion({ onCreate, onCancel }) {
   const { settings } = useSettings()
+  const { books } = useBooks()
   const [step, setStep] = useState(1)
   const [form, setForm] = useState({
     title:'', author:'', isbn:'', format: settings.defaultFormat ?? 'print', mood:'gold',
@@ -27,19 +31,31 @@ export default function CreateCompanion({ onCreate, onCancel }) {
   const [coverErr, setCoverErr] = useState(false)
 
   // EPUB import state
-  const [importing,   setImporting]   = useState(false)
-  const [importData,  setImportData]  = useState(null)
-  const [importError, setImportError] = useState(null)
+  const [importing,        setImporting]        = useState(false)
+  const [importData,       setImportData]        = useState(null)
+  const [importError,      setImportError]       = useState(null)
+  const [duplicateWarning, setDuplicateWarning]  = useState(null)
   const fileInputRef = useRef(null)
 
   const handleEpubFile = async (file) => {
     if (!file) return
     setImporting(true)
     setImportError(null)
+    setDuplicateWarning(null)
     try {
       const data = await parseEpub(file)
+      // Warn if a companion with this title+author already exists
+      const norm = s => (s || '').toLowerCase().trim()
+      const existing = books.find(b =>
+        norm(b.title) === norm(data.title) && norm(b.author) === norm(data.author)
+      )
+      if (existing) {
+        setDuplicateWarning(`A companion for "${data.title}" already exists in your library. You can still create another.`)
+      }
+      track('epub_imported', { chapters: data.chapters?.length ?? 0 })
       setImportData(data)
     } catch (err) {
+      track('epub_failed', { reason: err?.message ?? 'unknown' })
       setImportError(err.message || 'Could not parse this EPUB file.')
     } finally {
       setImporting(false)
@@ -52,7 +68,7 @@ export default function CreateCompanion({ onCreate, onCancel }) {
     const n = parseInt(form.totalChapters) || 20
     const labelPrefix = form.structureType === 'part' ? 'Part' : form.structureType === 'section' ? 'Section' : 'Chapter'
     const newBook = {
-      id: `book_${Date.now()}`,
+      id: uid('book_'),
       title: form.title || 'Untitled',
       author: form.author || 'Unknown Author',
       isbn: form.isbn || null,
@@ -76,6 +92,7 @@ export default function CreateCompanion({ onCreate, onCancel }) {
       characters:{ main:[], secondary:[], relationships:[] },
       mysteries:[], notes:[], discussionQuestions:[], userDiscussionQuestions:[],
     }
+    track('companion_created', { format: form.format })
     onCreate(newBook)
   }
 
@@ -111,8 +128,9 @@ export default function CreateCompanion({ onCreate, onCancel }) {
     return (
       <EpubImportReview
         importData={importData}
+        duplicateWarning={duplicateWarning}
         onCreate={onCreate}
-        onBack={() => { setImportData(null); setImportError(null) }}
+        onBack={() => { setImportData(null); setImportError(null); setDuplicateWarning(null) }}
       />
     )
   }
@@ -147,7 +165,7 @@ export default function CreateCompanion({ onCreate, onCancel }) {
 
             {/* EPUB import affordance */}
             <div className="mb-7 p-4 rounded-xl border border-dashed border-ink-200 bg-cream-50">
-              <p className="text-[12px] text-ink-500 mb-3 italic">Have an EPUB file? Import it to pre-fill title, author, and chapter structure.</p>
+              <p className="text-[12px] text-ink-500 mb-3 italic">Have an EPUB file? Import it to auto-detect chapters, characters, and themes.</p>
               <input
                 ref={fileInputRef}
                 type="file"
@@ -352,7 +370,7 @@ export default function CreateCompanion({ onCreate, onCancel }) {
         {step === 3 && (
           <div>
             <h1 className="font-serif text-2xl font-bold text-ink-900 mb-1">Spoiler settings</h1>
-            <p className="text-sm text-ink-500 mb-7">How careful should Shadow Scribe be about future chapters?</p>
+            <p className="text-sm text-ink-500 mb-7">How carefully should Lantern handle future chapter details?</p>
 
             <div className="space-y-2.5 mb-7">
               {spoilerModes.map(m => (

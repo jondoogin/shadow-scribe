@@ -1,11 +1,46 @@
-import { useState } from 'react'
+import { useState, useMemo, useRef, useEffect } from 'react'
 import { Ico } from '../components/shared/icons.jsx'
 import EmptyState from '../components/shared/EmptyState.jsx'
 import { getMysteryView, MYSTERY_STATUSES, getEffectiveMode } from '../utils/spoiler.js'
 import { useSettings } from '../context/SettingsContext.jsx'
+import { track } from '../utils/analytics.js'
 import { fmtDate } from '../utils/date.js'
+import { mysteryHauntScore, hauntLevel } from '../utils/hauntScore.js'
+import { uid } from '../utils/uid.js'
 
 const today = () => new Date().toISOString().split('T')[0]
+
+// Companion gravity line — varies by mystery status and age.
+// Communicates active narrative movement, not just archival persistence.
+// Earlier threshold (6ch) so momentum language appears sooner.
+function getMysteryGravity(m, currentCh) {
+  if (m.resolved || m._veiled) return null
+  const age = currentCh - (m.chapter || 0)
+  if (age < 6) return null
+
+  if (m.status === 'suspected') {
+    if (age >= 12) return 'Your suspicion has been circling this for a long time.'
+    if (age >= 8)  return 'Your suspicion keeps returning here.'
+    return 'Something is circling.'
+  }
+  if (m.status === 'evolving') {
+    if (age >= 12) return 'The question keeps changing shape. It hasn\'t stayed still.'
+    return 'Each chapter seems to reframe this slightly.'
+  }
+  if (m.status === 'hinted') {
+    if (age >= 8) return 'The story has gestured at an answer. The resolution may be closer than it seems.'
+    return 'The story has gestured at this. The answer may already be in view.'
+  }
+  if (m.status === 'dormant') {
+    if (age >= 15) return 'The story hasn\'t returned to this. Neither have you. But it\'s still here.'
+    return 'Still drifting. The story hasn\'t answered it — and you haven\'t returned to it.'
+  }
+  // Generic age-based (open/unknown status)
+  if (age >= 20) return 'This has been with you a long time. The story hasn\'t closed it.'
+  if (age >= 15) return 'Still open, deep in the story. Something is being held back.'
+  if (age >= 10) return 'Open for a long stretch now. The story is still carrying this.'
+  return 'Still here. The story hasn\'t addressed it yet.'
+}
 
 const STATUS_STYLE = {
   open:      'bg-ember-bg border-ember-pale text-ember',
@@ -13,18 +48,48 @@ const STATUS_STYLE = {
   evolving:  'bg-sienna-bg border-sienna-pale text-sienna',
   hinted:    'bg-gold-bg border-gold-border text-[#92660A]',
   dormant:   'bg-ink-100 border-ink-200 text-ink-500',
-  resolved:  'bg-sage-bg border-sage-pale text-sage',
+  resolved:  'bg-ink-100 border-ink-200 text-ink-400',
 }
 
 // Statuses available in the inline picker (resolved is via checkbox)
 const PICKER_STATUSES = ['open', 'suspected', 'evolving', 'hinted', 'dormant']
 
+// ── Mystery thread response — companion acknowledges a newly opened thread ────
+const MYSTERY_THREAD_RESPONSES = [
+  "Opened. The story will return to this.",
+  "A question the story isn't ready to answer.",
+  "The reading is holding this.",
+  "Kept here while the story continues.",
+]
+function generateMysteryResponse(text) {
+  let h = 0
+  for (const c of text) h = ((h * 31) + c.charCodeAt(0)) >>> 0
+  return MYSTERY_THREAD_RESPONSES[h % MYSTERY_THREAD_RESPONSES.length]
+}
+
 export default function MysteriesTab({ book, onUpdateBook }) {
-  const [showing, setShowing]   = useState('active')
-  const [adding,  setAdding]    = useState(false)
-  const [newQ,    setNewQ]      = useState('')
+  // ── Note density by chapter — for companion residue echo ─────────────────
+  const notesByChapter = useMemo(() => {
+    const map = {}
+    for (const n of (book.notes || [])) {
+      if (n.chapter) map[n.chapter] = (map[n.chapter] || 0) + 1
+    }
+    return map
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [book.notes?.length])
+
+  const [showing,          setShowing]          = useState('active')
+  const [adding,           setAdding]           = useState(false)
+  const [newQ,             setNewQ]             = useState('')
+  const [showArchived,     setShowArchived]      = useState(false)
   const { settings } = useSettings()
   const mode = getEffectiveMode(book, settings)
+
+  // Companion thread state
+  const [thinkingMystId,  setThinkingMystId]  = useState(null)  // mystery currently in thinking state
+  const [mysteryReplies,  setMysteryReplies]  = useState({})    // { [id]: string }
+  const thinkingTimerRef = useRef(null)
+  useEffect(() => () => { if (thinkingTimerRef.current) clearTimeout(thinkingTimerRef.current) }, [])
 
   // Evolving-thread state
   const [statusPickerId, setStatusPickerId] = useState(null)
@@ -96,20 +161,52 @@ export default function MysteriesTab({ book, onUpdateBook }) {
 
   const addMystery = () => {
     if (!newQ.trim()) return
+    const id   = uid('myst_')
+    const text = newQ.trim()
+    if (book.mysteries.length === 0) track('first_mystery', { format: book.format })
     onUpdateBook({
       mysteries: [...book.mysteries, {
-        id: `myst_${Date.now()}`,
-        text: newQ.trim(),
+        id,
+        text,
         status: 'open',
         chapter: book.currentChapter || 1,
         resolved: false,
+        rereadEra: book.rereadCount || 0,
       }],
     })
     setNewQ('')
     setAdding(false)
+
+    // ── Companion thread — brief thinking state, then acknowledgment ───────
+    const response = generateMysteryResponse(text)
+    const baseDelay = 900 + Math.min(text.split(/\s+/).length * 35, 900)
+    const delay     = baseDelay + Math.floor(Math.random() * 400) - 200
+    if (thinkingTimerRef.current) clearTimeout(thinkingTimerRef.current)
+    setThinkingMystId(id)
+    thinkingTimerRef.current = setTimeout(() => {
+      setThinkingMystId(null)
+      setMysteryReplies(prev => ({ ...prev, [id]: response }))
+    }, delay)
   }
 
-  const viewedMysteries = book.mysteries
+  const currentMysteries  = book.mysteries.filter(m => m.archivedEra === undefined)
+  const archivedMysteries = book.mysteries.filter(m => m.archivedEra !== undefined)
+
+  // Book temporal state — mysteries inherit the environmental silence of an abandoned book.
+  // A mystery in a book that hasn't been touched for 90+ days recedes with it.
+  // Haunted mysteries resist this pull more than cooling ones — they stay slightly more alive.
+  const bookDaysSince = book.lastUpdated
+    ? Math.floor((Date.now() - new Date(book.lastUpdated)) / 86400000)
+    : 0
+
+  // Cross-surface residue — theory notes bleeding into mystery surface
+  const theoryNoteCount = useMemo(
+    () => (book.notes || []).filter(n => n.tag === 'theory').length,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [book.notes?.length]
+  )
+
+  const viewedMysteries = currentMysteries
     .map(m => getMysteryView(book, m, mode))
     .filter(Boolean)
 
@@ -118,41 +215,51 @@ export default function MysteriesTab({ book, onUpdateBook }) {
   const visible  = showing === 'active' ? active : showing === 'resolved' ? resolved : viewedMysteries
 
   const anyVeiled = viewedMysteries.some(m => m._veiled)
-  const noneAtAll = book.mysteries.length === 0
+  const noneAtAll = currentMysteries.length === 0
 
   const emptyTitle = noneAtAll
     ? 'Questions tend to appear once the story begins moving.'
     : showing === 'resolved'
-      ? 'Nothing answered yet.'
+      ? 'No threads have closed yet.'
       : 'No open threads.'
 
   const emptyBody = noneAtAll
     ? "Open a thread whenever the story raises a question it isn't ready to answer."
-    : 'Every story withholds something. Track the questions the novel is carrying.'
+    : showing === 'resolved'
+      ? "When a question finally gets its answer, it will rest here."
+      : "All the open threads in this reading have been resolved."
 
   return (
     <div className="max-w-2xl">
-      <div className="flex items-center justify-between mb-5 flex-wrap gap-2">
-        <div className="flex gap-1.5 flex-wrap">
+      <div className="flex items-center justify-between mb-7 flex-wrap gap-2">
+        <div className="flex items-center">
           {[
-            ['active',   `Open (${active.length})`],
-            ['resolved', `Resolved (${resolved.length})`],
+            ['active',   `open (${active.length})`],
             ['all',      'All'],
-          ].map(([k, l]) => (
-            <button key={k} onClick={() => setShowing(k)}
-              className={`px-3 py-1 rounded-full text-[12px] font-medium transition-all ${
-                showing === k ? 'bg-ink-900 text-white' : 'bg-white text-ink-600 border border-ink-200 hover:border-ink-400'
-              }`}>
-              {l}
-            </button>
+            ['resolved', `answered (${resolved.length})`],
+          ].map(([k, l], i) => (
+            <span key={k} className="flex items-center">
+              {i > 0 && <span className="mx-2 select-none" style={{ color: 'var(--color-ink-200)', fontSize: 9 }}>·</span>}
+              <button onClick={() => setShowing(k)}
+                className={`filter-link ${showing === k ? 'active' : ''}`}>
+                {l}
+              </button>
+            </span>
           ))}
         </div>
         <button onClick={() => setAdding(true)}
-          className="flex items-center gap-1 text-[12px] font-semibold hover:opacity-75 transition-opacity"
+          className="text-[12px] italic hover:opacity-75 transition-opacity"
           style={{ color: 'var(--ca, #B8860B)' }}>
-          <Ico.Plus /> Open a thread
+          raise a question →
         </button>
       </div>
+
+      {/* Cross-surface residue — theories from Notes bleeding into Mysteries */}
+      {theoryNoteCount >= 3 && active.length >= 2 && !adding && (
+        <p className="text-[11px] text-ink-400 italic mb-5 leading-relaxed">
+          Some of what you've been theorising may already be moving toward these.
+        </p>
+      )}
 
       {adding && (
         <div className="bg-cream-50 border rounded-2xl p-4 mb-5 animate-slide-up" style={{ borderColor:'var(--ca-border, #E8D090)' }}>
@@ -160,7 +267,8 @@ export default function MysteriesTab({ book, onUpdateBook }) {
             onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); addMystery() } }}
             placeholder="What question is this story carrying?"
             autoFocus
-            className="w-full border border-ink-200 rounded-xl px-3.5 py-2.5 text-sm text-ink-800 placeholder-ink-400 bg-white resize-none transition-all mb-3" />
+            className="w-full border border-ink-200 rounded-xl px-3.5 py-2.5 text-sm text-ink-800 placeholder-ink-400 resize-none transition-all mb-3"
+            style={{ background: 'var(--color-card-base)' }} />
           <div className="flex gap-2 justify-end">
             <button onClick={() => { setAdding(false); setNewQ('') }}
               className="text-[12px] text-ink-500 hover:text-ink-700 px-3 py-1.5 rounded-lg border border-ink-200 transition-colors">
@@ -188,33 +296,64 @@ export default function MysteriesTab({ book, onUpdateBook }) {
           )}
         />
       ) : (
-        <div className="space-y-2">
+        <div className="space-y-3">
           {visible.map(m => {
             const isObserving = observingId  === m.id
             const isRefining  = refiningId   === m.id
             const showPicker  = statusPickerId === m.id
             const isDeleting  = deletingId   === m.id
 
+            const mysteryGravity = getMysteryGravity(m, book.currentChapter || 0)
+            const mHauntScore    = m.resolved || m._veiled ? 0 : mysteryHauntScore(m, book)
+            const mHauntLevel    = hauntLevel(mHauntScore)
+
+            // Environmental cooling — mysteries recede when their book has gone quiet.
+            // Explicit dormant status always applies. Book abandonment (90+ days) applies
+            // to all mysteries in that book. Haunted mysteries resist the pull slightly.
+            const isEnvironmentallyQuiet = !m.resolved && !m._veiled
+              && (m.status === 'dormant' || bookDaysSince > 90)
+            const isBookCooling = !m.resolved && !m._veiled
+              && bookDaysSince > 45 && bookDaysSince <= 90
+
+            // Haunted mysteries resist environmental cooling — they stay more visible
+            // than quiet threads even in dormant books. Something here persists.
+            const mysteryOpacity = isEnvironmentallyQuiet
+              ? mHauntLevel === 'haunted'    ? 0.75  // was 0.60 — resists dormancy
+              : mHauntLevel === 'persistent' ? 0.60  // was 0.50 — some resistance
+              :                                0.40
+              : isBookCooling ? 0.78
+              : undefined
+
+            const mysteryFilter = isEnvironmentallyQuiet && mHauntLevel !== 'haunted'
+              ? 'saturate(0.50)'
+              : undefined
+
             return (
               <div key={m.id}
-                className={`rounded-xl border p-4 transition-all ${
+                className={`note-card p-4 transition-all ${
                   m.resolved
-                    ? 'mystery-resolved bg-ink-100 border-ink-200'
+                    ? 'mystery-resolved'
                     : m._veiled
-                      ? 'bg-cream-50 border-ink-200 opacity-75'
-                      : 'bg-cream-50 border-ink-200'
-                }`}>
+                      ? 'opacity-75'
+                      : ''
+                }`}
+                style={{
+                  background:  m.resolved ? 'var(--color-cream-200)' : 'var(--color-card-base)',
+                  opacity:     mysteryOpacity,
+                  filter:      mysteryFilter,
+                  transition:  'opacity .35s ease, filter .35s ease',
+                }}>
                 <div className="flex items-start gap-3">
                   {/* Checkbox */}
                   <button
                     onClick={() => !m._veiled && toggle(m.id)}
                     disabled={m._veiled}
-                    className={`mt-0.5 w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-all ${
-                      m.resolved ? 'bg-sage border-sage'
-                      : m._veiled ? 'border-ink-200 cursor-default'
+                    className={`mt-0.5 w-5 h-5 rounded-full border flex items-center justify-center flex-shrink-0 transition-all ${
+                      m._veiled ? 'border-ink-200 cursor-default'
                       : 'border-ink-300 hover:border-gold'
-                    }`}>
-                    {m.resolved && <span className="text-white"><Ico.Check /></span>}
+                    }`}
+                    style={m.resolved ? { borderColor: 'var(--color-gold-accent)', opacity: 0.55 } : {}}>
+                    {m.resolved && <span style={{ fontSize: 8, color: 'var(--color-gold-accent)' }}>✦</span>}
                   </button>
 
                   <div className="flex-1 min-w-0">
@@ -241,12 +380,22 @@ export default function MysteriesTab({ book, onUpdateBook }) {
                       </p>
                     )}
 
+                    {/* Original question — shown when mystery has been reframed */}
+                    {!isRefining && !m._veiled && m.originalText && (
+                      <p className="text-[11px] text-ink-300 italic mt-1 leading-relaxed">
+                        Originally: "{m.originalText}"
+                      </p>
+                    )}
+
                     {/* Metadata row */}
                     {!isRefining && (
                       <div className="flex items-center gap-2 mt-2 flex-wrap">
                         {!m._veiled && (
                           <span className="text-[11px] text-ink-400">
-                            First appears ch. {m.chapter}
+                            ch. {m.chapter}
+                            {notesByChapter[m.chapter] >= 2 && (
+                              <span className="companion-echo" style={{ fontSize: 10 }}> · {notesByChapter[m.chapter]} thoughts then</span>
+                            )}
                             {!m.resolved && (book.currentChapter - m.chapter) >= 8 && (
                               <span className="text-ink-300 italic"> · {book.currentChapter - m.chapter} ch. open</span>
                             )}
@@ -270,9 +419,9 @@ export default function MysteriesTab({ book, onUpdateBook }) {
                           </span>
                         )}
 
-                        {/* Refined indicator */}
+                        {/* Reframed indicator */}
                         {!m._veiled && m.originalText && (
-                          <span className="text-[11px] text-ink-300 italic">· refined</span>
+                          <span className="text-[11px] text-ink-300 italic">· reframed</span>
                         )}
                       </div>
                     )}
@@ -289,6 +438,22 @@ export default function MysteriesTab({ book, onUpdateBook }) {
                           </button>
                         ))}
                       </div>
+                    )}
+
+                    {/* Companion gravity — age/status/haunt-aware weight signal */}
+                    {/* Haunted mysteries: warmer color + ✦ prefix; cooling: quieter ink-300 */}
+                    {mysteryGravity && !isRefining && !isObserving && !isDeleting && (
+                      <p className={`text-[11px] italic mt-2 leading-relaxed ${
+                        mHauntLevel === 'haunted'    ? 'text-ink-500'
+                        : mHauntLevel === 'persistent' ? 'text-ink-400'
+                        : mHauntLevel === 'cooling'    ? 'text-ink-300'
+                        : 'text-ink-400'
+                      }`}>
+                        {mHauntLevel === 'haunted' && (
+                          <span className="mr-1 text-[9px] opacity-60" style={{ color: 'var(--ca, #B8860B)' }}>✦</span>
+                        )}
+                        {mysteryGravity}
+                      </p>
                     )}
 
                     {/* Observation display */}
@@ -336,16 +501,56 @@ export default function MysteriesTab({ book, onUpdateBook }) {
                       </div>
                     )}
 
+                    {/* ── Companion thread — below the freshly opened question ── */}
+                    {(thinkingMystId === m.id || mysteryReplies[m.id]) && !isRefining && !isObserving && !isDeleting && (
+                      <div style={{
+                        marginTop: 10,
+                        marginLeft: 2,
+                        paddingLeft: 12,
+                        borderLeft: '1px solid rgba(184,134,11,.15)',
+                      }}>
+                        {thinkingMystId === m.id ? (
+                          <div style={{ display: 'flex', gap: 5, paddingTop: 3, paddingBottom: 3 }}>
+                            {[[2.3, 0], [3.1, 0.7], [1.9, 1.5]].map(([dur, d], i) => (
+                              <span key={i} style={{
+                                fontSize: 9,
+                                color: 'var(--ca, #B8860B)',
+                                animation: `companionPulse ${dur}s ease-in-out infinite`,
+                                animationDelay: `${d}s`,
+                                display: 'inline-block',
+                              }}>✦</span>
+                            ))}
+                          </div>
+                        ) : (
+                          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 7, paddingTop: 1 }}>
+                            <span className="companion-glyph-settle" style={{
+                              fontSize: 9, color: 'var(--ca, #B8860B)',
+                              marginTop: 4, flexShrink: 0, opacity: 0.65,
+                            }}>✦</span>
+                            <p className="companion-text-surface" style={{
+                              fontSize: 13,
+                              fontFamily: 'var(--font-sans)',
+                              lineHeight: 1.6,
+                              color: 'var(--color-ink-700)',
+                              margin: 0,
+                            }}>
+                              {mysteryReplies[m.id]}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
                     {/* Thread actions */}
                     {!m._veiled && !m.resolved && !isRefining && !isObserving && !isDeleting && (
                       <div className="flex items-center gap-4 mt-2.5">
                         <button onClick={() => startObserving(m)}
                           className="text-[11px] text-ink-300 hover:text-ink-500 italic transition-colors">
-                          {m.observation ? 'update thought' : '+ add a thought'}
+                          add to this
                         </button>
                         <button onClick={() => startRefining(m)}
                           className="text-[11px] text-ink-300 hover:text-ink-500 transition-colors">
-                          Refine
+                          sharpen
                         </button>
                         <button onClick={() => setDeletingId(m.id)}
                           className="text-[11px] text-ink-300 hover:text-ember transition-colors ml-auto">
@@ -365,6 +570,54 @@ export default function MysteriesTab({ book, onUpdateBook }) {
         <p className="text-[11px] text-ink-400 text-center italic mt-5">
           Some threads are still gathering — they'll become clear as you read further.
         </p>
+      )}
+
+      {archivedMysteries.length > 0 && (
+        <div className="mt-8 border-t border-ink-100 pt-6">
+          <button
+            onClick={() => setShowArchived(v => !v)}
+            className="flex items-center gap-2 text-[12px] text-ink-400 hover:text-ink-600 italic transition-colors w-full text-left"
+          >
+            <span className={`transition-transform duration-200 ${showArchived ? 'rotate-90' : ''}`}>▶</span>
+            From {archivedMysteries.length === 1 ? 'a previous reading' : 'previous readings'} ({archivedMysteries.length})
+          </button>
+          {showArchived && (
+            <div className="mt-4 space-y-2 animate-fade-in">
+              {archivedMysteries.map(m => (
+                <div key={m.id} className="rounded-xl border border-ink-200 bg-ink-50 p-4 opacity-75">
+                  <div className="flex items-start gap-3">
+                    <div
+                      className="mt-0.5 w-5 h-5 rounded-full border flex items-center justify-center flex-shrink-0 border-ink-300"
+                      style={m.resolved ? { borderColor: 'var(--color-gold-accent)', opacity: 0.55 } : {}}
+                    >
+                      {m.resolved && <span style={{ fontSize: 8, color: 'var(--color-gold-accent)' }}>✦</span>}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className={`text-[13px] leading-relaxed ${
+                        m.resolved ? 'line-through text-ink-400' : 'text-ink-600'
+                      }`}>{m.text}</p>
+                      <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                        {m.chapter && (
+                          <span className="text-[11px] text-ink-400">Ch. {m.chapter}</span>
+                        )}
+                        <span className={`text-[10px] font-medium px-2 py-[2px] rounded-full border ${
+                          STATUS_STYLE[m.status] ?? STATUS_STYLE.open
+                        }`}>
+                          {MYSTERY_STATUSES[m.status]?.label ?? m.status}
+                        </span>
+                      </div>
+                      {m.observation && (
+                        <div className="mt-2 pl-3 border-l-2 border-ink-200">
+                          <p className="text-[12px] text-ink-400 italic leading-relaxed">{m.observation}</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       )}
     </div>
   )

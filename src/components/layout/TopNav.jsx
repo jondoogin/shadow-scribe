@@ -6,13 +6,14 @@ import { useBooks } from '../../context/BooksContext.jsx'
 const IS_DEV = import.meta.env.DEV
 
 export default function TopNav() {
-  const navigate = useNavigate()
-  const location = useLocation()
+  const navigate  = useNavigate()
+  const location  = useLocation()
   const { resetToDemo } = useBooks()
   const [open, setOpen] = useState(false)
   const ref = useRef()
 
-  const isLibrary = location.pathname === '/library' || location.pathname === '/'
+  const isLibrary  = location.pathname === '/library' || location.pathname === '/'
+  const isSettings = location.pathname === '/settings'
 
   useEffect(() => {
     if (!open) return
@@ -27,26 +28,39 @@ export default function TopNav() {
     return () => document.removeEventListener('keydown', fn)
   }, [])
 
-  // Close menu on navigation
   useEffect(() => { setOpen(false) }, [location.pathname])
 
   return (
-    <header className="fixed top-0 inset-x-0 z-30 h-14 bg-cream-50/95 backdrop-blur-sm border-b border-ink-200">
-      <div className="h-full max-w-4xl mx-auto px-5 sm:px-8 flex items-center justify-between">
+    <header
+      className="relative z-50 h-14"
+      style={{ background: 'var(--color-cream)', backdropFilter: 'blur(8px)' }}
+    >
+      <div className="h-full max-w-[1000px] mx-auto px-5 sm:px-10 flex items-center justify-between">
 
-        <button onClick={() => navigate('/library')} className="flex items-center gap-2 group outline-none">
-          <span className="text-gold font-bold text-[15px] group-hover:scale-110 transition-transform origin-center">✦</span>
-          <span className="font-serif text-[17px] font-semibold text-ink-900 tracking-tight leading-none">
-            Shadow Scribe
+        {/* Logo */}
+        <button onClick={() => navigate('/library')} className="flex items-center gap-1 group outline-none">
+          <span
+            className="font-bold text-[14px] group-hover:scale-110 transition-transform origin-center ember-drift"
+            style={{ color: 'var(--color-gold, #B8860B)', marginTop: 3 }}
+          >✦</span>
+          <span
+            className="font-serif text-[22px] font-semibold tracking-tight leading-none"
+            style={{ color: 'var(--color-ink-900, #1C1917)' }}
+          >
+            Lantern
           </span>
         </button>
 
+        {/* Actions */}
         <div className="flex items-center gap-2" ref={ref}>
           <button
             onClick={() => navigate('/new')}
-            className="flex items-center gap-1.5 bg-gold text-white rounded-lg text-[13px] font-semibold
-                       px-3 py-[7px] hover:bg-gold-light active:scale-95 transition-all"
-            style={{ boxShadow:'0 2px 8px rgba(184,134,11,.28)' }}
+            className="flex items-center gap-1.5 rounded-lg text-[13px] font-semibold px-3 py-[7px] active:scale-95 transition-all"
+            style={{
+              background: 'var(--color-gold, #B8860B)',
+              color: '#fff',
+              boxShadow: '0 2px 8px rgba(184,134,11,.28)',
+            }}
           >
             <Ico.Plus />
             <span className="hidden sm:inline">New Companion</span>
@@ -55,58 +69,73 @@ export default function TopNav() {
 
           <button
             onClick={() => setOpen(o => !o)}
-            className={`w-9 h-9 flex items-center justify-center rounded-lg border transition-all ${
-              open
-                ? 'bg-ink-100 border-ink-300 text-ink-800'
-                : 'border-ink-200 text-ink-500 hover:bg-cream-200 hover:border-ink-300 hover:text-ink-700'
-            }`}
+            className="w-9 h-9 flex items-center justify-center rounded-lg transition-all"
+            style={{
+              border: `1px solid ${open ? 'var(--color-ink-300)' : 'var(--color-ink-200)'}`,
+              background: open ? 'var(--color-ink-100)' : 'transparent',
+              color: open ? 'var(--color-ink-800)' : 'var(--color-ink-500)',
+            }}
           >
             {open ? <Ico.X /> : <Ico.Menu />}
           </button>
 
           {open && (
             <div
-              className="absolute top-[57px] right-4 sm:right-6 w-56 bg-cream-50 border border-ink-200 rounded-2xl overflow-hidden animate-menu-drop"
-              style={{ boxShadow:'var(--shadow-menu)', zIndex:40 }}
+              className="absolute top-[57px] right-4 sm:right-6 w-64 rounded-2xl overflow-hidden animate-menu-drop"
+              style={{
+                background: 'var(--color-cream)',
+                border: '1px solid var(--color-ink-200)',
+                boxShadow: 'var(--shadow-menu)',
+                zIndex: 40,
+                maxHeight: '85vh',
+                overflowY: 'auto',
+              }}
             >
               <nav className="p-1.5">
-                <button
-                  onClick={() => navigate('/library')}
-                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors ${
-                    isLibrary ? 'bg-gold-bg text-gold' : 'text-ink-700 hover:bg-cream-200'
-                  }`}
-                >
-                  <Ico.Library /> Library
-                </button>
-                <button
-                  onClick={() => navigate('/new')}
-                  className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-ink-700 hover:bg-cream-200 transition-colors"
-                >
-                  <Ico.Plus /> New Companion
-                </button>
-                <button
-                  onClick={() => navigate('/settings')}
-                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors ${
-                    location.pathname === '/settings' ? 'bg-gold-bg text-gold' : 'text-ink-700 hover:bg-cream-200'
-                  }`}
-                >
-                  <Ico.Settings /> Settings
-                </button>
+                {[
+                  { label: 'Library',       icon: <Ico.Library />,  path: '/library',  active: isLibrary  },
+                  { label: 'New Companion', icon: <Ico.Plus />,     path: '/new',      active: false      },
+                  { label: 'Settings',      icon: <Ico.Settings />, path: '/settings', active: isSettings },
+                ].map(({ label, icon, path, active }) => (
+                  <button
+                    key={path}
+                    onClick={() => navigate(path)}
+                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors"
+                    style={{
+                      background: active ? 'var(--color-gold-bg)' : 'transparent',
+                      color: active ? 'var(--color-gold, #B8860B)' : 'var(--color-ink-700)',
+                    }}
+                    onMouseEnter={e => { if (!active) e.currentTarget.style.background = 'var(--color-cream-200)' }}
+                    onMouseLeave={e => { if (!active) e.currentTarget.style.background = 'transparent' }}
+                  >
+                    {icon} {label}
+                  </button>
+                ))}
               </nav>
-              <div className="border-t border-ink-100 mx-3" />
+
+              <div style={{ borderTop: '1px solid var(--color-ink-100)', margin: '0 12px' }} />
               <div className="p-4">
-                <p className="text-[10px] font-semibold uppercase tracking-widest text-ink-400 mb-1.5">Shadow Scribe</p>
-                <p className="text-[12px] text-ink-500 leading-relaxed">
+                <p
+                  className="text-[10px] font-semibold uppercase tracking-widest mb-1.5"
+                  style={{ color: 'var(--color-ink-400)' }}
+                >
+                  Lantern
+                </p>
+                <p className="text-[12px] leading-relaxed" style={{ color: 'var(--color-ink-500)' }}>
                   Keep your reading rich, your memory long, and your theories safe.
                 </p>
               </div>
+
               {IS_DEV && (
                 <>
-                  <div className="border-t border-ink-100 mx-3" />
+                  <div style={{ borderTop: '1px solid var(--color-ink-100)', margin: '0 12px' }} />
                   <div className="p-2">
                     <button
                       onClick={() => { resetToDemo(); navigate('/library') }}
-                      className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-[12px] text-ink-400 hover:bg-ink-100 hover:text-ink-600 transition-colors"
+                      className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-[12px] transition-colors"
+                      style={{ color: 'var(--color-ink-400)' }}
+                      onMouseEnter={e => { e.currentTarget.style.background = 'var(--color-ink-100)'; e.currentTarget.style.color = 'var(--color-ink-600)' }}
+                      onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--color-ink-400)' }}
                     >
                       <Ico.Refresh /> Reset demo data
                     </button>
