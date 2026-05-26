@@ -127,7 +127,6 @@ const PAGE_TITLES = {
   '/':         'Lantern — Library',
   '/new':      'Lantern — New Companion',
   '/settings': 'Lantern — Settings',
-  '/debug':    'Lantern — Dev Inspector',
 }
 
 function AppShell() {
@@ -164,7 +163,7 @@ function AppShell() {
           <Route path="/new" element={<NewCompanionPage />} />
           <Route path="/book/:bookId" element={<BookPage />} />
           <Route path="/settings" element={<SettingsPage />} />
-          <Route path="/debug" element={<DebugPage />} />
+          {import.meta.env.DEV && <Route path="/debug" element={<DebugPage />} />}
           <Route path="*" element={<Navigate to="/library" replace />} />
         </Routes>
       </div>
