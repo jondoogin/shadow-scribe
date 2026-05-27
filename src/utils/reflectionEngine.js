@@ -419,6 +419,26 @@ export function getActiveReflections(book, limit = 3, devMode = false) {
 }
 
 /**
+ * Returns true when the reflection pool is exhausted or saturated:
+ * all reflections are suppressed, or every unsuppressed reflection has been
+ * shown too many times and the cooldown hasn't cleared.
+ *
+ * Use to surface a calm "add more notes" nudge rather than silence.
+ */
+export function isReflectionPoolSaturated(book) {
+  const reflections = book.reflectionCache?.reflections
+  if (!reflections?.length) return false          // no cache yet — not saturated
+  const unsuppressed = reflections.filter(r => !r.suppressed)
+  if (!unsuppressed.length) return true           // everything dismissed
+  const now = Date.now()
+  const hasEligible = unsuppressed.some(
+    r => !r.lastSurfaced || now - new Date(r.lastSurfaced).getTime() > MIN_RESURFACE_MS
+  )
+  const allShownMany = unsuppressed.every(r => (r.surfaceCount ?? 0) >= 6)
+  return !hasEligible && allShownMany
+}
+
+/**
  * Returns an updated reflections array with the given entry marked surfaced.
  * Pure function — does not mutate. Caller must persist via updateBook.
  */
@@ -428,6 +448,44 @@ export function markReflectionSurfaced(reflections, id) {
       ? { ...r, surfaceCount: (r.surfaceCount ?? 0) + 1, lastSurfaced: new Date().toISOString() }
       : r
   )
+}
+
+/**
+ * Mark a reflection as suppressed — it will never surface again for this book.
+ * Used when the reader dismisses a stale or unwanted reflection.
+ */
+export function suppressReflection(reflections, id) {
+  return reflections.map(r =>
+    r.id === id ? { ...r, suppressed: true } : r
+  )
+}
+
+/**
+ * Returns true if two reflection texts are too similar to show concurrently.
+ * Uses a simple word-overlap heuristic — good enough for deduplication without
+ * pulling in a full NLP library.
+ */
+export function areTooSimilar(textA, textB, threshold = 0.55) {
+  const words = t => new Set(t.toLowerCase().replace(/[^a-z\s]/g, '').split(/\s+/).filter(w => w.length > 3))
+  const setA = words(textA)
+  const setB = words(textB)
+  if (!setA.size || !setB.size) return false
+  const intersection = [...setA].filter(w => setB.has(w)).length
+  const union = new Set([...setA, ...setB]).size
+  return intersection / union >= threshold
+}
+
+/**
+ * Deduplicate a reflection pool — removes any entry that is too similar to
+ * an earlier entry in the list. Call this before building the carousel.
+ */
+export function deduplicateReflections(reflections) {
+  const kept = []
+  for (const r of reflections) {
+    const duplicate = kept.some(k => areTooSimilar(k.text, r.text))
+    if (!duplicate) kept.push(r)
+  }
+  return kept
 }
 
 /**

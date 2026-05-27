@@ -8,6 +8,9 @@ import {
   generateRuleBasedReflections,
   getActiveReflections,
   markReflectionSurfaced,
+  suppressReflection,
+  deduplicateReflections,
+  isReflectionPoolSaturated,
 } from '../../utils/reflectionEngine.js'
 import { computePresenceVisibility, shouldYieldToBook } from '../../utils/invisiblePresence.js'
 import { useSettings } from '../../context/SettingsContext.jsx'
@@ -90,8 +93,10 @@ export default function CompanionPanel({ book }) {
   const { settings }   = useSettings()
   const { updateBook } = useBooks()
 
-  const [idx,  setIdx]  = useState(0)
-  const [fade, setFade] = useState(true)
+  const [idx,       setIdx]      = useState(0)
+  const [fade,      setFade]     = useState(true)
+  const [hovered,   setHovered]  = useState(false)
+  const longPressTimer           = useRef(null)
 
   // ── Presence visibility ──────────────────────────────────────────────────
   const presenceVisibility = useMemo(
@@ -126,9 +131,9 @@ export default function CompanionPanel({ book }) {
      settings.spoilerMode, settings.insightStyle]
   )
 
-  // ── Cached reflections ───────────────────────────────────────────────────
+  // ── Cached reflections — deduplicated before entering the carousel ────────
   const cachedReflections = useMemo(
-    () => getActiveReflections(book, 1),
+    () => deduplicateReflections(getActiveReflections(book, 1)),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [book.reflectionCache?.contextHash, book.reflectionCache?.reflections?.length]
   )
@@ -216,6 +221,19 @@ export default function CompanionPanel({ book }) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [idx, reflectionIndexMap, book.id, updateBook])
 
+  // ── Suppress current reflection (dismiss gesture) ────────────────────────
+  const suppressCurrent = () => {
+    const reflId = reflectionIndexMap[idx]
+    if (!reflId) return
+    const cache = reflectionCacheRef.current
+    if (!cache?.reflections?.length) return
+    const updated = suppressReflection(cache.reflections, reflId)
+    updateBook(book.id, { reflectionCache: { ...cache, reflections: updated } })
+    // Advance to next observation quietly
+    setFade(false)
+    setTimeout(() => { setIdx(i => (i + 1) % Math.max(observations.length - 1, 1)); setFade(true) }, 280)
+  }
+
   // ── Auto-advance carousel ────────────────────────────────────────────────
   useEffect(() => {
     if (observations.length < 2) return
@@ -232,6 +250,7 @@ export default function CompanionPanel({ book }) {
   const hasContent = observations.length > 0 && !yieldsToBook
 
   const isCurrentReflection = !!reflectionIndexMap[idx]
+  const poolSaturated       = isReflectionPoolSaturated(book)
 
   return (
     <div
@@ -245,9 +264,9 @@ export default function CompanionPanel({ book }) {
 
         {hasContent ? (
           <>
-            {/* Primary observation */}
+            {/* Primary observation — dismiss on hover (desktop) or long-press (mobile) */}
             <div
-              className="mb-3"
+              className="mb-3 relative"
               style={{
                 background: isCurrentReflection
                   ? 'color-mix(in srgb, var(--ca-bg, transparent) 40%, transparent)'
@@ -255,6 +274,14 @@ export default function CompanionPanel({ book }) {
                 transition: 'background 900ms ease',
                 borderRadius: 8,
               }}
+              onMouseEnter={() => isCurrentReflection && setHovered(true)}
+              onMouseLeave={() => setHovered(false)}
+              onTouchStart={() => {
+                if (!isCurrentReflection) return
+                longPressTimer.current = setTimeout(() => suppressCurrent(), 600)
+              }}
+              onTouchEnd={() => clearTimeout(longPressTimer.current)}
+              onTouchMove={() => clearTimeout(longPressTimer.current)}
             >
               <p
                 className="companion-thought"
@@ -262,6 +289,26 @@ export default function CompanionPanel({ book }) {
               >
                 {observations[idx]}
               </p>
+              {/* Dismiss button — hover only on desktop, hidden otherwise */}
+              {hovered && isCurrentReflection && (
+                <button
+                  onClick={suppressCurrent}
+                  title="Dismiss this thought"
+                  style={{
+                    position: 'absolute', top: 0, right: 0,
+                    fontSize: 10, lineHeight: 1,
+                    color: 'var(--color-ink-300)',
+                    background: 'transparent',
+                    border: 'none', cursor: 'pointer',
+                    padding: '2px 4px',
+                    transition: 'color 150ms ease',
+                  }}
+                  onMouseEnter={e => { e.currentTarget.style.color = 'var(--color-ink-600)' }}
+                  onMouseLeave={e => { e.currentTarget.style.color = 'var(--color-ink-300)' }}
+                >
+                  ✕
+                </button>
+              )}
             </div>
 
             {/* Secondary tension signal */}
@@ -326,13 +373,27 @@ export default function CompanionPanel({ book }) {
             )}
           </>
         ) : (
-          // Silent companion — no content yet, ambient presence only
-          <p
-            className="companion-thought ambient-breathe"
-            style={{ fontSize: 15 }}
-          >
-            {book.title}
-          </p>
+          // Silent companion — either no content yet, or pool saturated
+          poolSaturated ? (
+            <p
+              className="font-serif italic"
+              style={{
+                fontSize: 13,
+                lineHeight: 1.65,
+                color: 'var(--color-text-dim)',
+                opacity: 0.7,
+              }}
+            >
+              Add more notes to deepen the manuscript.
+            </p>
+          ) : (
+            <p
+              className="companion-thought ambient-breathe"
+              style={{ fontSize: 15 }}
+            >
+              {book.title}
+            </p>
+          )
         )}
 
         {/* Open Questions section */}

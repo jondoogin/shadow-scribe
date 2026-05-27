@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { Ico } from '../shared/icons.jsx'
 import { useBooks } from '../../context/BooksContext.jsx'
+import { useSettings } from '../../context/SettingsContext.jsx'
 
 const IS_DEV = import.meta.env.DEV
 
@@ -9,6 +10,8 @@ export default function TopNav() {
   const navigate  = useNavigate()
   const location  = useLocation()
   const { resetToDemo } = useBooks()
+  const { settings, updateSetting } = useSettings()
+  const isDark = !!settings.darkMode
   const [open, setOpen] = useState(false)
   const ref = useRef()
 
@@ -112,6 +115,28 @@ export default function TopNav() {
                   </button>
                 ))}
               </nav>
+
+              <div style={{ borderTop: '1px solid var(--color-ink-100)', margin: '0 12px' }} />
+              <div className="px-3 py-2">
+                <button
+                  onClick={() => updateSetting('darkMode', !isDark)}
+                  className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-medium transition-colors"
+                  style={{ color: 'var(--color-ink-700)' }}
+                  onMouseEnter={e => { e.currentTarget.style.background = 'var(--color-cream-200)' }}
+                  onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
+                >
+                  <span className="flex items-center gap-3">
+                    <span style={{ fontSize: 15 }}>{isDark ? '☀︎' : '◗'}</span>
+                    {isDark ? 'Light mode' : 'Dark mode'}
+                  </span>
+                  <span
+                    className="text-[10px] font-semibold uppercase tracking-widest"
+                    style={{ color: 'var(--color-ink-300)' }}
+                  >
+                    {isDark ? 'on' : 'off'}
+                  </span>
+                </button>
+              </div>
 
               <div style={{ borderTop: '1px solid var(--color-ink-100)', margin: '0 12px' }} />
               <div className="p-4">

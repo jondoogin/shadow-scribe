@@ -5,12 +5,53 @@ import { Ico } from '../shared/icons.jsx'
 import ProgressBar from '../shared/ProgressBar.jsx'
 import { getEffectiveMode, isMysteryVisible } from '../../utils/spoiler.js'
 import { useSettings } from '../../context/SettingsContext.jsx'
-import { logDates } from '../../utils/date.js'
+import { logDates, localDateKey } from '../../utils/date.js'
 import {
   pickCompletionReflection,
   pickReturnReflection,
   markReflectionSurfaced,
 } from '../../utils/reflectionEngine.js'
+
+// ── Natural language chapter parser ──────────────────────────────────────────
+// Accepts flexible phrasing and returns a chapter number, or null if unparseable.
+// Examples: "chapter five", "fifth", "just finished 12", "finished the book",
+//           "done", "completed it", "part 3", "i'm on 7", "up to chapter 8"
+const WORD_TO_NUM = {
+  one:1,two:2,three:3,four:4,five:5,six:6,seven:7,eight:8,nine:9,ten:10,
+  eleven:11,twelve:12,thirteen:13,fourteen:14,fifteen:15,sixteen:16,
+  seventeen:17,eighteen:18,nineteen:19,twenty:20,
+  'twenty-one':21,'twenty-two':22,'twenty-three':23,'twenty-four':24,
+  'twenty-five':25,'twenty-six':26,'twenty-seven':27,'twenty-eight':28,
+  'twenty-nine':29,thirty:30,
+  first:1,second:2,third:3,fourth:4,fifth:5,sixth:6,seventh:7,eighth:8,
+  ninth:9,tenth:10,eleventh:11,twelfth:12,thirteenth:13,fourteenth:14,
+  fifteenth:15,sixteenth:16,seventeenth:17,eighteenth:18,nineteenth:19,
+  twentieth:20,
+}
+const FINISH_PHRASES = /\b(finish(ed)?(\s+the\s+book)?|done|completed?\s*(it|the\s+book)?|just\s+completed?\s*(it)?|read\s+it\s+all|that'?s?\s+it|the\s+end|last\s+chapter|final\s+chapter)\b/i
+
+function parseChapterNlp(text, totalChapters) {
+  const t = text.trim().toLowerCase()
+  if (!t) return null
+
+  // "finished the book", "done", "completed it", "last chapter"
+  if (FINISH_PHRASES.test(t)) return totalChapters
+
+  // Numeric digit — "12", "chapter 12", "part 12", "up to 12", "just finished 12", "i'm on 7"
+  const digitMatch = t.match(/\b(\d+)\b/)
+  if (digitMatch) {
+    const n = parseInt(digitMatch[1], 10)
+    if (n >= 1 && n <= totalChapters) return n
+  }
+
+  // Word numbers and ordinals — "chapter five", "fifth", "the third"
+  for (const [word, num] of Object.entries(WORD_TO_NUM)) {
+    const re = new RegExp(`\\b${word}\\b`)
+    if (re.test(t) && num <= totalChapters) return num
+  }
+
+  return null
+}
 
 // ── Dry literary observation ─────────────────────────────────────────────────
 // One quiet, observant line beneath the progress bar.
@@ -40,6 +81,7 @@ export default function ChapterUpdateModal({ book, onClose, onUpdateBook }) {
   const defaultChapter = Math.min(book.currentChapter + 1, book.totalChapters)
   const [selectedChapter, setSelectedChapter] = useState(defaultChapter)
   const [sessionNote,     setSessionNote]     = useState('')
+  const [nlpInput,        setNlpInput]        = useState('')
 
   // ── Post-update state ──────────────────────────────────────────────────────
   const [done,                 setDone]                 = useState(false)
@@ -101,7 +143,7 @@ export default function ChapterUpdateModal({ book, onClose, onUpdateBook }) {
   }, [done])
 
   const handleUpdate = () => {
-    const today = new Date().toISOString().split('T')[0]
+    const today = localDateKey()
     const n = Math.min(selectedChapter, book.totalChapters)
     const currentLog = book.readingLog || []
     const firstSession = currentLog.length === 0
@@ -226,7 +268,7 @@ export default function ChapterUpdateModal({ book, onClose, onUpdateBook }) {
           {!done ? (
             /* ── Form ─────────────────────────────────────────────────────── */
             <div>
-              {/* Chapter dropdown — or graceful end-state if all chapters read */}
+              {/* Chapter selection — or graceful end-state if all chapters read */}
               <div className="mb-5">
                 {remainingChapters.length === 0 ? (
                   <p className="italic" style={{ fontSize: 13, color: 'var(--color-ink-400)', padding: '20px 0', lineHeight: 1.7 }}>
@@ -235,18 +277,36 @@ export default function ChapterUpdateModal({ book, onClose, onUpdateBook }) {
                 ) : (
                   <>
                     <label
-                      htmlFor="chapter-select"
+                      htmlFor="chapter-nlp"
                       className="block italic mb-2"
                       style={{ fontSize: 12, color: 'var(--color-ink-400)' }}
                     >
                       Which {label.toLowerCase()} did you just finish?
                     </label>
+                    {/* Natural language input — parses "chapter five", "finished the book", etc. */}
+                    <input
+                      id="chapter-nlp"
+                      type="text"
+                      value={nlpInput}
+                      placeholder={`${label} ${selectedChapter}…`}
+                      onChange={e => {
+                        const val = e.target.value
+                        setNlpInput(val)
+                        const parsed = parseChapterNlp(val, book.totalChapters)
+                        if (parsed !== null) setSelectedChapter(parsed)
+                      }}
+                      className="w-full rounded-xl px-4 py-2.5 border border-ink-200 bg-cream-50 transition-colors outline-none placeholder-ink-300"
+                      style={{ fontSize: 14, color: 'var(--color-ink-800)' }}
+                      onFocus={e => { e.target.style.borderColor = 'var(--color-ink-400)' }}
+                      onBlur={e => { e.target.style.borderColor = ''; setNlpInput('') }}
+                    />
+                    {/* Dropdown fallback — shows resolved chapter, stays in sync */}
                     <select
                       id="chapter-select"
                       value={selectedChapter}
-                      onChange={e => setSelectedChapter(parseInt(e.target.value))}
-                      className="w-full rounded-xl px-4 py-2.5 border border-ink-200 bg-cream-50 transition-colors"
-                      style={{ fontSize: 14, color: 'var(--color-ink-800)', outline: 'none' }}
+                      onChange={e => { setSelectedChapter(parseInt(e.target.value)); setNlpInput('') }}
+                      className="w-full rounded-xl px-4 py-2 border border-ink-100 bg-cream-50 transition-colors mt-2"
+                      style={{ fontSize: 13, color: 'var(--color-ink-500)', outline: 'none' }}
                     >
                       {remainingChapters.map(n => {
                         const chData = book.chapters.find(c => c.num === n)
@@ -276,6 +336,7 @@ export default function ChapterUpdateModal({ book, onClose, onUpdateBook }) {
                   onChange={e => setSessionNote(e.target.value)}
                   placeholder="What surprised you, unsettled you, or is staying with you…"
                   rows={5}
+                  onFocus={e => setTimeout(() => e.target.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 320)}
                   className="w-full resize-none outline-none placeholder-ink-300 leading-relaxed"
                   style={{
                     fontSize: 14,
