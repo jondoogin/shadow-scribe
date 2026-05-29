@@ -28,7 +28,7 @@ const WORD_TO_NUM = {
   fifteenth:15,sixteenth:16,seventeenth:17,eighteenth:18,nineteenth:19,
   twentieth:20,
 }
-const FINISH_PHRASES = /\b(finish(ed)?(\s+the\s+book)?|done|completed?\s*(it|the\s+book)?|just\s+completed?\s*(it)?|read\s+it\s+all|that'?s?\s+it|the\s+end|last\s+chapter|final\s+chapter)\b/i
+const FINISH_PHRASES = /\b(finish(ed)?(\s+the\s+book)?|done|completed?\s*(it|the\s+book)?|just\s+completed?\s*(it)?|read\s+it\s+all|that'?s?\s+it|the\s+end|last\s+chapter|final\s+chapter|all\s+(of\s+)?it|all\s+done)\b/i
 
 function parseChapterNlp(text, totalChapters) {
   const t = text.trim().toLowerCase()
@@ -37,20 +37,49 @@ function parseChapterNlp(text, totalChapters) {
   // "finished the book", "done", "completed it", "last chapter"
   if (FINISH_PHRASES.test(t)) return totalChapters
 
-  // Numeric digit — "12", "chapter 12", "part 12", "up to 12", "just finished 12", "i'm on 7"
+  // Numeric digit with context — "chapter 12", "part 12", "section 12", "up to 12",
+  // "just finished 12", "i'm on 7", "through 5", "at chapter 3", "currently on 4"
   const digitMatch = t.match(/\b(\d+)\b/)
   if (digitMatch) {
     const n = parseInt(digitMatch[1], 10)
     if (n >= 1 && n <= totalChapters) return n
+    // Out-of-range digit — return null so the user sees no false parse
+    if (n > totalChapters) return totalChapters
   }
 
-  // Word numbers and ordinals — "chapter five", "fifth", "the third"
+  // Word numbers and ordinals — "chapter five", "fifth", "the third", "section two"
   for (const [word, num] of Object.entries(WORD_TO_NUM)) {
     const re = new RegExp(`\\b${word}\\b`)
     if (re.test(t) && num <= totalChapters) return num
   }
 
   return null
+}
+
+// ── Companion note response ───────────────────────────────────────────────────
+// A single quiet observation responding to the reader's session note.
+// Not advice. Not summary. Just noticing what they noticed.
+const NOTE_REPLIES = [
+  "That's worth keeping. The story just gave you something to carry.",
+  "What you noticed will matter — or it already has, and you caught it.",
+  "The observation belongs in the manuscript. It's tracking something real.",
+  "The response is trustworthy. The text earned it.",
+]
+function generateNoteReply(note) {
+  const n = note.toLowerCase()
+  if (/unsettl|strange|weird|uneasy|uncomfortable/.test(n))
+    return "The discomfort is the point. The story put it there deliberately."
+  if (/confus|don.t understand|don.t get|unclear/.test(n))
+    return "Worth holding the confusion open. Something is forming that hasn't resolved yet."
+  if (/love|beautiful|amaz|brilliant|perfect/.test(n))
+    return "That response is trustworthy. The story earned it."
+  if (/sad|cry|mov|touch|griev/.test(n))
+    return "Something accumulated to produce that. The story was working toward it."
+  if (/surpris|shock|unexpect|didn.t expect/.test(n))
+    return "The surprise is worth examining. The text was quietly setting something up."
+  if (/wonder|curious|question|why|how/.test(n))
+    return "That question has weight. The story may be setting up the conditions."
+  return NOTE_REPLIES[Math.floor(Math.random() * NOTE_REPLIES.length)]
 }
 
 // ── Dry literary observation ─────────────────────────────────────────────────
@@ -81,11 +110,11 @@ export default function ChapterUpdateModal({ book, onClose, onUpdateBook }) {
   const defaultChapter = Math.min(book.currentChapter + 1, book.totalChapters)
   const [selectedChapter, setSelectedChapter] = useState(defaultChapter)
   const [sessionNote,     setSessionNote]     = useState('')
-  const [nlpInput,        setNlpInput]        = useState('')
 
   // ── Post-update state ──────────────────────────────────────────────────────
   const [done,                 setDone]                 = useState(false)
   const [visibleCards,         setVisibleCards]         = useState(0)
+  const [companionNoteReply,   setCompanionNoteReply]   = useState('')
   const [isFirst,              setIsFirst]              = useState(false)
   const [prevCh,               setPrevCh]               = useState(book.currentChapter)
   const [newCh,                setNewCh]                = useState(book.currentChapter)
@@ -127,17 +156,25 @@ export default function ChapterUpdateModal({ book, onClose, onUpdateBook }) {
     return () => document.removeEventListener('keydown', handleKey)
   }, [onClose])
 
+  // Focus chapter select on mount
+  const selectRef = useRef()
+  useEffect(() => {
+    const t = setTimeout(() => selectRef.current?.focus(), 80)
+    return () => clearTimeout(t)
+  }, [])
+
   // Focus close button when done
   useEffect(() => { if (done) closeButtonRef.current?.focus() }, [done])
 
-  // Staggered card emergence — each card surfaces after a quiet delay
+  // Staggered card emergence — each card surfaces after a contemplative delay
   useEffect(() => {
     if (!done) { setVisibleCards(0); return }
     const timers = [
-      setTimeout(() => setVisibleCards(1), 180),
-      setTimeout(() => setVisibleCards(2), 820),
-      setTimeout(() => setVisibleCards(3), 1480),
-      setTimeout(() => setVisibleCards(4), 2100),
+      setTimeout(() => setVisibleCards(1), 300),   // progress
+      setTimeout(() => setVisibleCards(2), 1100),  // companion note reply (if any)
+      setTimeout(() => setVisibleCards(3), 2000),  // characters
+      setTimeout(() => setVisibleCards(4), 2900),  // chapter summary
+      setTimeout(() => setVisibleCards(5), 3800),  // threads + close
     ]
     return () => timers.forEach(clearTimeout)
   }, [done])
@@ -216,6 +253,7 @@ export default function ChapterUpdateModal({ book, onClose, onUpdateBook }) {
       ...reflectionCacheUpdate,
     })
     setNewCh(n)
+    if (sessionNote.trim()) setCompanionNoteReply(generateNoteReply(sessionNote))
     setDone(true)
   }
 
@@ -251,7 +289,7 @@ export default function ChapterUpdateModal({ book, onClose, onUpdateBook }) {
         ref={dialogRef}
         role="dialog" aria-modal="true" aria-labelledby="chapter-update-title"
         className="w-full max-w-lg bg-cream-50 rounded-2xl overflow-hidden modal-soft modal-sheet flex flex-col"
-        style={{ boxShadow: 'var(--shadow-modal)', maxHeight: '90svh' }}
+        style={{ boxShadow: 'var(--shadow-modal)', maxHeight: 'min(90svh, calc(100dvh - env(keyboard-inset-height, 0px) - 16px))' }}
       >
         {/* ── Header ─────────────────────────────────────────────────────── */}
         <div className="flex-shrink-0 flex items-center justify-between px-6 py-4 border-b border-ink-100">
@@ -268,56 +306,33 @@ export default function ChapterUpdateModal({ book, onClose, onUpdateBook }) {
           {!done ? (
             /* ── Form ─────────────────────────────────────────────────────── */
             <div>
-              {/* Chapter selection — or graceful end-state if all chapters read */}
+              {/* Chapter selection — dropdown is primary */}
               <div className="mb-5">
                 {remainingChapters.length === 0 ? (
                   <p className="italic" style={{ fontSize: 13, color: 'var(--color-ink-400)', padding: '20px 0', lineHeight: 1.7 }}>
                     All chapters have been read.
                   </p>
                 ) : (
-                  <>
-                    <label
-                      htmlFor="chapter-nlp"
-                      className="block italic mb-2"
-                      style={{ fontSize: 12, color: 'var(--color-ink-400)' }}
-                    >
-                      Which {label.toLowerCase()} did you just finish?
-                    </label>
-                    {/* Natural language input — parses "chapter five", "finished the book", etc. */}
-                    <input
-                      id="chapter-nlp"
-                      type="text"
-                      value={nlpInput}
-                      placeholder={`${label} ${selectedChapter}…`}
-                      onChange={e => {
-                        const val = e.target.value
-                        setNlpInput(val)
-                        const parsed = parseChapterNlp(val, book.totalChapters)
-                        if (parsed !== null) setSelectedChapter(parsed)
-                      }}
-                      className="w-full rounded-xl px-4 py-2.5 border border-ink-200 bg-cream-50 transition-colors outline-none placeholder-ink-300"
-                      style={{ fontSize: 14, color: 'var(--color-ink-800)' }}
-                      onFocus={e => { e.target.style.borderColor = 'var(--color-ink-400)' }}
-                      onBlur={e => { e.target.style.borderColor = ''; setNlpInput('') }}
-                    />
-                    {/* Dropdown fallback — shows resolved chapter, stays in sync */}
-                    <select
-                      id="chapter-select"
-                      value={selectedChapter}
-                      onChange={e => { setSelectedChapter(parseInt(e.target.value)); setNlpInput('') }}
-                      className="w-full rounded-xl px-4 py-2 border border-ink-100 bg-cream-50 transition-colors mt-2"
-                      style={{ fontSize: 13, color: 'var(--color-ink-500)', outline: 'none' }}
-                    >
-                      {remainingChapters.map(n => {
-                        const chData = book.chapters.find(c => c.num === n)
-                        return (
-                          <option key={n} value={n}>
-                            {label} {n}{chData?.title ? ` — ${chData.title}` : ''}
-                          </option>
-                        )
-                      })}
-                    </select>
-                  </>
+                  <select
+                    ref={selectRef}
+                    id="chapter-select"
+                    value={selectedChapter}
+                    onChange={e => setSelectedChapter(parseInt(e.target.value))}
+                    onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleUpdate() } }}
+                    className="w-full rounded-xl px-4 py-3 border border-ink-200 bg-cream-50 transition-colors"
+                    style={{ fontSize: 14, color: 'var(--color-ink-700)', outline: 'none' }}
+                    onFocus={e => { e.target.style.borderColor = 'var(--color-ink-400)' }}
+                    onBlur={e => { e.target.style.borderColor = 'var(--color-ink-200)' }}
+                  >
+                    {remainingChapters.map(n => {
+                      const chData = book.chapters.find(c => c.num === n)
+                      return (
+                        <option key={n} value={n}>
+                          {label} {n}{chData?.title ? ` — ${chData.title}` : ''}
+                        </option>
+                      )
+                    })}
+                  </select>
                 )}
               </div>
 
@@ -400,8 +415,35 @@ export default function ChapterUpdateModal({ book, onClose, onUpdateBook }) {
                 </div>
               )}
 
+              {/* Card 1b — companion response to session note */}
+              {visibleCards >= 2 && companionNoteReply && (
+                <div
+                  className="card-surface"
+                  style={{
+                    paddingLeft: 18,
+                    borderLeft: '2px solid color-mix(in srgb, var(--color-accent) 28%, transparent)',
+                    background: 'transparent',
+                    boxShadow: 'none',
+                    paddingTop: 4,
+                    paddingBottom: 4,
+                  }}
+                >
+                  <p
+                    className="italic leading-relaxed"
+                    style={{
+                      fontFamily: 'var(--font-serif)',
+                      fontSize: 14,
+                      lineHeight: 1.68,
+                      color: 'var(--color-text-secondary)',
+                    }}
+                  >
+                    {companionNoteReply}
+                  </p>
+                </div>
+              )}
+
               {/* Card 2 — newly encountered characters */}
-              {visibleCards >= 2 && newlyMet.length > 0 && (
+              {visibleCards >= 3 && newlyMet.length > 0 && (
                 <div
                   className="rounded-xl p-4 card-surface"
                   style={{
@@ -427,7 +469,7 @@ export default function ChapterUpdateModal({ book, onClose, onUpdateBook }) {
               )}
 
               {/* Card 3 — chapter summary */}
-              {visibleCards >= 3 && ch?.summary && (
+              {visibleCards >= 4 && ch?.summary && (
                 <div
                   className="rounded-xl p-4 card-surface"
                   style={{
@@ -452,7 +494,7 @@ export default function ChapterUpdateModal({ book, onClose, onUpdateBook }) {
               )}
 
               {/* Card 4 — threads (no red — these are the richest region) */}
-              {visibleCards >= 4 && (newMyst.length > 0 || openMyst.length > 0) && (
+              {visibleCards >= 5 && (newMyst.length > 0 || openMyst.length > 0) && (
                 <div
                   className="rounded-xl p-4 card-surface"
                   style={{
@@ -478,7 +520,7 @@ export default function ChapterUpdateModal({ book, onClose, onUpdateBook }) {
               )}
 
               {/* Companion reflection — quiet, earned, surfaces after cards */}
-              {visibleCards >= 4 && hasReflection && (
+              {visibleCards >= 5 && hasReflection && (
                 <p className="italic text-center px-2 pt-1 leading-relaxed card-surface"
                   style={{ fontSize: 12, color: 'var(--color-ink-400)', animationDelay: '200ms' }}>
                   <span style={{ fontSize: 8, color: 'var(--ca, #B8860B)', opacity: 0.55 }}>✦</span>
@@ -487,7 +529,7 @@ export default function ChapterUpdateModal({ book, onClose, onUpdateBook }) {
               )}
 
               {/* Close — appears last */}
-              {visibleCards >= 4 && (
+              {visibleCards >= 5 && (
                 <button
                   ref={closeButtonRef}
                   onClick={onClose}

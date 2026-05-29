@@ -307,27 +307,25 @@ export default function Library() {
                 style={{
                   // Zone warmth responds continuously to total annotation mass
                   background: `color-mix(in srgb, var(--color-gold-bg, #FDF8EC) ${zoneWarmthPct}%, var(--color-cream, #FAF6EE))`,
-                  // A deeply accumulated reading zone breathes slightly more (preserving 28px side padding)
-                  ...(readingNowMass >= 6 ? { padding: '26px 28px 18px' } : {}),
+                  // Deeply accumulated zone: slightly more breathing room (vertical only — horizontal handled by CSS)
+                  ...(readingNowMass >= 6 ? { paddingTop: 26, paddingBottom: 18 } : {}),
                 }}
               >
                 <p className="shelf-title"><span style={{ fontSize: 8, opacity: 0.55, marginRight: 5, verticalAlign: 'middle' }}>✦</span>reading now</p>
                 {readingNow.length === 1 ? (
-                  // Solo active book — asymmetry widens with annotation depth
-                  <div className={bookPresence(readingNow[0]) === 'deep' ? 'max-w-md' : 'max-w-sm'}>
+                  // Solo active book — full reading-zone width
+                  <div>
                     <div className={`reading-hero-card${bookPresence(readingNow[0]) === 'deep' ? ' surface-inhabited-deep' : bookPresence(readingNow[0]) === 'inhabited' ? ' surface-inhabited' : ''}`}>
                       <BookCard book={readingNow[0]} onClick={() => navigate(`/book/${readingNow[0].id}`)} hero presence={bookPresence(readingNow[0])} />
                     </div>
                   </div>
                 ) : (
-                  <div className={`grid grid-cols-1 gap-6 ${bookPresence(readingNow[0]) === 'deep' ? 'sm:grid-cols-[3fr_2fr]' : 'sm:grid-cols-2'}`}>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                     {readingNow.map((book, i) => {
                       const p = bookPresence(book)
-                      // Most-recently-touched book gets primary treatment in multi-book view
                       const isPrimary = i === 0
                       return (
                         <div key={book.id}
-                          style={isPrimary && p === 'deep' ? { transform: 'translateY(-2px)' } : undefined}
                           className={`reading-hero-card${p === 'deep' ? ' surface-inhabited-deep' : p === 'inhabited' ? ' surface-inhabited' : ''}${isPrimary ? ' reading-hero-primary' : ''}`}>
                           <BookCard book={book} onClick={() => navigate(`/book/${book.id}`)} hero primary={isPrimary} presence={p} />
                         </div>
@@ -386,7 +384,7 @@ export default function Library() {
                         style={{
                           ...(residuePb ? { paddingBottom: residuePb } : {}),
                           transform: `translateY(${drift}px)`,
-                          ...(neighborWarm ? { background: 'color-mix(in srgb, #B8860B 3%, var(--color-card-base, #FDFAF5))' } : {}),
+                          ...(neighborWarm ? { background: 'color-mix(in srgb, var(--color-accent) 3%, var(--color-card-base))' } : {}),
                         }}
                         className={`atmospheric-card${presenceClass}${tempClass}`}>
                         <BookCard book={book} onClick={() => navigate(`/book/${book.id}`)} presence={p} />

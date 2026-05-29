@@ -13,10 +13,10 @@ function ordinal(n) {
 }
 
 const STATUS_DOTS = {
-  reading:  { color: 'var(--color-gold, #B8860B)',  label: 'Reading'        },
-  finished: { color: 'var(--color-gold, #B8860B)',  label: 'Finished'       },
-  paused:   { color: 'var(--color-ink-400)',        label: 'Paused'         },
-  want:     { color: 'var(--color-ink-300)',        label: 'Want to Read'  },
+  reading:  { color: 'var(--color-accent)',    label: 'Reading'      },
+  finished: { color: 'var(--color-text-dim)',  label: 'Finished'     },
+  paused:   { color: 'var(--color-text-dim)',  label: 'Paused'       },
+  want:     { color: 'var(--color-hairline)',  label: 'Want to Read' },
 }
 
 export default function BookCard({ book, onClick, hero = false, primary = false, presence = '' }) {
@@ -40,11 +40,11 @@ export default function BookCard({ book, onClick, hero = false, primary = false,
     ? 'var(--color-ink-200)'
     : statusDot.color
 
-  // Author color recedes with temporal distance — an abandoned book's name grows quiet
+  // Author color — slightly muted always; recedes gently with time
   const authorColor = daysSince > 90
-    ? 'var(--color-ink-200)'   // long absence — near-silent
+    ? 'var(--color-ink-300)'   // long absence — quieter
     : daysSince > 45
-    ? 'var(--color-ink-300)'   // cooling
+    ? 'var(--color-ink-400)'   // cooling
     : 'var(--color-ink-500)'   // present
 
   // Cover opacity — presence-weighted perceptual clarity.
@@ -72,10 +72,8 @@ export default function BookCard({ book, onClick, hero = false, primary = false,
   // Presence and temporal state shape the internal rhythm of the card, not just
   // the wrapper. A deeply inhabited book breathes differently from an abandoned one.
 
-  // Internal padding — deep books earn more interior breathing room
-  const innerPad = (hero || primary) ? 'gap-5 p-5'
-    : presence === 'deep'           ? 'gap-4 p-5'
-    :                                  'gap-4 p-4'
+  // Internal padding — hero/primary cards get extra room; default is compact
+  const innerPad = (hero || primary) ? 'gap-4 p-5' : 'gap-4 p-4'
 
   // Author gap — deep books open slightly between title and author name
   const authorMt = presence === 'deep' ? 'mt-1' : 'mt-0.5'
@@ -116,8 +114,22 @@ export default function BookCard({ book, onClick, hero = false, primary = false,
     <button
       onClick={onClick}
       className="w-full text-left group"
-      style={{ display: 'block' }}
+      style={{ display: 'block', position: 'relative' }}
     >
+      {/* Ember left stripe — playground is-reading signature */}
+      {book.status === 'reading' && (
+        <span
+          aria-hidden="true"
+          style={{
+            position: 'absolute',
+            left: 0, top: 18, bottom: 18,
+            width: 2,
+            background: 'var(--color-accent)',
+            borderRadius: 2,
+            boxShadow: '0 0 8px var(--color-glow)',
+          }}
+        />
+      )}
       <div className={`flex ${innerPad}`}>
 
         {/* Cover */}
@@ -131,7 +143,7 @@ export default function BookCard({ book, onClick, hero = false, primary = false,
         >
           <BookCover
             book={book}
-            className={primary ? 'w-[72px] h-[106px]' : hero ? 'w-[68px] h-[100px]' : 'w-[56px] h-[84px]'}
+            className={(hero || primary) ? 'w-[64px] h-[96px]' : 'w-[56px] h-[84px]'}
             rounded="rounded-[8px]"
           />
         </div>
@@ -143,9 +155,9 @@ export default function BookCard({ book, onClick, hero = false, primary = false,
             <h3
               className="font-serif leading-snug line-clamp-2 group-hover:text-gold transition-colors"
               style={{
-                fontSize: primary ? 18 : hero ? 17 : presence === 'deep' ? 16 : 15,
-                fontWeight: 600,
-                color: presence === '' ? 'var(--color-ink-800)' : 'var(--color-ink-900)',
+                fontSize: (hero || primary) ? 16 : 15,
+                fontWeight: 500,
+                color: 'var(--color-text-primary)',
                 letterSpacing: '-0.01em',
               }}
             >
@@ -204,7 +216,7 @@ export default function BookCard({ book, onClick, hero = false, primary = false,
                   fontSize: 11,
                   fontFamily: 'var(--font-sans)',
                   fontWeight: 500,
-                  color: 'var(--color-gold, #B8860B)',
+                  color: 'var(--color-accent)',
                   opacity: pct > 0 ? pctOpacity : 0,
                 }}
               >

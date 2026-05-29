@@ -71,11 +71,30 @@ export default function CompanionHeader({ book, onOpenUpdate, onUpdateBook }) {
   const [menuOpen,       setMenuOpen]       = useState(false)
   const [confirmDelete,  setConfirmDelete]  = useState(false)
   const [editingMeta,    setEditingMeta]    = useState(false)
-  const [metaForm,       setMetaForm]       = useState({ title: book.title, author: book.author, temperament: book.temperament || '' })
+  const [metaForm,       setMetaForm]       = useState({ title: book.title, author: book.author, temperament: book.temperament || '', totalChapters: String(book.totalChapters || '') })
   const [reextracting,   setReextracting]   = useState(false)
   const [reextractMsg,   setReextractMsg]   = useState(null)
-  const menuRef    = useRef()
-  const epubRef    = useRef()
+  const menuRef        = useRef()
+  const epubRef        = useRef()
+  const titleInputRef  = useRef()
+  const confirmBtnRef  = useRef()
+
+  // Keyboard support for confirm dialog
+  useEffect(() => {
+    if (!pendingAction) return
+    const onKey = e => {
+      if (e.key === 'Enter')  { performAction(pendingAction); setPendingAction(null) }
+      if (e.key === 'Escape') { setPendingAction(null) }
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingAction])
+
+  // Auto-focus confirm button
+  useEffect(() => {
+    if (pendingAction) setTimeout(() => confirmBtnRef.current?.focus(), 60)
+  }, [pendingAction])
 
   useEffect(() => {
     if (!menuOpen) return
@@ -89,18 +108,34 @@ export default function CompanionHeader({ book, onOpenUpdate, onUpdateBook }) {
   }, [menuOpen])
 
   const openEditMeta = () => {
-    setMetaForm({ title: book.title, author: book.author, temperament: book.temperament || '' })
+    setMetaForm({ title: book.title, author: book.author, temperament: book.temperament || '', totalChapters: String(book.totalChapters || '') })
     setEditingMeta(true)
     setMenuOpen(false)
     setConfirmDelete(false)
+    setTimeout(() => titleInputRef.current?.focus(), 60)
   }
 
   const saveMeta = () => {
     const t = metaForm.title.trim()
     const a = metaForm.author.trim()
     if (!t) return
-    onUpdateBook({ title: t, author: a, ...(metaForm.temperament ? { temperament: metaForm.temperament } : {}) })
+    const chapNum = parseInt(metaForm.totalChapters, 10)
+    const chapUpdate = chapNum > 0 && chapNum !== book.totalChapters
+      ? {
+          totalChapters: chapNum,
+          chapters: Array.from({ length: chapNum }, (_, i) => {
+            const existing = book.chapters.find(c => c.num === i + 1)
+            return existing || { num: i + 1, title: null, summary: null, completed: (i + 1) <= book.currentChapter }
+          }),
+        }
+      : {}
+    onUpdateBook({ title: t, author: a, ...(metaForm.temperament ? { temperament: metaForm.temperament } : {}), ...chapUpdate })
     setEditingMeta(false)
+  }
+
+  const handleMetaKeyDown = e => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); saveMeta() }
+    if (e.key === 'Escape') { setEditingMeta(false) }
   }
 
   const handleExport = () => {
@@ -227,12 +262,310 @@ export default function CompanionHeader({ book, onOpenUpdate, onUpdateBook }) {
     rereadCount > 0 && `${ordinal(rereadCount + 1)} reading`,
   ].filter(Boolean).join('  ·  ')
 
+  // ── Detail block — rendered in-column on desktop, full-width below on mobile ──
+  const detailBlock = (
+    <>
+      {/* ── Finished: post-completion afterimage / archival statement ── */}
+      {isFinished && (() => {
+        const daysAgo    = book.completedAt
+          ? Math.floor((Date.now() - new Date(book.completedAt).getTime()) / 86_400_000)
+          : 9999
+        const recentFinish = daysAgo <= 30
+        const afterimage   = recentFinish ? generateCompletionAfterimageLine(book) : null
+        return (
+          <div className="mt-3">
+            <p className="italic" style={{ fontSize: 12, color: 'var(--color-ink-400)' }}>
+              {afterimage ?? (book.completedAt ? fmtCompleted(book.completedAt) : 'The story is complete.')}
+            </p>
+            {recentFinish && daysAgo > 2 && book.completedAt && (
+              <p className="italic" style={{ fontSize: 11, color: 'var(--color-ink-300)', marginTop: 3 }}>
+                {fmtCompleted(book.completedAt)}
+              </p>
+            )}
+          </div>
+        )
+      })()}
+
+      {/* ── Reading gap archaeology — active book, unvisited for 7+ days ── */}
+      {isReading && !atEnd && !editingMeta && !pendingAction && (() => {
+        const daysAway = book.lastUpdated
+          ? Math.floor((Date.now() - new Date(book.lastUpdated).getTime()) / 86_400_000)
+          : 0
+        if (daysAway < 7) return null
+        const lastNote = (book.notes || []).slice(-1)[0]
+        if (!lastNote) return null
+        const lastText = lastNote.text || ''
+        const hauntedMystery = daysAway >= 14
+          ? (book.mysteries || [])
+              .filter(m => !m.resolved)
+              .sort((a, b) => mysteryHauntScore(b, book) - mysteryHauntScore(a, book))
+              .find(m => mysteryHauntScore(m, book) >= 1.5)
+          : null
+        return (
+          <div
+            className="animate-fade-in"
+            style={{ marginTop: 12, paddingTop: 10, borderTop: '1px solid rgba(28,20,16,.04)' }}
+          >
+            <p
+              className="italic leading-relaxed"
+              style={{ fontSize: 11, color: 'var(--color-ink-300)', marginBottom: hauntedMystery ? 4 : 0 }}
+            >
+              "{lastText.length > 110 ? lastText.slice(0, 110) + '…' : lastText}"
+            </p>
+            {hauntedMystery && (
+              <p
+                className="italic"
+                style={{ fontSize: 11, color: 'var(--color-ink-300)', opacity: 0.72 }}
+              >
+                <span style={{ fontSize: 8, color: 'var(--ca, #B8860B)', opacity: 0.5, marginRight: 5 }}>✦</span>
+                {hauntedMystery.text.length > 85
+                  ? hauntedMystery.text.slice(0, 85) + '…'
+                  : hauntedMystery.text}
+              </p>
+            )}
+          </div>
+        )
+      })()}
+
+      {/* ── Abandoned archaeology — paused book, long silence ── */}
+      {isPaused && !editingMeta && !pendingAction && (() => {
+        const daysAway = book.lastUpdated
+          ? Math.floor((Date.now() - new Date(book.lastUpdated).getTime()) / 86_400_000)
+          : 0
+        if (daysAway < 14) return null
+
+        const durationStr = daysAway >= 60
+          ? `${Math.round(daysAway / 30)} months`
+          : `${Math.round(daysAway / 7)} weeks`
+
+        const lastNote        = (book.notes || []).slice(-1)[0]
+        const lastNoteText    = lastNote?.text || ''
+        const openMysteriesArr = (book.mysteries || [])
+          .filter(m => !m.resolved)
+          .sort((a, b) => mysteryHauntScore(b, book) - mysteryHauntScore(a, book))
+        const topMystery       = openMysteriesArr[0] ?? null
+        const openCount        = openMysteriesArr.length
+
+        return (
+          <div
+            className="animate-fade-in"
+            style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid rgba(28,20,16,.05)' }}
+          >
+            <p
+              className="italic"
+              style={{ fontSize: 11, color: 'var(--color-ink-400)', marginBottom: lastNote || openCount > 0 ? 5 : 0 }}
+            >
+              Set aside {durationStr} ago.
+            </p>
+            {lastNote && (
+              <p
+                className="italic leading-relaxed"
+                style={{
+                  fontSize: 11,
+                  color: 'var(--color-ink-300)',
+                  marginBottom: openCount > 0 ? 4 : 0,
+                }}
+              >
+                "{lastNoteText.length > 110 ? lastNoteText.slice(0, 110) + '…' : lastNoteText}"
+              </p>
+            )}
+            {topMystery && (
+              <p
+                className="italic leading-relaxed"
+                style={{ fontSize: 11, color: 'var(--color-ink-300)', marginBottom: openCount > 1 ? 3 : 0 }}
+              >
+                "{topMystery.text.length > 90 ? topMystery.text.slice(0, 90) + '…' : topMystery.text}"
+              </p>
+            )}
+            {openCount > 1 && (
+              <p className="italic" style={{ fontSize: 11, color: 'var(--color-ink-300)' }}>
+                {openCount - 1} other {openCount - 1 === 1 ? 'thread' : 'threads'} still open.
+              </p>
+            )}
+          </div>
+        )
+      })()}
+
+      {/* ── Completion pathway ── */}
+      {(isReading || isPaused) && atEnd && !editingMeta && !pendingAction && (
+        <div className="mt-4 animate-fade-in">
+          <p
+            className="italic"
+            style={{ fontSize: 12, color: 'var(--color-ink-400)', marginBottom: 10, lineHeight: 1.6 }}
+          >
+            The final chapter.
+          </p>
+          <button
+            onClick={() => setPendingAction('finish')}
+            style={{
+              fontFamily:    'var(--font-serif)',
+              fontSize:      14,
+              fontWeight:    400,
+              letterSpacing: '-0.01em',
+              color:         'var(--color-text-secondary)',
+              padding:       '10px 22px',
+              border:        '1px solid var(--color-hairline)',
+              borderRadius:  8,
+              background:    'transparent',
+              display:       'inline-flex',
+              alignItems:    'center',
+              gap:           10,
+              transition:    'background 700ms cubic-bezier(0.2,0.9,0.2,1), border-color 700ms, color 700ms, box-shadow 700ms',
+            }}
+            onMouseEnter={e => {
+              e.currentTarget.style.background = 'var(--color-accent)'
+              e.currentTarget.style.borderColor = 'var(--color-accent)'
+              e.currentTarget.style.color = 'var(--color-bg)'
+              e.currentTarget.style.boxShadow = '0 0 28px 6px var(--color-glow)'
+            }}
+            onMouseLeave={e => {
+              e.currentTarget.style.background = 'transparent'
+              e.currentTarget.style.borderColor = 'var(--color-hairline)'
+              e.currentTarget.style.color = 'var(--color-text-secondary)'
+              e.currentTarget.style.boxShadow = 'none'
+            }}
+          >
+            The story ends here
+            <span style={{ fontSize: 9, color: 'var(--color-accent)', opacity: 0.65 }}>✦</span>
+          </button>
+        </div>
+      )}
+
+      {/* ── Primary ritual action — progress update ── */}
+      {(isReading || isPaused) && !atEnd && !editingMeta && !pendingAction && (
+        <div className="mt-4">
+          <button
+            onClick={onOpenUpdate}
+            style={{
+              fontFamily:    'var(--font-serif)',
+              fontSize:      14,
+              fontWeight:    400,
+              letterSpacing: '-0.01em',
+              color:         'var(--color-text-secondary)',
+              padding:       '10px 22px',
+              border:        '1px solid var(--color-hairline)',
+              borderRadius:  8,
+              background:    'transparent',
+              display:       'inline-flex',
+              alignItems:    'center',
+              gap:           8,
+              transition:    'background 700ms cubic-bezier(0.2,0.9,0.2,1), border-color 700ms, color 700ms, box-shadow 700ms',
+            }}
+            onMouseEnter={e => {
+              e.currentTarget.style.background = 'var(--color-accent)'
+              e.currentTarget.style.borderColor = 'var(--color-accent)'
+              e.currentTarget.style.color = 'var(--color-bg)'
+              e.currentTarget.style.boxShadow = '0 0 28px 6px var(--color-glow)'
+            }}
+            onMouseLeave={e => {
+              e.currentTarget.style.background = 'transparent'
+              e.currentTarget.style.borderColor = 'var(--color-hairline)'
+              e.currentTarget.style.color = 'var(--color-text-secondary)'
+              e.currentTarget.style.boxShadow = 'none'
+            }}
+          >
+            {isPaused
+              ? `Return to chapter ${book.currentChapter || 1}`
+              : (book.readingLog?.length ?? 0) === 0
+                ? 'Begin your first chapter'
+                : book.currentChapter > 0
+                  ? `Continue from chapter ${book.currentChapter}`
+                  : 'Begin your first chapter'}
+            <span style={{ fontSize: 12, opacity: 0.55 }}>→</span>
+          </button>
+        </div>
+      )}
+
+      {/* ── Confirm dialog ── */}
+      {pendingAction && CONFIRM[pendingAction] && !editingMeta && (
+        <div className="mt-3 animate-fade-in">
+          <p className="text-[12px] text-ink-600 italic mb-3 leading-relaxed">
+            {CONFIRM[pendingAction].body}
+          </p>
+          <div className="flex gap-2">
+            <button onClick={() => setPendingAction(null)}
+              className="text-[12px] text-ink-600 hover:text-ink-800 px-3 py-1.5 rounded-lg border border-ink-200 transition-colors">
+              {CONFIRM[pendingAction].cancel}
+            </button>
+            <button ref={confirmBtnRef} onClick={() => { performAction(pendingAction); setPendingAction(null) }}
+              className="text-[12px] font-semibold px-3 py-1.5 rounded-lg btn-accent">
+              {CONFIRM[pendingAction].ok}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── Lifecycle actions ── */}
+      {actions.length > 0 && !pendingAction && !editingMeta && (
+        <div className="mt-3">
+          <div className="flex items-center flex-wrap">
+            {actions.map((a, i) => (
+              <span key={a.key} className="flex items-center">
+                {i > 0 && (
+                  <span className="text-ink-200 mx-2 select-none text-[11px]" aria-hidden="true">·</span>
+                )}
+                <button
+                  onClick={() => a.confirm ? setPendingAction(a.key) : performAction(a.key)}
+                  className="text-[11px] italic transition-colors text-ink-400 hover:text-ink-600">
+                  {a.label}
+                </button>
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ── Reading momentum ── */}
+      {!isFinished && <ReadingMomentum book={book} />}
+
+      {/* ── Re-extraction status ── */}
+      {reextracting && (
+        <div className="mt-3 px-3 py-2 rounded-lg bg-gold-bg border border-gold-border animate-fade-in">
+          <p className="text-[12px] text-gold animate-pulse">Claude is reading the chapters…</p>
+        </div>
+      )}
+      {reextractMsg && !reextracting && (
+        <div className={`mt-3 px-3 py-2 rounded-lg border animate-fade-in ${
+          reextractMsg.ok
+            ? 'bg-gold-bg border-gold-border text-ink-600'
+            : 'bg-ember-bg border-ember-pale text-ember'
+        }`}>
+          <p className="text-[12px]">{reextractMsg.text}</p>
+        </div>
+      )}
+    </>
+  )
+
   return (
     <div style={{ borderBottom: '1px solid rgba(28,20,16,.04)' }}>
       {/* Hidden EPUB file input for re-extraction */}
       <input ref={epubRef} type="file" accept=".epub" className="hidden" onChange={handleEpubFile} />
 
-      <div className="max-w-[1000px] mx-auto px-5 sm:px-10 py-6">
+      <div className="max-w-[1000px] mx-auto px-5 sm:px-10 py-4 sm:py-6 book-header-inner">
+        {/* Mobile breadcrumb — back to library */}
+        <div className="sm:hidden mb-3 -mt-1">
+          <button
+            onClick={() => navigate('/library')}
+            style={{
+              fontFamily: 'var(--font-sans)',
+              fontSize: 11,
+              color: 'var(--color-text-dim)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 4,
+              opacity: 0.65,
+              transition: 'opacity 0.2s ease',
+              background: 'none',
+              border: 'none',
+              padding: 0,
+              cursor: 'pointer',
+            }}
+          >
+            <span style={{ fontSize: 13, lineHeight: 1 }}>←</span>
+            <span>Library</span>
+          </button>
+        </div>
+
         <div className="flex gap-4 sm:gap-5 items-start">
 
           {/* ── Cover — atmospheric thumbnail, reduced ── */}
@@ -249,16 +582,16 @@ export default function CompanionHeader({ book, onOpenUpdate, onUpdateBook }) {
           {/* ── Document column ── */}
           <div className="flex-1 min-w-0">
 
-            {/* Title — document opening, no label above it */}
+            {/* Title — literary display heading */}
             <h1
-              className="font-serif line-clamp-2"
+              className="font-serif"
               style={{
-                fontSize: 24,
-                fontWeight: 600,
-                letterSpacing: '-0.025em',
-                lineHeight: 1.15,
-                color: 'var(--color-ink-900)',
-                marginBottom: 5,
+                fontSize: 'clamp(26px, 4.5vw, 44px)',
+                fontWeight: 400,
+                letterSpacing: '-0.02em',
+                lineHeight: 1.12,
+                color: 'var(--color-text-primary)',
+                marginBottom: 6,
               }}
             >
               {book.title}
@@ -268,16 +601,29 @@ export default function CompanionHeader({ book, onOpenUpdate, onUpdateBook }) {
             {editingMeta ? (
               <div className="mb-3 space-y-2 animate-fade-in">
                 <input
+                  ref={titleInputRef}
                   value={metaForm.title}
                   onChange={e => setMetaForm(f => ({ ...f, title: e.target.value }))}
+                  onKeyDown={handleMetaKeyDown}
                   className="w-full border border-ink-200 rounded-lg px-3 py-1.5 text-[13px] text-ink-800 bg-cream-50"
                   placeholder="Title"
                 />
                 <input
                   value={metaForm.author}
                   onChange={e => setMetaForm(f => ({ ...f, author: e.target.value }))}
+                  onKeyDown={handleMetaKeyDown}
                   className="w-full border border-ink-200 rounded-lg px-3 py-1.5 text-[13px] text-ink-800 bg-cream-50"
                   placeholder="Author"
+                />
+                <input
+                  type="number"
+                  min="1"
+                  max="9999"
+                  value={metaForm.totalChapters}
+                  onChange={e => setMetaForm(f => ({ ...f, totalChapters: e.target.value }))}
+                  onKeyDown={handleMetaKeyDown}
+                  className="w-full border border-ink-200 rounded-lg px-3 py-1.5 text-[13px] text-ink-800 bg-cream-50"
+                  placeholder={`Total chapters (currently ${book.totalChapters})`}
                 />
                 <div className="flex flex-wrap gap-1.5 pt-1">
                   {TEMPERAMENT_CONFIG.map(t => (
@@ -295,14 +641,14 @@ export default function CompanionHeader({ book, onOpenUpdate, onUpdateBook }) {
                 </div>
                 <div className="flex gap-2">
                   <button onClick={() => setEditingMeta(false)} className="text-[12px] text-ink-500 hover:text-ink-700 px-3 py-1.5 rounded-lg border border-ink-200 transition-colors">Cancel</button>
-                  <button onClick={saveMeta} className="text-[12px] font-semibold px-3 py-1.5 rounded-lg text-white transition-colors" style={{ background:'var(--ca, #B8860B)' }}>Save</button>
+                  <button onClick={saveMeta} disabled={!metaForm.title.trim()} className="text-[12px] font-semibold px-3 py-1.5 rounded-lg text-white transition-all disabled:opacity-40" style={{ background:'var(--ca, #B8860B)' }}>Save</button>
                 </div>
               </div>
             ) : (
               <div className="flex items-center gap-2 mb-2">
                 <p
                   className="font-serif italic truncate"
-                  style={{ fontSize: 14, color: 'var(--color-ink-500)' }}
+                  style={{ fontSize: 16, color: 'var(--color-text-secondary)' }}
                 >
                   {book.author}
                 </p>
@@ -375,275 +721,15 @@ export default function CompanionHeader({ book, onOpenUpdate, onUpdateBook }) {
               </p>
             )}
 
-            {/* ── Finished: post-completion afterimage / archival statement ── */}
-            {/* Recently-finished books (≤ 30 days) show a quiet earned observation;  */}
-            {/* older completions settle into the archival date line.                 */}
-            {isFinished && (() => {
-              const daysAgo    = book.completedAt
-                ? Math.floor((Date.now() - new Date(book.completedAt).getTime()) / 86_400_000)
-                : 9999
-              const recentFinish = daysAgo <= 30
-              const afterimage   = recentFinish ? generateCompletionAfterimageLine(book) : null
-              return (
-                <div className="mt-3">
-                  <p className="italic" style={{ fontSize: 12, color: 'var(--color-ink-400)' }}>
-                    {afterimage ?? (book.completedAt ? fmtCompleted(book.completedAt) : 'The story is complete.')}
-                  </p>
-                  {recentFinish && daysAgo > 2 && book.completedAt && (
-                    <p className="italic" style={{ fontSize: 11, color: 'var(--color-ink-300)', marginTop: 3 }}>
-                      {fmtCompleted(book.completedAt)}
-                    </p>
-                  )}
-                </div>
-              )
-            })()}
-
-            {/* ── Reading gap archaeology — active book, unvisited for 7+ days ── */}
-            {/* For books still marked "reading" but untouched for a week or more, */}
-            {/* surface the last note as a quiet re-entry anchor. Not a prompt —   */}
-            {/* just a thread to pick back up. Only shows if there are notes.      */}
-            {isReading && !atEnd && !editingMeta && !pendingAction && (() => {
-              const daysAway = book.lastUpdated
-                ? Math.floor((Date.now() - new Date(book.lastUpdated).getTime()) / 86_400_000)
-                : 0
-              if (daysAway < 7) return null
-              const lastNote = (book.notes || []).slice(-1)[0]
-              if (!lastNote) return null
-              const lastText = lastNote.text || ''
-              // Most haunted unresolved mystery — only surface if gap ≥ 14 days and
-              // there's a mystery with meaningful weight (avoids cluttering short gaps)
-              const hauntedMystery = daysAway >= 14
-                ? (book.mysteries || [])
-                    .filter(m => !m.resolved)
-                    .sort((a, b) => mysteryHauntScore(b, book) - mysteryHauntScore(a, book))
-                    .find(m => mysteryHauntScore(m, book) >= 1.5)
-                : null
-              return (
-                <div
-                  className="animate-fade-in"
-                  style={{ marginTop: 12, paddingTop: 10, borderTop: '1px solid rgba(28,20,16,.04)' }}
-                >
-                  <p
-                    className="italic leading-relaxed"
-                    style={{ fontSize: 11, color: 'var(--color-ink-300)', marginBottom: hauntedMystery ? 4 : 0 }}
-                  >
-                    "{lastText.length > 110 ? lastText.slice(0, 110) + '…' : lastText}"
-                  </p>
-                  {hauntedMystery && (
-                    <p
-                      className="italic"
-                      style={{ fontSize: 11, color: 'var(--color-ink-300)', opacity: 0.72 }}
-                    >
-                      <span style={{ fontSize: 8, color: 'var(--ca, #B8860B)', opacity: 0.5, marginRight: 5 }}>✦</span>
-                      {hauntedMystery.text.length > 85
-                        ? hauntedMystery.text.slice(0, 85) + '…'
-                        : hauntedMystery.text}
-                    </p>
-                  )}
-                </div>
-              )
-            })()}
-
-            {/* ── Abandoned archaeology — paused book, long silence ──────────── */}
-            {/* When a paused book has been silent for 14+ days, quietly surface  */}
-            {/* what was in motion when the reader set it down. Not a prompt to   */}
-            {/* return — just archaeology. The story holding its place.           */}
-            {isPaused && !editingMeta && !pendingAction && (() => {
-              const daysAway = book.lastUpdated
-                ? Math.floor((Date.now() - new Date(book.lastUpdated).getTime()) / 86_400_000)
-                : 0
-              if (daysAway < 14) return null
-
-              const durationStr = daysAway >= 60
-                ? `${Math.round(daysAway / 30)} months`
-                : `${Math.round(daysAway / 7)} weeks`
-
-              const lastNote        = (book.notes || []).slice(-1)[0]
-              const lastNoteText    = lastNote?.text || ''
-              // Sort unresolved mysteries by haunt score — surface the most haunted one specifically
-              const openMysteriesArr = (book.mysteries || [])
-                .filter(m => !m.resolved)
-                .sort((a, b) => mysteryHauntScore(b, book) - mysteryHauntScore(a, book))
-              const topMystery       = openMysteriesArr[0] ?? null
-              const openCount        = openMysteriesArr.length
-
-              return (
-                <div
-                  className="animate-fade-in"
-                  style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid rgba(28,20,16,.05)' }}
-                >
-                  <p
-                    className="italic"
-                    style={{ fontSize: 11, color: 'var(--color-ink-400)', marginBottom: lastNote || openCount > 0 ? 5 : 0 }}
-                  >
-                    Set aside {durationStr} ago.
-                  </p>
-                  {lastNote && (
-                    <p
-                      className="italic leading-relaxed"
-                      style={{
-                        fontSize: 11,
-                        color: 'var(--color-ink-300)',
-                        marginBottom: openCount > 0 ? 4 : 0,
-                      }}
-                    >
-                      "{lastNoteText.length > 110 ? lastNoteText.slice(0, 110) + '…' : lastNoteText}"
-                    </p>
-                  )}
-                  {topMystery && (
-                    <p
-                      className="italic leading-relaxed"
-                      style={{ fontSize: 11, color: 'var(--color-ink-300)', marginBottom: openCount > 1 ? 3 : 0 }}
-                    >
-                      "{topMystery.text.length > 90 ? topMystery.text.slice(0, 90) + '…' : topMystery.text}"
-                    </p>
-                  )}
-                  {openCount > 1 && (
-                    <p className="italic" style={{ fontSize: 11, color: 'var(--color-ink-300)' }}>
-                      {openCount - 1} other {openCount - 1 === 1 ? 'thread' : 'threads'} still open.
-                    </p>
-                  )}
-                </div>
-              )
-            })()}
-
-            {/* ── Completion pathway — all chapters read, not yet marked finished ── */}
-            {/* When atEnd, the "Continue" ritual gives way to a quiet completion    */}
-            {/* ceremony. No confetti. No achievement. Just the story ending.        */}
-            {(isReading || isPaused) && atEnd && !editingMeta && !pendingAction && (
-              <div className="mt-4 animate-fade-in">
-                <p
-                  className="italic"
-                  style={{ fontSize: 12, color: 'var(--color-ink-400)', marginBottom: 10, lineHeight: 1.6 }}
-                >
-                  The final chapter.
-                </p>
-                <button
-                  onClick={() => setPendingAction('finish')}
-                  className="transition-all"
-                  style={{
-                    fontFamily:    'var(--font-serif)',
-                    fontSize:      15,
-                    fontWeight:    400,
-                    letterSpacing: '-0.01em',
-                    color:         'var(--color-ink-700)',
-                    padding:       '9px 20px',
-                    border:        '1px solid var(--color-ink-200)',
-                    borderRadius:  7,
-                    background:    'transparent',
-                    display:       'inline-flex',
-                    alignItems:    'center',
-                    gap:           10,
-                  }}
-                  onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--color-ink-400)'; e.currentTarget.style.color = 'var(--color-ink-900)' }}
-                  onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--color-ink-200)'; e.currentTarget.style.color = 'var(--color-ink-700)' }}
-                >
-                  The story ends here
-                  <span style={{ fontSize: 9, color: 'var(--ca, #B8860B)', opacity: 0.65 }}>✦</span>
-                </button>
-              </div>
-            )}
-
-            {/* ── Primary ritual action — progress update ─────────────────────── */}
-            {/* This is the central ritual of Lantern. Elevated in hierarchy above  */}
-            {/* lifecycle actions. Not a button — a ceremonial anchor.              */}
-            {(isReading || isPaused) && !atEnd && !editingMeta && !pendingAction && (
-              <div className="mt-4">
-                <button
-                  onClick={onOpenUpdate}
-                  className="transition-all"
-                  style={{
-                    fontFamily:    'var(--font-serif)',
-                    fontSize:      15,
-                    fontWeight:    400,
-                    letterSpacing: '-0.01em',
-                    color:         'var(--color-ink-700)',
-                    padding:       '9px 20px',
-                    border:        '1px solid var(--color-ink-200)',
-                    borderRadius:  7,
-                    background:    'transparent',
-                    display:       'inline-flex',
-                    alignItems:    'center',
-                    gap:           8,
-                  }}
-                  onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--color-ink-400)'; e.currentTarget.style.color = 'var(--color-ink-900)' }}
-                  onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--color-ink-200)'; e.currentTarget.style.color = 'var(--color-ink-700)' }}
-                >
-                  {isPaused
-                    ? `Return to chapter ${book.currentChapter || 1}`
-                    : (book.readingLog?.length ?? 0) === 0
-                      ? 'Begin your first chapter'
-                      : book.currentChapter > 0
-                        ? `Continue from chapter ${book.currentChapter}`
-                        : 'Begin your first chapter'}
-                  <span style={{ fontSize: 13, color: 'var(--color-ink-400)' }}>→</span>
-                </button>
-              </div>
-            )}
-
-            {/* ── Confirm dialog — surfaces whenever an action awaits confirmation ── */}
-            {/* Decoupled from actions.length so it renders even when atEnd clears  */}
-            {/* the action list (completion pathway uses setPendingAction directly). */}
-            {pendingAction && CONFIRM[pendingAction] && !editingMeta && (
-              <div className="mt-3 animate-fade-in">
-                <p className="text-[12px] text-ink-600 italic mb-3 leading-relaxed">
-                  {CONFIRM[pendingAction].body}
-                </p>
-                <div className="flex gap-2">
-                  <button onClick={() => setPendingAction(null)}
-                    className="text-[12px] text-ink-600 hover:text-ink-800 px-3 py-1.5 rounded-lg border border-ink-200 transition-colors">
-                    {CONFIRM[pendingAction].cancel}
-                  </button>
-                  <button onClick={() => { performAction(pendingAction); setPendingAction(null) }}
-                    className="text-[12px] font-semibold px-3 py-1.5 rounded-lg btn-accent">
-                    {CONFIRM[pendingAction].ok}
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {/* ── Lifecycle actions — secondary register ─────────────────────── */}
-            {/* These are subordinate to the ritual action above.                 */}
-            {actions.length > 0 && !pendingAction && !editingMeta && (
-              <div className="mt-3">
-                <div className="flex items-center flex-wrap">
-                  {actions.map((a, i) => (
-                    <span key={a.key} className="flex items-center">
-                      {i > 0 && (
-                        <span className="text-ink-200 mx-2 select-none text-[11px]" aria-hidden="true">·</span>
-                      )}
-                      <button
-                        onClick={() => a.confirm ? setPendingAction(a.key) : performAction(a.key)}
-                        className="text-[11px] italic transition-colors text-ink-400 hover:text-ink-600">
-                        {a.label}
-                      </button>
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* ── Reading momentum — ambient pacing awareness ── */}
-            {!isFinished && <ReadingMomentum book={book} />}
-
-            {/* ── Re-extraction status ── */}
-            {reextracting && (
-              <div className="mt-3 px-3 py-2 rounded-lg bg-gold-bg border border-gold-border animate-fade-in">
-                <p className="text-[12px] text-gold animate-pulse">Claude is reading the chapters…</p>
-              </div>
-            )}
-            {reextractMsg && !reextracting && (
-              <div className={`mt-3 px-3 py-2 rounded-lg border animate-fade-in ${
-                reextractMsg.ok
-                  ? 'bg-gold-bg border-gold-border text-ink-600'
-                  : 'bg-ember-bg border-ember-pale text-ember'
-              }`}>
-                <p className="text-[12px]">{reextractMsg.text}</p>
-              </div>
-            )}
+            {/* Desktop (sm+): detail block sits in the right column, next to cover */}
+            <div className="hidden sm:block">{detailBlock}</div>
 
           </div>
         </div>
+
+        {/* Mobile: detail block breaks out full-width below cover + title/author */}
+        <div className="sm:hidden mt-4">{detailBlock}</div>
+
       </div>
     </div>
   )

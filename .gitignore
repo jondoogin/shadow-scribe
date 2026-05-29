@@ -20,6 +20,17 @@ dist-ssr
 .env.production.local
 .env.production
 
+# Claude Code worktrees — never commit
+.claude/worktrees/
+
+# Local working directories — not part of the deployable app
+screenshots/
+testing/
+residency/
+
+# Unused trial fonts — not licensed for distribution
+public/fonts/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

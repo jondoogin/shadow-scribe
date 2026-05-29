@@ -3,6 +3,102 @@ Reverse-chronological log of what was built, fixed, and decided in each working 
 
 ---
 
+## Session 121 — 2026-05-27
+**Theme:** Design System 4.0 + Companion-First Architecture — Planning
+
+**No code written. Pure design and architecture decision session.**
+
+**DESIGN SYSTEM 4.0 — VELLUM ADOPTED**
+The Vellum design direction (finalized via Claude Design playground testing 8 directions) becomes the single design system for Lantern. Implementation strategy: Option A — remap existing `--color-*` token values without renaming them. All components inherit new values automatically. Key shifts: Playfair Display → Libre Baskerville; dark mode bg/fg/accent moves from cold teal-blue (#0A1A1E, #3C7AAA) to warm near-black amber (#1a1714, #d36045). Light mode accent shifts from gold (#8A6028) to orange-red ember (#c25538). Motion timing slowed ~60% across all transition variables. New additive effects: mouse-following atmospheric glow gradient, button ember-fill hover with outer glow, backdrop-filter blur on panels. Full token comparison table in `CHATGPT_HANDOFF.md` Session 121.
+
+**COMPANION-FIRST ARCHITECTURE DECIDED**
+Lantern stops being a book-tracking app with a companion feature and becomes a reading companion app where book-tracking is the companion's accumulated record. The companion is what you walk into when you open a book.
+
+Desktop book detail page: companion band at full width above the fold, then tab content below. The sidebar model is retired. Companion band shows: chapter contextual greeting, surfaced relevant characters/themes/questions as ambient cards, always-visible input field. Tone: "idle sage going about its business, not waiting for you."
+
+Mobile: companion gets a dedicated bottom nav tab with a full-screen experience.
+
+**HYBRID AI MODEL DECIDED**
+Ambient presence stays with the existing cached reflection engine (no API call). Direct user queries go through a Vercel serverless function (`api/companion.js`) that proxies to the Anthropic API with book context in the system prompt. The function returns structured JSON: `{ message, logs: [{ type, content, targetTab }] }`. Conversation is ephemeral — only the companion's logged entries persist to book data. API key is server-side (you control it).
+
+**TAB RETHINK DECIDED**
+Full redesign from scratch. Progress tab moves into the companion band (not a tab anymore). New 5-tab structure: Questions (was Mysteries), Themes (was Discussion), Characters, Plot, Notes. Each tab accumulates both user-created entries and companion-logged entries (visually distinguished). Tab data schemas need updating to accommodate `source: 'companion'|'user'`, `createdAtChapter`, etc.
+
+**LOGGING UX DECIDED**
+No verbal confirmation from companion. A tab badge or brief indicator signals when something was filed. Users discover it by visiting the tab.
+
+**PAGE LAYOUT RETHINKS SCOPED**
+Landing, library, and book detail pages all flagged for visual redesign. Principles: typographic variance, generous breathing room, editorial feel on book cards. No specific layouts decided — this is Phase 5 implementation work.
+
+**7 open questions documented** in `CHATGPT_HANDOFF.md` for ChatGPT strategic analysis: ambient generation model, session context window, tab schema migration, rate limiting, spoiler safety in API context, mobile nav routing with Companion tab.
+
+---
+
+## Session 120 — 2026-05-26
+**Theme:** Alpha Week 1 — UX Hardening Pass (10 implementation items)
+
+First dedicated UX implementation pass post-launch. No companion language changes. No schema changes. No new localStorage keys.
+
+**DARK MODE TOGGLE IN TOP NAV**
+`src/components/layout/TopNav.jsx`: ☀︎/◗ icon button added directly to the nav bar between "New Companion" and the hamburger. Clicking it toggles `settings.darkMode` immediately, without opening the menu. Previously dark mode was only accessible inside the hamburger dropdown. Title attribute doubles as tooltip.
+
+**CHAPTER UPDATE MODAL — NLP IMPROVEMENTS**
+`src/components/modals/ChapterUpdateModal.jsx`:
+- `onBlur` no longer clears `nlpInput` — the field holds its value until the user submits or resets via the dropdown
+- Live resolution feedback: "→ Chapter N" appears below the NLP input while text is present and parseable
+- Improved placeholder: `e.g. "chapter 18", "five", "done"…` (was `Chapter N…`)
+- Added "all done" / "all of it" to `FINISH_PHRASES` regex
+- Out-of-range digit input now clamps to `totalChapters` instead of returning null
+- Enter key in the NLP input submits the form directly
+
+**MODAL FOCUS TRAP — INITIAL FOCUS**
+`src/components/modals/ChapterUpdateModal.jsx`: NLP input receives focus 80ms after modal mounts via `nlpInputRef` + `useEffect`. The existing Tab-cycle trap was already correct; this fills the gap where no element was focused on open.
+
+**MOBILE KEYBOARD HANDLING**
+`index.html`: Added `interactive-widget=resizes-content` to viewport meta — triggers layout reflow on keyboard appearance in Chrome/Android.
+`src/components/modals/ChapterUpdateModal.jsx`: `maxHeight` now `min(90svh, calc(100dvh - env(keyboard-inset-height, 0px) - 16px))` — accounts for soft keyboard on supporting browsers. Graceful no-op on unsupported browsers.
+
+**REFLECTION SUPPRESSION UX (PresenceStrip)**
+`src/components/dashboard/PresenceStrip.jsx`:
+- Imported `suppressReflection` from `reflectionEngine.js` (was already implemented in engine, not wired to this component)
+- Added `hovered` state and `longPressTimer` ref
+- Desktop: ✕ dismiss button appears on hover over the observation when it is a cached reflection
+- Mobile: 700ms long-press on the observation triggers `suppressCurrent()`
+- Suppressed reflections never resurface for this book (persisted in `book.reflectionCache`)
+
+**REFLECTION DEDUPLICATION (PresenceStrip)**
+`src/components/dashboard/PresenceStrip.jsx`: `cachedReflections` memo now wraps `getActiveReflections()` in `deduplicateReflections()`. Previously deduplication existed in `reflectionEngine.js` and was applied in `CompanionPanel` but not in `PresenceStrip`.
+
+**REFLECTION SATURATION DETECTION (PresenceStrip)**
+`src/components/dashboard/PresenceStrip.jsx`: `isReflectionPoolSaturated()` now imported and computed. When the pool is saturated and no observation is surfaced, the strip shows "Add more notes to refresh companion thoughts." instead of "The companion is quiet." — gives the reader actionable signal.
+
+**TABLET TWO-COLUMN LAYOUT**
+`src/components/dashboard/BookDashboard.jsx`:
+- At `lg` breakpoint (1024px+), content area switches from single column to CSS grid: `1fr 260px` with `gap-10`
+- Left column: all tab content (existing)
+- Right column: `CompanionPanel` sidebar — sticky at `top-36`, `self-start`
+- `max-w-[1000px]` widened to `max-w-[1200px]` to accommodate the sidebar
+- `CompanionPanel` was previously defined but never imported or rendered
+
+**BOOK STATUS TRANSITION FLOW**
+`src/components/dashboard/CompanionHeader.jsx`:
+- `useEffect` added: while `pendingAction` is set, Enter confirms and Escape cancels
+- `confirmBtnRef` added to the confirm button — auto-focused 60ms after the dialog appears
+- Both changes apply to all confirm dialogs (finish, restart, archive)
+
+**EDIT METADATA FLOW**
+`src/components/dashboard/CompanionHeader.jsx`:
+- `totalChapters` field added to the inline edit form (pre-filled with current value)
+- If total chapters changes, `chapters[]` array is rebuilt: existing chapter objects are preserved, new ones scaffold as `{ num, title: null, summary: null, completed }` based on `currentChapter`
+- `titleInputRef` + `useEffect` auto-focuses the title input when the form opens
+- All three text inputs respond to Enter (save) and Escape (cancel) via `handleMetaKeyDown`
+- Save button disabled when title is empty
+- `metaForm` state initialised to include `totalChapters: String(book.totalChapters || '')`
+
+**Build:** clean ✓ | **No schema changes** | **No new localStorage keys**
+
+---
+
 ## Session 119 — 2026-05-26
 **Theme:** Post-Ship / Alpha Week 1 — Real Reader Calibration
 

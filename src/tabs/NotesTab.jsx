@@ -231,7 +231,17 @@ export default function NotesTab({ book, onUpdateBook }) {
   )
   // Newest first — writer witnesses their own note arriving
   const visibleReversed = useMemo(() => [...visible].reverse(), [visible])
-  const usedTags = useMemo(() => [...new Set(book.notes.map(n => n.tag))], [book.notes])
+  const tagCounts = useMemo(() => {
+    const counts = {}
+    book.notes.forEach(n => { counts[n.tag] = (counts[n.tag] || 0) + 1 })
+    return counts
+  }, [book.notes])
+
+  const usedTags = useMemo(() =>
+    [...new Set(book.notes.map(n => n.tag))]
+      .sort((a, b) => (tagCounts[b] || 0) - (tagCounts[a] || 0)),
+    [book.notes, tagCounts]
+  )
 
   // ── Textarea expansion ────────────────────────────────────────────────────
   const handleTextareaFocus = () => {
@@ -426,46 +436,38 @@ export default function NotesTab({ book, onUpdateBook }) {
             width:        '100%',
             resize:       'none',
             outline:      'none',
-            // Very slight warmth — just enough to feel like parchment, not a form field
-            background:   'rgba(28,20,16,.018)',
-            fontSize:     14,
-            lineHeight:   1.75,
+            background:   'transparent',
+            fontSize:     17,
+            lineHeight:   1.72,
             fontFamily:   'var(--font-serif)',
             fontStyle:    'italic',
-            color:        'var(--color-ink-800)',
-            borderBottom: noteExpanded
-              ? '1px solid var(--color-ink-200)'
-              : '1px solid var(--color-ink-100)',
+            color:        'var(--color-text-primary)',
+            border:       'none',
+            borderLeft:   noteExpanded
+              ? '2px solid var(--color-accent)'
+              : '2px solid var(--color-hairline)',
+            paddingLeft:  20,
             paddingBottom: 10,
-            transition:   'border-color 400ms ease, box-shadow 400ms ease',
+            caretColor:   'var(--color-accent)',
+            transition:   'border-color 600ms cubic-bezier(0.2,0.9,0.2,1)',
           }}
         />
         {noteExpanded && (
-          <div className="flex items-center justify-between mt-3 animate-fade-in">
-            <div className="flex gap-1.5 flex-wrap">
-              {Object.keys(TAG_CONFIG).map(t => (
-                <button key={t} onClick={() => setNewTag(t)}
-                  className={`text-[11px] px-2.5 py-[3px] rounded-full font-medium transition-all ${TAG_CONFIG[t].cls} ${newTag === t ? 'ring-2 ring-gold ring-offset-1' : ''}`}>
-                  {TAG_CONFIG[t].label}
-                </button>
-              ))}
-            </div>
-            <div className="flex items-center gap-4">
-              <button
-                onClick={() => { setNewNote(''); setNoteExpanded(false) }}
-                style={{ fontSize: 11, color: 'var(--color-ink-300)', fontStyle: 'italic' }}
-                className="transition-colors hover:text-ink-500"
-              >
-                cancel
-              </button>
-              <button
-                onClick={addNote}
-                style={{ fontSize: 11, color: 'var(--ca, #B8860B)', fontWeight: 500 }}
-                className="transition-opacity hover:opacity-75"
-              >
-                {CTA_LABELS[newTag] ?? 'Keep →'}
-              </button>
-            </div>
+          <div className="flex items-center justify-end gap-4 mt-3 animate-fade-in">
+            <button
+              onClick={() => { setNewNote(''); setNoteExpanded(false) }}
+              style={{ fontSize: 11, color: 'var(--color-ink-300)', fontStyle: 'italic' }}
+              className="transition-colors hover:text-ink-500"
+            >
+              cancel
+            </button>
+            <button
+              onClick={addNote}
+              style={{ fontSize: 11, color: 'var(--ca, #B8860B)', fontWeight: 500 }}
+              className="transition-opacity hover:opacity-75"
+            >
+              Keep →
+            </button>
           </div>
         )}
       </div>
@@ -479,8 +481,8 @@ export default function NotesTab({ book, onUpdateBook }) {
 
       {/* ── Filter row + search as secondary reveal ──────────────────────── */}
       {book.notes.length > 0 && (
-        <div className="flex items-center justify-between mb-6 flex-wrap gap-2">
-          <div className="flex items-center flex-wrap gap-0">
+        <div className="flex items-center justify-between mb-6 gap-2">
+          <div className="flex items-center notes-filter-row gap-0 pb-0.5 min-w-0 flex-1">
             <button onClick={() => setActiveTag(null)}
               className={`filter-link ${!activeTag ? 'active' : ''}`}>
               All
@@ -491,13 +493,24 @@ export default function NotesTab({ book, onUpdateBook }) {
                 <button onClick={() => setActiveTag(t === activeTag ? null : t)}
                   className={`filter-link ${activeTag === t ? 'active' : ''}`}>
                   {TAG_CONFIG[t]?.label ?? t}
+                  {tagCounts[t] > 1 && (
+                    <span style={{
+                      marginLeft: 4,
+                      fontSize: 9,
+                      opacity: activeTag === t ? 0.7 : 0.45,
+                      fontFamily: 'var(--font-sans)',
+                      fontStyle: 'normal',
+                    }}>
+                      {tagCounts[t]}
+                    </span>
+                  )}
                 </button>
               </span>
             ))}
           </div>
 
           {/* Search — secondary reveal, not dominant ── */}
-          <div className="flex items-center">
+          <div className="flex items-center flex-shrink-0">
             {searchVisible ? (
               <div className="flex items-center gap-2 animate-fade-in">
                 <input
@@ -529,7 +542,7 @@ export default function NotesTab({ book, onUpdateBook }) {
               <button
                 onClick={() => setSearchVisible(true)}
                 className="italic transition-colors hover:text-ink-500"
-                style={{ fontSize: 11, color: 'var(--color-ink-300)' }}
+                style={{ fontSize: 11, color: 'var(--color-ink-300)', whiteSpace: 'nowrap' }}
               >
                 search notes
               </button>

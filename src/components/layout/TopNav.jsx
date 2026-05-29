@@ -17,6 +17,7 @@ export default function TopNav() {
 
   const isLibrary  = location.pathname === '/library' || location.pathname === '/'
   const isSettings = location.pathname === '/settings'
+  const isAbout    = location.pathname === '/about'
 
   useEffect(() => {
     if (!open) return
@@ -35,7 +36,7 @@ export default function TopNav() {
 
   return (
     <header
-      className="relative z-50 h-14"
+      className="sticky top-0 z-50 h-14"
       style={{ background: 'var(--color-cream)', backdropFilter: 'blur(8px)' }}
     >
       <div className="h-full max-w-[1000px] mx-auto px-5 sm:px-10 flex items-center justify-between">
@@ -44,7 +45,13 @@ export default function TopNav() {
         <button onClick={() => navigate('/library')} className="flex items-center gap-1 group outline-none">
           <span
             className="font-bold text-[14px] group-hover:scale-110 transition-transform origin-center ember-drift"
-            style={{ color: 'var(--color-gold, #B8860B)', marginTop: 3 }}
+            style={{
+              marginTop: 3,
+              background: 'var(--lantern-gradient, #b07010)',
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+              backgroundClip: 'text',
+            }}
           >✦</span>
           <span
             className="font-serif text-[22px] font-semibold tracking-tight leading-none"
@@ -58,16 +65,43 @@ export default function TopNav() {
         <div className="flex items-center gap-2" ref={ref}>
           <button
             onClick={() => navigate('/new')}
-            className="flex items-center gap-1.5 rounded-lg text-[13px] font-semibold px-3 py-[7px] active:scale-95 transition-all"
+            className="flex items-center gap-1.5 rounded-lg text-[13px] font-medium active:scale-95 transition-all"
             style={{
-              background: 'var(--color-gold, #B8860B)',
-              color: '#fff',
-              boxShadow: '0 2px 8px rgba(184,134,11,.28)',
+              background: 'transparent',
+              color: 'var(--color-ink-600)',
+              border: '1px solid var(--color-ink-200)',
+              padding: '7px 10px',
+            }}
+            onMouseEnter={e => {
+              e.currentTarget.style.borderColor = 'color-mix(in srgb, var(--color-accent) 45%, transparent)'
+              e.currentTarget.style.color = 'var(--color-accent)'
+              e.currentTarget.style.background = 'var(--color-gold-bg)'
+            }}
+            onMouseLeave={e => {
+              e.currentTarget.style.borderColor = 'var(--color-ink-200)'
+              e.currentTarget.style.color = 'var(--color-ink-600)'
+              e.currentTarget.style.background = 'transparent'
             }}
           >
             <Ico.Plus />
             <span className="hidden sm:inline">New Companion</span>
-            <span className="sm:hidden">New</span>
+          </button>
+
+          <button
+            onClick={() => updateSetting('darkMode', !isDark)}
+            title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+            aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+            className="w-9 h-9 flex items-center justify-center rounded-lg transition-all"
+            style={{
+              border: '1px solid var(--color-ink-200)',
+              background: 'transparent',
+              color: 'var(--color-ink-500)',
+              fontSize: 15,
+            }}
+            onMouseEnter={e => { e.currentTarget.style.background = 'var(--color-ink-100)'; e.currentTarget.style.color = 'var(--color-ink-800)' }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--color-ink-500)' }}
+          >
+            {isDark ? '☀︎' : '◗'}
           </button>
 
           <button
@@ -98,6 +132,7 @@ export default function TopNav() {
                 {[
                   { label: 'Library',       icon: <Ico.Library />,  path: '/library',  active: isLibrary  },
                   { label: 'New Companion', icon: <Ico.Plus />,     path: '/new',      active: false      },
+                  { label: 'About Lantern', icon: <span style={{ fontSize: 12, opacity: 0.7 }}>✦</span>, path: '/about', active: isAbout },
                   { label: 'Settings',      icon: <Ico.Settings />, path: '/settings', active: isSettings },
                 ].map(({ label, icon, path, active }) => (
                   <button

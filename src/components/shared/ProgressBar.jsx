@@ -4,7 +4,7 @@ export default function ProgressBar({ value, color = 'gold', height = 'h-2', cla
     <div className={`w-full bg-ink-200 rounded-full overflow-hidden ${height} ${className}`}>
       <div
         className={`h-full ${accentVar ? '' : bg} rounded-full transition-[width] duration-700 ease-out`}
-        style={{ width:`${value}%`, ...(accentVar ? { background:'var(--ca, #B8860B)' } : {}) }}
+        style={{ width:`${value}%`, ...(accentVar ? { background:'var(--lantern-gradient, var(--ca, #b07010))' } : {}) }}
       />
     </div>
   )

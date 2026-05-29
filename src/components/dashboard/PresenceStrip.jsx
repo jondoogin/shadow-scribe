@@ -9,6 +9,9 @@ import {
   generateRuleBasedReflections,
   getActiveReflections,
   markReflectionSurfaced,
+  suppressReflection,
+  deduplicateReflections,
+  isReflectionPoolSaturated,
 } from '../../utils/reflectionEngine.js'
 import { computePresenceVisibility, shouldYieldToBook } from '../../utils/invisiblePresence.js'
 import { uid } from '../../utils/uid.js'
@@ -65,12 +68,14 @@ export default function PresenceStrip({ book, onUpdateBook }) {
   const { settings }   = useSettings()
   const { updateBook } = useBooks()
 
-  const [idx,     setIdx]     = useState(0)
-  const [fade,    setFade]    = useState(true)
-  const [open,    setOpen]    = useState(false)
-  const [text,    setText]    = useState('')
-  const [dest,    setDest]    = useState('note')
-  const inputRef              = useRef()
+  const [idx,       setIdx]     = useState(0)
+  const [fade,      setFade]    = useState(true)
+  const [open,      setOpen]    = useState(false)
+  const [text,      setText]    = useState('')
+  const [dest,      setDest]    = useState('note')
+  const [hovered,   setHovered] = useState(false)
+  const inputRef                = useRef()
+  const longPressTimer          = useRef(null)
 
   const debugMode = typeof window !== 'undefined' &&
     localStorage.getItem('lantern_debug_companion') === '1'
@@ -111,11 +116,18 @@ export default function PresenceStrip({ book, onUpdateBook }) {
      settings.spoilerMode, settings.insightStyle]
   )
 
-  // ── Cached reflections ──────────────────────────────────────────────────────
+  // ── Cached reflections — deduplicated before entering the carousel ──────────
   const cachedReflections = useMemo(
-    () => getActiveReflections(book, 1, devMode),
+    () => deduplicateReflections(getActiveReflections(book, 1, devMode)),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [book.reflectionCache?.contextHash, book.reflectionCache?.reflections?.length, devMode]
+  )
+
+  // ── Saturation detection ─────────────────────────────────────────────────────
+  const poolSaturated = useMemo(
+    () => isReflectionPoolSaturated(book),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [book.reflectionCache?.reflections?.length]
   )
 
   // ── Combined pool ───────────────────────────────────────────────────────────
@@ -168,6 +180,19 @@ export default function PresenceStrip({ book, onUpdateBook }) {
     updateBook(book.id, { reflectionCache: { ...cache, reflections: updated } })
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [idx, reflectionIndexMap, book.id, updateBook])
+
+  // ── Suppress current reflection (dismiss gesture) ────────────────────────────
+  const isCurrentReflection = !!reflectionIndexMap[idx]
+  const suppressCurrent = () => {
+    const reflId = reflectionIndexMap[idx]
+    if (!reflId) return
+    const cache = reflectionCacheRef.current
+    if (!cache?.reflections?.length) return
+    const updated = suppressReflection(cache.reflections, reflId)
+    updateBook(book.id, { reflectionCache: { ...cache, reflections: updated } })
+    setFade(false)
+    setTimeout(() => { setIdx(i => (i + 1) % Math.max(observations.length - 1, 1)); setFade(true) }, 280)
+  }
 
   // ── Auto-advance carousel ───────────────────────────────────────────────────
   // Recursive setTimeout instead of setInterval — adds ±1.5s jitter per rotation
@@ -243,7 +268,17 @@ export default function PresenceStrip({ book, onUpdateBook }) {
           <div className="flex items-center gap-4 min-h-[22px]">
 
             {/* Left: ✦ + observation */}
-            <div className="flex items-center gap-2 flex-1 min-w-0">
+            <div
+              className="flex items-center gap-2 flex-1 min-w-0 relative group"
+              onMouseEnter={() => isCurrentReflection && setHovered(true)}
+              onMouseLeave={() => setHovered(false)}
+              onTouchStart={() => {
+                if (!isCurrentReflection) return
+                longPressTimer.current = setTimeout(() => suppressCurrent(), 700)
+              }}
+              onTouchEnd={() => clearTimeout(longPressTimer.current)}
+              onTouchMove={() => clearTimeout(longPressTimer.current)}
+            >
               <span
                 className="flex-shrink-0 leading-none companion-spark"
                 style={{
@@ -258,13 +293,33 @@ export default function PresenceStrip({ book, onUpdateBook }) {
                 style={{
                   fontSize: 12,
                   lineHeight: 1.5,
-                  color: obs ? 'var(--color-text-dim)' : 'var(--color-ink-300)',
+                  color: poolSaturated ? 'var(--color-ink-300)' : obs ? 'var(--color-text-dim)' : 'var(--color-ink-300)',
                   opacity: fade ? 1 : 0,
                   transition: 'opacity 300ms ease',
                 }}
               >
-                {obs || 'The companion is quiet.'}
+                {poolSaturated && !obs ? 'Add more notes to refresh companion thoughts.' : obs || 'The companion is quiet.'}
               </p>
+              {hovered && isCurrentReflection && (
+                <button
+                  onClick={suppressCurrent}
+                  title="Dismiss this thought"
+                  className="flex-shrink-0 transition-opacity"
+                  style={{
+                    fontSize: 9,
+                    color: 'var(--color-ink-300)',
+                    background: 'transparent',
+                    border: 'none',
+                    cursor: 'pointer',
+                    padding: '2px 4px',
+                    lineHeight: 1,
+                  }}
+                  onMouseEnter={e => { e.currentTarget.style.color = 'var(--color-ink-600)' }}
+                  onMouseLeave={e => { e.currentTarget.style.color = 'var(--color-ink-300)' }}
+                >
+                  ✕
+                </button>
+              )}
             </div>
 
             {/* Right: Add a thought */}

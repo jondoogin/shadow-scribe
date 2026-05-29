@@ -1,9 +1,73 @@
 # Lantern — Roadmap
-**Last updated:** 2026-05-22 (Session 100)
+**Last updated:** 2026-05-27 (Session 121)
 
 ---
 
 ## Active Milestone Queue
+
+### Milestone: Design System 4.0 + Companion-First Redesign — 🔵 Session 121 — planned, not started
+
+Full redesign of Lantern's visual system and information architecture. All decisions finalized in Session 121. Ready for implementation. See `CHATGPT_HANDOFF.md` Session 121 for full spec.
+
+**Phased implementation:**
+
+**Phase 1 — Vellum design tokens + motion**
+- Remap all `--color-*` tokens in `design-system/tokens.css` and `src/index.css` to Vellum palette
+- Swap Playfair Display → Libre Baskerville in Google Fonts import
+- Add `--color-glow` token (dark: `rgba(211,96,69,0.20)`, light: `rgba(194,85,56,0.18)`)
+- Slow all transition timing variables ~60%
+- Add atmospheric mouse-follow gradient to App.jsx
+- Add ember-fill button hover with outer glow
+- Add backdrop-filter to companion and modal panels
+
+**Phase 2 — Companion band (desktop + mobile)**
+- Build `CompanionBand` component (chapter greeting + ambient cards + input)
+- Redesign `BookDashboard`: retire two-column sidebar, companion band above tabs
+- Add Companion tab to mobile bottom nav
+- Wire ambient state to existing reflection engine (restyled)
+- Stub live API input (no-op until Phase 4)
+
+**Phase 3 — Tab rethink**
+- Rename: Mysteries → Questions, Discussion → Themes
+- Retire Progress tab (content moves into companion band)
+- Update data schemas for companion-logged entries
+- Tab badge/indicator system
+
+**Phase 4 — Live companion AI**
+- Build `api/companion.js` Vercel serverless function
+- Wire input field to API with book context system prompt
+- Parse structured `{ message, logs[] }` response
+- Write log entries to tabs with subtly distinguished styling
+
+**Phase 5 — Page layout redesigns**
+- Landing page — typographic hierarchy, Vellum aesthetic
+- Library page — editorial book cards, breathing room
+- Book detail — full typographic and spacing overhaul
+
+**Open questions to resolve before implementation begins:**
+- Ambient chapter greeting: AI-generated or rule-based?
+- Rate limiting strategy for serverless companion endpoint
+- Mobile bottom nav routing (Companion tab without a book context)
+- Full tab data schema for companion-logged entries
+
+---
+
+### Milestone: Alpha UX Hardening Pass — ✓ Session 120 — complete
+
+10-item implementation pass targeting the UX gaps most visible to new alpha readers. All items verified in-browser.
+
+- **Dark mode toggle in nav** — ☀︎/◗ button in `TopNav` bar (no menu required). `TopNav.jsx`.
+- **NLP improvements** — blur no longer clears input; live "→ Chapter N" feedback; Enter submits; finish phrases expanded; out-of-range clamped. `ChapterUpdateModal.jsx`.
+- **Mobile keyboard** — `interactive-widget=resizes-content` + `env(keyboard-inset-height)` modal maxHeight. `index.html` + `ChapterUpdateModal.jsx`.
+- **Modal initial focus** — NLP input auto-focused on mount. `ChapterUpdateModal.jsx`.
+- **Reflection suppression** — `suppressReflection` wired into `PresenceStrip` (hover ✕ + 700ms long-press). `PresenceStrip.jsx`.
+- **Reflection deduplication** — `deduplicateReflections()` applied in `PresenceStrip` (was missing; only in `CompanionPanel`). `PresenceStrip.jsx`.
+- **Saturation detection** — `isReflectionPoolSaturated()` shown in `PresenceStrip` with actionable message. `PresenceStrip.jsx`.
+- **Tablet two-column** — `BookDashboard` at `lg` uses `grid-cols-[1fr_260px]`; `CompanionPanel` activated as sticky sidebar. `BookDashboard.jsx`.
+- **Status transition keyboard** — Confirm dialogs auto-focus + Enter/Escape support. `CompanionHeader.jsx`.
+- **Edit metadata** — `totalChapters` field; auto-rebuild `chapters[]`; auto-focus title; Enter/Escape on all fields; Save disabled when title empty. `CompanionHeader.jsx`.
+
+---
 
 ### Milestone: Companion Thread — AI Responses + Animation + Typography — ✓ Session 100 — complete
 

@@ -5,10 +5,10 @@
 */
 
 /* ── Fonts ──────────────────────────────────────────────────────────────────── */
-@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400;1,600&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&family=EB+Garamond:ital,wght@0,400;0,600;1,400&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
 
 :root {
-  --font-serif: 'Playfair Display', Georgia, serif;
+  --font-serif: 'Libre Baskerville', 'EB Garamond', Georgia, serif;
   --font-sans:  'Inter', system-ui, sans-serif;
   --font-mono:  'JetBrains Mono', 'Fira Mono', monospace;
 
@@ -44,36 +44,40 @@
   --motion-thought:  opacity 0.48s ease;
 }
 
-/* ── Dark mode (default) ───────────────────────────────────────────────────── */
+/* ── Dark mode (default) — Vellum ──────────────────────────────────────────── */
 :root,
 [data-mode="dark"] {
   /* Surface */
-  --color-bg:           #0A1A1E;
-  --color-card-base:    #101E26;
-  --color-card-deep:    #162836;
-  --color-card-hover:   #1C3040;
-  --color-card-archival:#0C1820;
+  --color-bg:           #1a1714;
+  --color-card-base:    #221e1a;
+  --color-card-deep:    #2a2420;
+  --color-card-hover:   #332e28;
+  --color-card-archival:#181410;
 
   /* Text */
-  --color-text-primary:   #D8CCBA;
-  --color-text-secondary: #A89E8E;
-  --color-text-dim:       #5C7080;
+  --color-text-primary:   #ece5d4;
+  --color-text-secondary: #a89e89;
+  --color-text-dim:       #6e6555;
 
-  /* Accent */
-  --color-accent:     #3C7AAA;
-  --color-accent-dim: rgba(60, 122, 170, 0.18);
+  /* Accent — ember */
+  --color-accent:     #d36045;
+  --color-accent-dim: rgba(211, 96, 69, 0.12);
 
   /* Separators */
-  --color-separator:      rgba(60, 122, 170, 0.16);
-  --color-separator-soft: rgba(60, 122, 170, 0.10);
+  --color-separator:      rgba(236, 229, 212, 0.10);
+  --color-separator-soft: rgba(236, 229, 212, 0.06);
 
   /* Companion */
-  --color-companion-bg:       #090F14;
-  --color-companion-hover-bg: #0F1E2C;
+  --color-companion-bg:       #120f0c;
+  --color-companion-hover-bg: #1e1a16;
+
+  /* Glow — ember */
+  --color-glow:            rgba(211, 96, 69, 0.20);
+  --color-hairline:        rgba(236, 229, 212, 0.10);
 
   /* Atmospheric glows */
-  --gradient-glow:         radial-gradient(ellipse 80% 50% at 50% -5%, rgba(40,110,160,.16) 0%, transparent 65%);
-  --gradient-mystical-glow:radial-gradient(circle 400px at 15% 40%, rgba(30,90,130,.08) 0%, transparent 70%);
+  --gradient-glow:         radial-gradient(ellipse 80% 50% at 50% -5%, rgba(211,96,69,.08) 0%, transparent 65%);
+  --gradient-mystical-glow:radial-gradient(circle 400px at 15% 40%, rgba(211,96,69,.05) 0%, transparent 70%);
 
   /* Gold */
   --gradient-gold-foil: linear-gradient(135deg, #7A5A28 0%, #C4A058 40%, #F0D898 60%, #8A6830 100%);
@@ -83,35 +87,39 @@
   --shadow-gold-hover:  0 0 52px rgba(196,160,88,.38), 0 8px 44px rgba(0,0,0,.70);
 }
 
-/* ── Light mode ────────────────────────────────────────────────────────────── */
+/* ── Light mode — Vellum ───────────────────────────────────────────────────── */
 [data-mode="light"] {
   /* Surface */
-  --color-bg:           #FAF6EE;
-  --color-card-base:    #FFFFFF;
-  --color-card-deep:    #F3EDE2;
-  --color-card-hover:   #EDE5D8;
-  --color-card-archival:#F7F1E6;
+  --color-bg:           #f1ede5;
+  --color-card-base:    #f8f4ec;
+  --color-card-deep:    #ede8de;
+  --color-card-hover:   #e4ddd0;
+  --color-card-archival:#f4f0e6;
 
   /* Text */
-  --color-text-primary:   #1C1410;
-  --color-text-secondary: #5C4828;
-  --color-text-dim:       #9A8868;
+  --color-text-primary:   #3d382f;
+  --color-text-secondary: #6e6553;
+  --color-text-dim:       #9c9385;
 
-  /* Accent */
-  --color-accent:     #8A6028;
-  --color-accent-dim: rgba(138, 96, 40, 0.12);
+  /* Accent — ember */
+  --color-accent:     #c25538;
+  --color-accent-dim: rgba(194, 85, 56, 0.10);
 
   /* Separators */
-  --color-separator:      rgba(138, 96, 40, 0.14);
-  --color-separator-soft: rgba(138, 96, 40, 0.08);
+  --color-separator:      rgba(61, 56, 47, 0.14);
+  --color-separator-soft: rgba(61, 56, 47, 0.08);
+
+  /* Glow */
+  --color-glow:     rgba(194, 85, 56, 0.18);
+  --color-hairline: rgba(61, 56, 47, 0.14);
 
   /* Companion */
-  --color-companion-bg:       #EDE3D0;
-  --color-companion-hover-bg: #E5D8C0;
+  --color-companion-bg:       #e8e1d4;
+  --color-companion-hover-bg: #ddd5c6;
 
   /* Atmospheric glows */
-  --gradient-glow:         radial-gradient(ellipse 80% 50% at 50% -5%, rgba(196,160,88,.18) 0%, transparent 65%);
-  --gradient-mystical-glow:radial-gradient(circle 400px at 15% 40%, rgba(196,160,88,.10) 0%, transparent 70%);
+  --gradient-glow:         radial-gradient(ellipse 80% 50% at 50% -5%, rgba(194,85,56,.10) 0%, transparent 65%);
+  --gradient-mystical-glow:radial-gradient(circle 400px at 15% 40%, rgba(194,85,56,.06) 0%, transparent 70%);
 
   /* Gold */
   --gradient-gold-foil: linear-gradient(135deg, #A07A40 0%, #D8C490 40%, #F0E4B8 60%, #B89060 100%);

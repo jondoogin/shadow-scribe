@@ -1,17 +1,625 @@
 # Lantern — Handoff Document
-**Last updated:** 2026-05-26 · Session 119 (Alpha Week 1)
-**Stack:** React 19 · Vite 8 · Tailwind CSS v4 · React Router v7 · localStorage only (no backend)
+**Last updated:** 2026-05-28 · Session 127 (Full mobile optimization pass)
+**Stack:** React 19 · Vite 8 · Tailwind CSS v4 · React Router v7 · localStorage + Vercel Serverless Functions (companion API — planned)
 **localStorage keys (FROZEN):** `shadowscribe_books` · `shadowscribe_settings` · `lantern_welcomed` — must NEVER be renamed
 **Build command:** `node node_modules/vite/bin/vite.js build`
-**Status: PUBLIC ALPHA READY**
+**Status: V2 COMPANION-FIRST REDESIGN — Phase 1 + Atmospheric pass + Playground translation complete, Phase 2–5 pending**
 
 ---
 
 ## WHAT LANTERN IS
 
-A **living literary environment**. Not a reading tracker. Not a productivity tool. Not an AI assistant. A personal, atmospheric space that sits alongside the reader while they read — part journal, part spoiler-safe chapter tracker, part literary notebook, part environmental companion.
+A **living literary companion**. Not a reading tracker. Not a productivity tool. Not an AI chatbot. A personal, atmospheric space built around a companion that sits with the reader — surfacing thoughts, asking questions, and quietly building a record of the reading experience as it unfolds.
 
-The interface itself is the experience. It accumulates memory, cools with absence, warms with annotation, and holds the reader's history as felt texture rather than stored data.
+The companion is the star. Book data — characters, questions, themes, plot notes — is what the companion accumulates over time. The interface is built around access to the companion first; structured data second. The companion's accumulated record becomes the texture of the reading experience.
+
+---
+
+## SESSION 127 — 2026-05-28 — Full mobile optimization pass
+
+### Goal
+Build out, test, and optimize the entire site for mobile. Easy access to the most important features. Intuitive and mobile-friendly interface. All major pages verified at 375px viewport.
+
+### What shipped
+
+**1. Global CSS — mobile overrides (`src/index.css`)**
+- `.companion-band-body` responsive padding class: mobile `18px 16px 20px`; desktop `28px 32px 24px`. Replaced the prior inline `style={{ padding: '28px 32px 24px' }}` in `CompanionBand.jsx`.
+- `.reading-now-zone` negative-margin bleed fix: the zone uses `margin: -16px -28px 0` to bleed edge-to-edge. On mobile the container is `px-5=20px` — the zone was overflowing 8px each side. Added `@media (max-width: 639px)` override: `margin-left: -20px; margin-right: -20px; padding-left: 20px; padding-right: 20px; border-radius: 16px`.
+- `.notes-filter-row` horizontal scroll: inside same mobile media query — `overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none`. Filter tags now scroll horizontally on narrow screens instead of wrapping.
+- `.book-header-inner` padding override: inside mobile media query — tighter horizontal padding for the book header on mobile.
+
+**2. CompanionBand — compact mobile header (`src/components/dashboard/CompanionBand.jsx`)**
+- Removed inline `style={{ padding: '28px 32px 24px' }}` from the body div. Added `companion-band-body` class (CSS handles responsive padding).
+- Header row changed from `items-center` → `items-start` with `gap-3`. Chapter greeting text gets `flex: 1; min-width: 0` so it wraps cleanly. Progress bar+percentage gets `flex-shrink-0 mt-0.5` to stay pinned top-right. On narrow screens the two elements no longer fight for horizontal space.
+
+**3. CompanionHeader — mobile back navigation (`src/components/dashboard/CompanionHeader.jsx`)**
+- Added `← Library` breadcrumb (`sm:hidden`) that renders above the book title on mobile. A quiet 11px sans-serif link (`opacity: 0.65`) with a `←` arrow. Gives mobile users a clear route back to the library without reaching for the hamburger menu.
+- Changed `py-6` → `py-4 sm:py-6` on the header inner div for tighter mobile vertical padding.
+- Added `book-header-inner` CSS class so horizontal padding is controlled by the mobile media query.
+
+**4. TopNav — icon-only on mobile (`src/components/layout/TopNav.jsx`)**
+- "New Companion" button text: `<span className="hidden sm:inline">New Companion</span>`. On mobile the button shows only the `<Ico.Plus />` icon. On desktop (sm+) the full "New Companion" label appears. Saves ~110px of horizontal nav space on small screens.
+- Adjusted button padding from `7px 12px` → `7px 10px` to accommodate icon-only proportions.
+
+**5. Notes tab — horizontally scrollable filter row (`src/tabs/NotesTab.jsx`)**
+- Filter row outer div: removed `flex-wrap`, changed to `gap-2`. Filter tags no longer wrap to a second line.
+- Filter inner div: added `min-w-0 flex-1` for correct flex child behaviour with `overflow-x: auto`.
+- Search button wrapper: added `flex-shrink-0` so it never compresses or disappears.
+- Search button text: added `whiteSpace: 'nowrap'` so "search notes" never wraps inside its button.
+- Result: filter tags scroll horizontally; search button stays fixed at the right edge.
+
+**6. Library — inline padding fix (`src/components/library/Library.jsx`)**
+- The reading-now zone had a conditional `style={{ padding: '26px 28px 18px' }}` for heavily annotated books (`readingNowMass >= 6`). This inline style overrode the CSS media query's horizontal padding fix.
+- Fixed by splitting: `paddingTop: 26, paddingBottom: 18` only — horizontal padding left entirely to CSS.
+
+**7. About page — tighter section spacing on mobile (`src/pages/AboutPage.jsx`)**
+- All section spacing reduced ~35% on mobile, then restored to original at `min-width: 640px`:
+  - `.lp-section` padding: `80px` → `52px` (mobile), `80px` (desktop)
+  - `.lp-section-loose` padding: `100px` → `64px` (mobile), `100px` (desktop)
+  - `.lp-hero` padding: `80px 0 100px` → `52px 0 72px` (mobile), `80px 0 100px` (desktop)
+  - `.lp-closer` padding: `100px 0 120px` → `64px 0 80px` (mobile), `100px 0 120px` (desktop)
+  - `.lp-thesis-body p` font-size: `18px` → `16px` (mobile), `18px` (desktop)
+
+### Pages verified on mobile (375px viewport)
+- **Library** ✅ Search bar, filter tabs, reading-now zone properly contained (no overflow)
+- **Book page** ✅ `← Library` breadcrumb, compact companion band, all 5 tabs visible on one line
+- **Notes tab** ✅ Filter tags scroll horizontally, search button stays right-anchored
+- **Settings** ✅ Toggle rows clean, no wrapping
+- **New Companion** ✅ Already well-optimized (no changes needed)
+- **About** ✅ Tighter section spacing, readable on narrow screens
+
+### Files changed
+- `src/index.css` — `.companion-band-body`, reading-now zone fix, notes filter scroll, book-header-inner mobile override
+- `src/components/dashboard/CompanionBand.jsx` — `companion-band-body` class, `items-start` header row
+- `src/components/dashboard/CompanionHeader.jsx` — `← Library` breadcrumb, `py-4 sm:py-6`, `book-header-inner` class
+- `src/components/layout/TopNav.jsx` — `hidden sm:inline` on "New Companion" text
+- `src/tabs/NotesTab.jsx` — filter row scroll, `flex-shrink-0` on search, `whiteSpace: nowrap`
+- `src/components/library/Library.jsx` — inline padding split to vertical-only
+- `src/pages/AboutPage.jsx` — mobile section spacing
+
+### Build
+clean ✓ | No new localStorage keys | No schema changes
+
+---
+
+## SESSION 126 — 2026-05-28 — Polish pass: gradient brand moments + landing page + note entry cleanup
+
+### What shipped
+
+**1. Lantern gradient applied across brand moments (`TopNav.jsx`, `index.css`)**
+- Logo ✦ star: now renders with `--lantern-gradient` as gradient text (`WebkitBackgroundClip: text`, `WebkitTextFillColor: transparent`). Matches the visual identity of the gradient CTA buttons.
+- "New Companion" button: demoted from filled amber primary to a quiet ghost style — transparent background, `var(--color-ink-200)` border, muted ink-600 text. Hover state reveals amber accent border + gold-bg tint. Less visual noise in the nav.
+- "Continue" mobile button + all `.btn-accent` elements: background changed from flat `var(--ca)` to `var(--lantern-gradient)`. Hover now uses `opacity: 0.88` + glow instead of a background swap (gradient can't transition directly).
+- "About Lantern" link added to hamburger dropdown menu with ✦ icon.
+
+**2. Search bar focus — softer ring (`index.css`)**
+- `input:focus, textarea:focus, select:focus`: changed from `box-shadow: 0 0 0 3px var(--color-accent-dim)` + amber `border-color` to `box-shadow: 0 0 0 2px rgba(61,56,47,0.07)` + neutral `border-color: rgba(61,56,47,0.22)`. The amber ring on the library search bar was visually discordant; the new treatment is warm-neutral and unobtrusive.
+
+**3. Note entry tag categories removed (`NotesTab.jsx`)**
+- Removed the tag pill row (6 colored buttons: theory, confusing, quote, favorite, character, theme) from the note entry expanded state. The categories felt extraneous in user testing.
+- Default `newTag` stays `'theme'` — notes still receive a tag silently.
+- Save button CTA simplified from tag-specific labels (`"Hold this →"`, `"Carry this →"`, etc.) to always `"Keep →"`.
+- The expanded action row now only shows "cancel" and "Keep →" — cleaner and less cognitively loaded.
+
+**4. Landing page — `/about` route (`src/pages/AboutPage.jsx`, `App.jsx`)**
+- New full-page landing experience at `/about`.
+- Linked from the TopNav hamburger dropdown as "About Lantern."
+- Page title: `Lantern — About`.
+- **Sections (in order):**
+  1. Hero: full-viewport, large `clamp()` serif headline ("A place where your reading lives"), italic tagline, gradient CTA button ("Begin a book ✦"). Eyebrow label. Bottom descent line.
+  2. The problem: "Reading is rich. Memory is short." Two serif body paragraphs.
+  3. Pull-quote: centered italic blockquote ("Not a productivity tool. A reading companion…") with amber vertical rule above.
+  4. Three pillars grid: "Notes that stay" / "Questions that wait" / "A companion that thinks" — responsive `auto-fit` grid, cards with gradient glyphs, hover lift + amber border glow.
+  5. The companion: "Something between a marginalia and a mirror" — with "mirror" as gradient word.
+  6. Privacy: 🔒 badge ("Stays on your device"), "No account. No server." prose.
+  7. CTA: "Start with the book you're reading now" — gradient button + fallback library link.
+- **Scroll reveals:** `IntersectionObserver` with `.lantern-reveal` → `.visible` CSS class. Each element has `opacity: 0; transform: translateY(28px)` at rest, transitions in when entering viewport at `threshold: 0.12`. Staggered `transitionDelay` values per section.
+- **Gradient words:** `.lantern-word` class — spans that permanently show gradient text, used on "reading lives", "mirror" to anchor visual identity.
+- **Pillar card hover:** `translateY(-3px)` lift + amber border glow on hover.
+- **Pure CSS** — no external deps, all scoped `<style>` block inside the component.
+
+### Files changed
+- `src/components/layout/TopNav.jsx` — logo star gradient, ghost button, About link in dropdown
+- `src/index.css` — btn-accent gradient fill, input:focus subtle ring
+- `src/tabs/NotesTab.jsx` — tag pills removed, CTA simplified to "Keep →"
+- `src/pages/AboutPage.jsx` — new file, full landing page
+- `src/App.jsx` — AboutPage import, `/about` route, page title entry
+
+### Build
+clean ✓ | No new localStorage keys | No schema changes
+
+---
+
+## SESSION 125 — 2026-05-28 — Eight-issue QA pass
+
+**Issues addressed from user screenshot review:**
+
+### 1. Grid containment
+`BookDashboard`: companion band was `maxWidth: 1240`, tab bar had no max-width. Both now constrained to `1000px` matching the header and tab content. All four sections (CompanionHeader, CompanionBand, tab bar, tab content) now share the same horizontal bounds.
+
+### 2. Companion card hierarchy flip
+`CompanionBand.jsx`: the input textarea was at the bottom of the left column (after the ambient observation carousel). It is now **first** — carousel and conversation history appear below. Input is now the primary element, observation is secondary.
+
+### 3. Continue modal — dropdown promoted to primary
+`ChapterUpdateModal.jsx`: the NLP free-text input was first, dropdown second. Removed the NLP input section entirely. The chapter dropdown is now the only chapter-selection element (primary position). Auto-focus moved to the select element.
+
+### 4. Companion responds to session notes
+`ChapterUpdateModal.jsx`: if the reader leaves a note in "How did it feel?", a companion reply card appears as the second card in the done-state sequence (`visibleCards >= 2`). Simple pattern matching on the note text produces a contextually appropriate one-line observation. Seven patterns: unsettled, confused, loving, sad, surprised, curious, default.
+
+### 5. Card animation pacing (more contemplative)
+`ChapterUpdateModal.jsx`: stagger timers slowed: `180/820/1480/2100ms` → `300/1100/2000/2900/3800ms` (added fifth timer for the note reply card). Each card surfaces more deliberately.
+
+### 6. Open Questions + Characters → tab navigation
+`CompanionBand.jsx`: sidebar question cards and character tags are now `<button>` elements. Clicking a question navigates to the Questions tab; clicking a character navigates to Characters.
+`BookDashboard.jsx`: added `tabFlash` state — the clicked tab button briefly glows amber (`tabFlash` keyframe, 1.4s) to confirm the navigation.
+
+### 7. Color — lantern amber replacing red-orange
+All red-orange accent values replaced with warm amber-gold throughout:
+- `--color-accent` light: `#c25538` → `#b07010`
+- `--ca`/`--ca-l`: `#c25538/#d36045` → `#b07010/#c88020`
+- `--color-gold` @theme: ember red → warm amber (`#b07010`)
+- Dark mode accent: `#d36045` → `#c88a1a`
+- All glow values: `rgba(194,85,56,...)` → `rgba(196,140,20,...)`
+- Added `--lantern-gradient: linear-gradient(90deg, #e8c040, #c48018, #b07010)` — used by `ProgressBar` for all `accentVar` fills
+- Body::before SE gradient and center gradient updated to amber
+- Band breathing animations updated to amber glow
+
+### 8. Background glow — damped mouse tracking
+`App.jsx`: lerp factor `0.04` → `0.012` (3.3× slower), opacity `0.55` → `0.28`. The glow still follows the cursor but with a much longer lag, more atmospheric than reactive.
+
+### New CSS additions (`index.css`)
+- `@keyframes companionThinkPulse` + `.companion-band--thinking` — slow warm amber pulse replacing the idle breathing animation when the companion is processing a message
+- `@keyframes tabFlash` + `.tab-flash` — brief amber glow on tab button when activated from the companion sidebar
+
+---
+
+## SESSION 124 — 2026-05-27 — Playground Design Translation (full Vellum fidelity)
+
+**Root cause addressed: "Looks like the same old app with a palette swap."**
+The V2 Vellum system had added new semantic tokens (`--color-accent`, `--color-text-primary`, etc.) but the existing components still used the *old* token names (`--color-gold`, `--color-ink-*`, `--ca`). The new Vellum values were present but never applied to the UI that mattered.
+
+### What shipped
+
+**Token system fully remapped (highest-leverage change):**
+
+`@theme` block — all old Tailwind utility class values updated to Vellum:
+- **Cream scale** (`--color-cream-*`): `#FAF6EE → #f1ede5`, `#FFFFFF → #f8f4ec`, etc. — Tailwind `bg-cream-*` classes now output Vellum parchment.
+- **Ink scale** (`--color-ink-*`): `#1C1410 → #3d382f` (900), `#5C4828 → #6e6553` (700), `#9A8868 → #9c9385` (500), etc. — Tailwind `text-ink-*` classes now output Vellum warm-grey scale.
+- **Gold → Ember** (`--color-gold-*`): `#B8860B → #c25538`, `#D4AF37 → #d36045`, `#FDF8EC → #f9ede9`. Every `text-gold`, `bg-gold`, `ring-gold`, `border-gold-*` Tailwind class now outputs ember.
+- **`--ca` accent variable** (used by legacy CTAs, labels, `btn-accent`, welcome banner): `#B8860B → #c25538` light, `#C4A058 → #d36045` dark. Propagates to all `var(--ca, ...)` callsites throughout the app.
+- **Dark mode gold tokens** updated to ember variants.
+- **`body::before` gradients**: two residual `rgba(184,134,11,...)` gold glow references → `rgba(194,85,56,...)` ember.
+
+**Typography scale — CompanionHeader (`src/components/dashboard/CompanionHeader.jsx`):**
+- Book title: `fontSize: 24, fontWeight: 600` → `fontSize: clamp(26px, 4.5vw, 44px), fontWeight: 400`. Removed `line-clamp-2`. Color: `var(--color-text-primary)`.
+- Author: `fontSize: 14` → `fontSize: 16` italic serif, `var(--color-text-secondary)`.
+- "Continue" + "The story ends here" buttons: changed from muted ink-border style to the playground's **slow ember-fill hover** — `700ms cubic-bezier(0.2,0.9,0.2,1)` transition, fills `var(--color-accent)` on hover with `box-shadow: 0 0 28px 6px var(--color-glow)`.
+
+**Note input surface — playground signature element (`src/tabs/NotesTab.jsx`):**
+- Old style: `14px`, bottom-border only, slight warmth background tint.
+- New style: `17px` serif italic, **`border-left: 2px solid`** (hairline at rest → accent on expand), `paddingLeft: 20px`, transparent background, ember `caret-color`. Matches the playground's `lp-note-surface` treatment directly.
+
+**BookCard (`src/components/library/BookCard.jsx`):**
+- Title: `fontWeight: 600 → 400`, color: `var(--color-text-primary)`.
+- Status dot: reading → `var(--color-accent)`, others → `var(--color-text-dim)` / `var(--color-hairline)`.
+- Progress %: `var(--color-gold)` → `var(--color-accent)`.
+- **Ember left stripe for reading books** — playground `is-reading` treatment: `position: absolute; left: 0; top: 18; bottom: 18; width: 2px; background: var(--color-accent); box-shadow: 0 0 8px var(--color-glow)`.
+
+**`btn-accent` class upgraded:** `0.2s ease` → `700ms cubic-bezier(0.2,0.9,0.2,1)` fill + `box-shadow: 0 0 28px 4px var(--color-glow)` on hover.
+
+**Library.jsx:** neighbor warmth formula updated from `#B8860B 3%` → `var(--color-accent) 3%`.
+
+**Build:** clean ✓ (82 modules, 339ms) | **No new localStorage keys** | **No schema changes**
+
+---
+
+### What's NOT yet done (Sessions 125+)
+
+- **Phase 2:** Mobile Companion tab in bottom nav.
+- **Phase 3:** Tab data schema updates (`source: 'companion'|'user'`). Tab badge indicators.
+- **Phase 4:** `api/companion.js` Vercel function. Live Anthropic API for companion responses.
+- **Phase 5:** Library section scaffolding redesign (eyebrow labels, `lp-section-title` pattern from playground). Nav item hover style from playground. More generous section padding.
+- **Tag pills in dark mode** — `tag-favorite` still gold in dark mode (`#D4AF37`). Intentional for content variety, but could be unified to ember.
+- **PresenceStrip / CompanionPanel** — still on disk, never imported. Safe to delete.
+
+---
+
+## SESSION 123 — 2026-05-27 — V2 Atmospheric Continuity Pass
+
+**Refinement pass. No new features added. Atmosphere deepened throughout.**
+
+### What shipped
+
+**CompanionBand — manuscript annotation conversation style (`src/components/dashboard/CompanionBand.jsx`):**
+- `<input>` → auto-expanding `<textarea>` with `autoResize()` on every keystroke. Max height 120px. Rows resets to auto on send.
+- Placeholder changed from `"Ask the companion…"` → `"A thought, a question, a reaction…"` — softer, less chatbot-like.
+- Conversation rendering replaced. **Old:** chat bubbles with `flex-end`/`flex-start` alignment. **New:** manuscript annotation style using `.band-user-entry` + `.band-companion-entry` CSS classes.
+  - **User entries:** `.band-user-entry` — right-aligned, 12px sans-serif, dimmed opacity — a marginal gloss.
+  - **Companion responses:** `.band-companion-entry` — 16px Libre Baskerville italic, ember left-border accent (1.5px), lift-fade entrance via `.companion-band-response`. Reads like a different hand's annotation in the margin.
+  - **Thinking state:** three `✦` glyphs at 9px with staggered `emberThink` animation, indented to align with companion border.
+- Conversation area now reads like annotated manuscript pages — nothing resembling a messaging app.
+
+**Ambient Environment Layer — `AmbientLayer` component (`src/App.jsx`):**
+- New `AmbientLayer()` function component, placed before `AtmosphericGlow` in `AppShell`.
+- Two slow-drifting radial gradient blobs using CSS animations (no JS loop):
+  - NW bloom: 640×640px circle, opacity 0.38, `ambientDrift1` 55s ease-in-out infinite.
+  - SE bloom: 520×520px circle, opacity 0.28, `ambientDrift2` 48s ease-in-out infinite.
+- Both use `--color-glow` (adapts automatically to light/dark mode). `willChange: transform` for GPU compositing. Pure CSS animation.
+- Combined with mouse-following `AtmosphericGlow`, the page now has layered warmth: slow ambient drift beneath + responsive ember glow above.
+
+**New CSS classes added in previous pass (now exercised):**
+- `.band-user-entry`, `.band-companion-entry` — manuscript annotation layout and typography.
+- `@keyframes ambientDrift1/2/3` — slow translational drift for AmbientLayer.
+- `@keyframes bandBreatheLight/Dark` — box-shadow breathing animation on `.companion-band` for idle presence.
+
+**Build:** clean ✓ (82 modules, 353ms) | **No new localStorage keys** | **No schema changes**
+
+---
+
+### What's NOT yet done (Sessions 124+)
+
+- **Phase 2:** Mobile Companion tab in bottom nav. Currently on mobile, the band is full-width but there's no dedicated "Companion" bottom nav entry.
+- **Phase 3:** Tab data schema updates (add `source: 'companion'|'user'`, chapter stamps for filed items). Tab badge/indicator for companion-logged entries.
+- **Phase 4:** `api/companion.js` Vercel serverless function. Wire textarea to live Anthropic API. Parse structured JSON response `{ message, logs[] }`. Write logs to tabs. Rate limiting decision TBD.
+- **Phase 5:** Library page redesign (editorial book cards). Landing page. General typography scale pass (larger display headings, more breathing room between sections).
+- **PresenceStrip and CompanionPanel files** — still exist on disk, no longer imported. Safe to delete.
+- **Button ember-fill** — applied to `companion-band-send`. Still needs applying to CompanionHeader CTAs and other ghost buttons.
+- **AmbientDrift3 keyframe** — defined but unused. Can be used for a third blob if the atmosphere feels too thin at larger viewport sizes.
+
+---
+
+## SESSION 122 — 2026-05-27 — V2 Implementation Pass 1 (Vellum + CompanionBand)
+
+**Full implementation pass. All Phase 1 items from Session 121 spec are now in production.**
+
+### What shipped
+
+**Design System 4.0 — Vellum (Option A token remap):**
+- Font: `Playfair Display` → `Libre Baskerville` + `EB Garamond` fallback. Updated in `design-system/tokens.css`, `src/index.css` (@theme + body), and Google Fonts import.
+- Dark mode palette: Full token remap to Vellum warm values. `--color-bg: #1a1714`, `--color-card-base: #221e1a`, `--color-accent: #d36045` (ember). All `html.dark` semantic tokens updated.
+- Light mode palette: `--color-bg: #f1ede5`, `--color-card-base: #f8f4ec`, `--color-accent: #c25538`. All `:root` semantic tokens updated.
+- New tokens: `--color-glow` (dark: `rgba(211,96,69,.20)` · light: `rgba(194,85,56,.18)`) + `--color-hairline` (alias of separator).
+- Motion slowed ~60%: `--animate-fade-in: 0.44s`, `--animate-slide-up: 0.52s`, `--animate-pop: 0.52s`, `--animate-tab-in: 0.60s`.
+- Atmospheric gradient: Cold teal dark mode glow retired. Warm ember glow now in `body::before` (dark) and `:root` `--gradient-glow`.
+
+**AtmosphericGlow (`src/App.jsx`):**
+- Mouse-following `radial-gradient` using `--color-glow`, lazy-interpolated via `requestAnimationFrame` (0.04 lerp factor). Renders as a fixed `div` behind all content with `z-index: 0`.
+
+**CompanionBand (`src/components/dashboard/CompanionBand.jsx` — new file):**
+- Full-width panel above the tab bar. Replaces both `PresenceStrip` and `CompanionPanel`.
+- **Header row:** Chapter context greeting (rule-based, no AI) + progress bar (ember fill with glow).
+- **Ambient reflection:** Carousel powered by existing `generatePresence()` + `reflectionEngine` — no new AI calls needed. Respects `presenceVisibility` opacity and carousel timing.
+- **Conversation area (ephemeral):** Component state only. User messages + companion responses. Never persisted to localStorage.
+- **Simulated local response:** `simulateResponse()` — keyword-matched pool responses (questions, feelings, characters, default). No backend required for this pass.
+- **Thinking state:** Three `✦` glyphs with `ember-think` animation while response generates.
+- **Context cards (desktop sidebar):** Surfaced open Questions (top 3 haunted) + character name pills.
+- **Input:** `companion-band-input` class — serif italic, caret in accent color. Enter to send. `send →` button with 700ms ember ember-fill hover glow.
+- **Backdrop blur:** `backdrop-filter: blur(18px) saturate(1.05)` on the band panel.
+
+**BookDashboard restructure (`src/components/dashboard/BookDashboard.jsx`):**
+- Two-column `[1fr 260px]` sidebar layout **retired**.
+- `PresenceStrip` **removed** from layout (superseded by CompanionBand).
+- `CompanionPanel` **removed** from layout (superseded by CompanionBand).
+- `CompanionBand` inserted between `CompanionHeader` and the tab bar.
+- Tab content is now single full-width column (max-width 1000px), no sidebar.
+
+**Tab rename — 6 → 5 tabs:**
+- `Reading` (Progress) tab **retired** — content now lives in CompanionBand (chapter context + progress bar).
+- `Mysteries` → **`Questions`** (still renders `MysteriesTab.jsx` internally).
+- `Wondering` (Discussion) → **`Themes`** (still renders `DiscussionTab.jsx` internally).
+- Tab order: **Notes · Characters · Plot · Questions · Themes**.
+- Active tab indicator: `--color-accent` (ember) — no longer gold.
+
+**New CSS classes added to `src/index.css`:**
+- `.companion-band` — panel base (backdrop blur, border, rounded 16px, warm bg).
+- `.companion-band-reflection` — 18px serif italic, secondary text color.
+- `.companion-band-input` — serif italic input, accent focus ring.
+- `.companion-band-send` — ghost button with 700ms ember fill hover + glow.
+- `.companion-band-context-card` — surfaced context card (backdrop blur variant).
+- `.companion-band-response` — entrance animation for companion replies.
+- `.ember-think` — three-dot thinking animation for ember glyphs.
+- `@keyframes companionBandResponse` — lift-fade entrance for responses.
+- `@keyframes emberThink` — 1.8s opacity pulse for thinking state.
+
+**Build:** clean ✓ (82 modules, 264ms) | **No new localStorage keys** | **No schema changes**
+
+---
+
+### What's NOT yet done (Sessions 123+)
+
+- **Phase 2 remaining:** Mobile Companion tab in bottom nav. Currently on mobile, the band is full-width but there's no dedicated "Companion" bottom nav entry.
+- **Phase 3:** Tab data schema updates (add `source: 'companion'|'user'`, chapter stamps for filed items). Tab badge/indicator for companion-logged entries.
+- **Phase 4:** `api/companion.js` Vercel serverless function. Wire input to live Anthropic API. Parse structured JSON response `{ message, logs[] }`. Write logs to tabs. Rate limiting decision TBD.
+- **Phase 5:** Library page redesign (editorial book cards). Landing page. General typography scale pass (larger display headings, more breathing room between sections).
+- **PresenceStrip and CompanionPanel files** — these still exist at their file paths but are no longer imported by BookDashboard. They can be safely deleted in a future pass, or kept as reference.
+- **Button ember-fill** — added to `companion-band-send`. Still needs to be applied to CompanionHeader outlined CTAs and other ghost buttons across the app.
+
+---
+
+## SESSION 121 — 2026-05-27 — Design System 4.0 + Companion-First Architecture
+
+**This session was a planning and design discussion. No code was written. Everything below is decided and ready for implementation.**
+
+---
+
+### Part 1: Design System 4.0 — Vellum
+
+A new design direction ("Vellum") was finalized via a Claude Design playground that tested 8 directions. The Vellum system is being adopted as the single direction for Lantern. Implementation uses **Option A (token value remap)** — existing `--color-*` CSS custom property names stay the same; only their values change. No component files need to be touched for the palette migration.
+
+#### What changes
+
+**Fonts:**
+- Serif display: `Playfair Display` → `Libre Baskerville` (also add EB Garamond as fallback)
+- Sans: `Inter` stays
+- Update Google Fonts import in `design-system/tokens.css` and `src/index.css`
+- Fallback stack: `'Libre Baskerville', 'EB Garamond', Georgia, serif`
+
+**Dark mode palette (values of existing tokens change):**
+
+| Token | Current value | Vellum value |
+|---|---|---|
+| `--color-bg` | `#0A1A1E` (cold teal) | `#1a1714` (warm near-black) |
+| `--color-card-base` | `#101E26` | `#221e1a` |
+| `--color-card-deep` | `#162836` | `#2a2420` |
+| `--color-card-hover` | `#1C3040` | `#332e28` |
+| `--color-text-primary` | `#D8CCBA` | `#ece5d4` |
+| `--color-text-secondary` | `#A89E8E` | `#a89e89` |
+| `--color-text-dim` | `#5C7080` (blue-grey) | `#6e6555` (warm grey) |
+| `--color-accent` | `#3C7AAA` (steel blue) | `#d36045` (orange-red ember) |
+| `--color-accent-dim` | `rgba(60,122,170,0.18)` | `rgba(211,96,69,0.12)` |
+| `--color-separator` | `rgba(60,122,170,0.16)` | `rgba(236,229,212,0.10)` |
+| `--color-separator-soft` | `rgba(60,122,170,0.10)` | `rgba(236,229,212,0.06)` |
+
+**Light mode palette:**
+
+| Token | Current value | Vellum value |
+|---|---|---|
+| `--color-bg` | `#FAF6EE` | `#f1ede5` |
+| `--color-card-base` | `#FFFFFF` | `#f8f4ec` |
+| `--color-card-deep` | `#F3EDE2` | `#ede8de` |
+| `--color-text-primary` | `#1C1410` | `#3d382f` |
+| `--color-text-secondary` | `#5C4828` | `#6e6553` |
+| `--color-text-dim` | `#9A8868` | `#9c9385` |
+| `--color-accent` | `#8A6028` (dark gold) | `#c25538` (orange-red ember) |
+| `--color-accent-dim` | `rgba(138,96,40,0.12)` | `rgba(194,85,56,0.10)` |
+| `--color-separator` | `rgba(138,96,40,0.14)` | `rgba(61,56,47,0.14)` |
+
+**New tokens to add (don't currently exist):**
+
+```css
+--color-glow:    rgba(211, 96, 69, 0.20);   /* dark */
+--color-glow:    rgba(194, 85, 56, 0.18);   /* light */
+--color-hairline /* = --color-separator, alias for new component code */
+```
+
+**Motion (all timing variables slowed ~60%):**
+
+| Variable | Current | Vellum |
+|---|---|---|
+| `--animate-fade-in` | 0.22s | 0.44s |
+| `--animate-slide-up` | 0.28s | 0.52s |
+| `--animate-pop` | 0.28s | 0.52s |
+| Tab transitions | 0.35s | 0.60s |
+| All hover transitions | 0.15–0.25s | 0.40–0.52s |
+| Companion presence transitions | existing | 1.0s–1.5s |
+
+**New visual effects (additive — not token changes):**
+
+1. **Mouse-following background gradient** — A `radial-gradient` using `--color-glow` as the glow color, centered on the mouse position via `requestAnimationFrame`. Implemented as a `::before` pseudoelement on the main layout wrapper. ~40 lines of JS in `App.jsx` or a new `AtmosphericGlow.jsx`. Lazy-interpolated so movement is smooth, not mechanical.
+
+2. **Button ember-fill hover** — On hover, primary and ghost buttons fill with the accent color over 700–900ms with an outer glow: `box-shadow: 0 0 36px 4px var(--color-glow), 0 0 80px -10px var(--color-glow)`. Currently buttons have no glow.
+
+3. **Backdrop blur on key panels** — `CompanionPanel`, modals, and the new companion band: `backdrop-filter: blur(18px) saturate(1.05)`. Currently unused in production.
+
+4. **Typographic scale** — Increase display/heading sizes. Introduce larger `clamp()` ranges for major headings. More deliberate whitespace between sections (see layout section below).
+
+**Design source files** extracted to `/tmp/lantern_design_pkg/lantern-playground-page-4-0/project/`:
+- `colors_and_type.css` — all token definitions for all 8 tested directions
+- `directions.css` — Vellum-specific overrides and universal microinteractions
+- `design-systems.jsx` — Vellum token data (light + dark)
+- `app.css` — layout + component styles from the playground
+- `atmosphere.jsx` — SVG ember atmospheric animation (optional enhancement)
+
+---
+
+### Part 2: Companion-First Architecture
+
+This is the major architectural shift. Lantern transforms from a book-tracking app with a companion feature into a reading companion app where book-tracking is the persistent record of what the companion has noticed.
+
+#### The core reframe
+
+**Before:** Open a book → see book stats and progress → companion is in a sidebar.
+**After:** Open a book → walk into the companion's space → book data is what the companion has been accumulating.
+
+#### Desktop layout — Book Detail Page
+
+The current two-column `[1fr 260px]` sidebar layout is retired. New layout:
+
+```
+┌─────────────────────────────────────────────────────┐
+│  CompanionHeader (book title, author, status, meta) │
+├─────────────────────────────────────────────────────┤
+│                                                     │
+│  COMPANION BAND — full width, above the fold        │
+│  ┌─────────────────────────────────────────────┐   │
+│  │  Chapter context / ambient reflection        │   │
+│  │  Surfaced cards: relevant characters,        │   │
+│  │  themes, open questions                      │   │
+│  │                                              │   │
+│  │  [input field — always visible]              │   │
+│  └─────────────────────────────────────────────┘   │
+│                                                     │
+├─────────────────────────────────────────────────────┤
+│  [TAB BAR — scrollable horizontal]                  │
+│  Questions · Themes · Characters · Plot · Notes     │
+├─────────────────────────────────────────────────────┤
+│                                                     │
+│  [Active tab content — scrollable]                  │
+│                                                     │
+└─────────────────────────────────────────────────────┘
+```
+
+The companion band is generous — not a strip. It lives above the fold by design. Users interact with it before scrolling to tab content.
+
+#### Mobile layout
+
+Companion gets a **dedicated tab in the bottom navigation** (alongside Library, etc.). When the Companion tab is active, a full-screen companion experience is shown — same content as the desktop band, scrollable, with the input at the bottom. No sidebar. No overlay. The companion is a first-class destination.
+
+#### Companion ambient state (idle / no active conversation)
+
+The companion is never a blank slate. When a book is open and no conversation is in progress, the companion shows:
+
+1. **Chapter contextual greeting** — A brief warm introduction to where the reader is in the book. E.g., *"You're at chapter 14. The last few chapters have been building toward something — there are two open questions filed that might be about to answer themselves."* This is contextual and quiet. Tone: an old sage going about its own business, not waiting to be useful.
+
+2. **Surfaced context cards** — Below the greeting, quietly surfaced cards drawn from the book's accumulated data: relevant characters (those most recently mentioned), active themes, open questions. These are refresher artifacts — not interactive, just present.
+
+3. **Input field** — Always visible at the bottom of the band, with a soft placeholder. The companion is ready but not demanding.
+
+The ambient state is a restyled evolution of the existing cached reflection system — it does NOT require a live API call. It is generated from the book's accumulated data and the existing reflection engine.
+
+#### Companion AI model — Hybrid
+
+| Mode | Trigger | Engine | Persistence |
+|---|---|---|---|
+| Ambient reflection | Auto, on book open | Existing cached reflection engine | Existing cache system |
+| Direct query | User types + sends | Live Anthropic API call via backend | Ephemeral — not stored |
+| Log entries | Companion decides during live response | Derived from API response | Persists to book data |
+
+**The conversation is ephemeral.** Nothing is stored in localStorage. When you close the book and return, the companion returns to ambient state. Only the logged items (filed to tabs) persist.
+
+#### Backend — Vercel Serverless Function
+
+A new `api/companion.js` (or `api/companion/route.js`) Vercel serverless function proxies calls to the Anthropic API. This keeps the API key server-side. The function:
+
+1. Receives: `{ bookContext, userMessage }`
+2. Injects book context into a system prompt (title, author, current chapter, relevant characters, recent themes, open questions)
+3. Calls Anthropic Claude (probably claude-haiku-4-5 for speed/cost)
+4. Returns a **structured JSON response** — not raw text:
+
+```json
+{
+  "message": "The companion's response to show the user",
+  "logs": [
+    {
+      "type": "question",
+      "content": "Why did Elara leave without telling Marcus?",
+      "targetTab": "questions"
+    },
+    {
+      "type": "character",
+      "content": "Marcus revealed he knew about the letter all along.",
+      "targetTab": "characters"
+    },
+    {
+      "type": "theme",
+      "content": "Loyalty vs. self-preservation — surfacing again in chapter 14.",
+      "targetTab": "themes"
+    }
+  ]
+}
+```
+
+The companion decides what to log based on the conversation. Log types: `question`, `character`, `plot`, `theme`, `note`. Each maps to a tab.
+
+**Rate limiting and abuse prevention** — not yet designed. Open question for implementation planning.
+
+#### Logging UX — subtle signal
+
+When the companion files something to a tab, there is no verbal announcement. The response reads naturally. A tab badge or brief indicator shows something was filed. Users discover it by visiting the tab. This keeps the companion conversational rather than administrative.
+
+---
+
+### Part 3: Tab Rethink
+
+The current 6 tabs (Progress, Characters, Plot, Notes, Mysteries, Discussion) are **completely redesigned** around companion-filed categories.
+
+**Progress tab is retired** — its content moves into the companion band (current chapter, reading pace, completion %). It is ambient context, not a dedicated tab.
+
+**New tab structure (5 tabs):**
+
+| Tab | Old equivalent | What lives here | Companion logs here |
+|---|---|---|---|
+| **Questions** | Mysteries | Open questions, unexplained events, things to watch for | `type: "question"` |
+| **Themes** | Discussion | Recurring themes, interpretive patterns, motifs | `type: "theme"` |
+| **Characters** | Characters | Character descriptions, relationship notes, updates | `type: "character"` |
+| **Plot** | Plot | Plot events, timeline entries, key moments | `type: "plot"` |
+| **Notes** | Notes | User's own notes + companion's general observations | `type: "note"` |
+
+**Each tab's data model needs updating** to accommodate companion-filed entries alongside user-created entries. Companion entries should be visually distinguishable (e.g., a small companion mark or different typographic treatment) but not overwhelming.
+
+**Open question for implementation planning:** What does the data schema for companion-filed Questions and Themes look like? These are currently stored as simple arrays. The new model needs: `{ id, content, source: 'companion'|'user', createdAtChapter, createdAt, resolved: bool }` at minimum for Questions, and `{ id, label, instances: [], firstSeenChapter }` for Themes.
+
+---
+
+### Part 4: Page Layout Rethinks
+
+The landing, library, and book detail pages all need visual redesigns to match the Vellum system. No specific layout decisions were made in this session — this is scoped as "rethink" work.
+
+**Principles agreed upon:**
+- Typographic variance — larger display headings, deliberate scale jumps between hierarchy levels
+- Breathing room — generous section spacing, sections feel separate, not crammed
+- Editorial feel — book cards that feel literary, not product-UI
+- Vellum tokens throughout — no Scholar's Study II remnants visible
+
+**Book cards (library):** Should feel editorial. Cover image more prominent. Author line distinct. Status/progress data present but secondary. This is "feel" direction — specific layout TBD during implementation.
+
+---
+
+### Implementation Phasing (recommendation for ChatGPT analysis)
+
+Suggested sequence — not mandated:
+
+**Phase 1 — Design System 4.0 (palette + font + motion)**
+- Update `design-system/tokens.css` and `src/index.css` with Vellum values
+- Swap font imports
+- Add `--color-glow` token
+- Slow animation timing variables
+- Verify no regressions (all existing components inherit new values automatically via token remap)
+- Add atmospheric mouse-follow gradient to `App.jsx`
+- Add button glow/ember-fill hover states
+
+**Phase 2 — Companion Band (desktop + mobile)**
+- Design and build the new `CompanionBand` component
+- Redesign `BookDashboard` layout (retire two-column sidebar, companion band at top)
+- Add Companion tab to mobile bottom nav
+- Wire ambient state to existing reflection engine (restyled, not rebuilt)
+- Input field — ephemeral, sends to next phase's API
+
+**Phase 3 — Tab Rethink**
+- Rename tabs (Mysteries → Questions, Discussion → Themes)
+- Rebuild tab data schemas
+- Progress tab content moves into companion band
+- Tab badge/indicator system for companion-logged entries
+
+**Phase 4 — Companion AI (live responses + logging)**
+- Build `api/companion.js` Vercel serverless function
+- Wire input field to API
+- Parse structured response (message + logs array)
+- Write log entries to correct tabs
+- Handle loading state, error state, empty API key
+
+**Phase 5 — Page layout redesigns**
+- Landing page
+- Library page + book cards
+- Book detail page (typography, spacing, visual hierarchy)
+
+---
+
+### Open Questions for ChatGPT Analysis
+
+1. **Companion ambient generation** — Is the chapter contextual greeting pre-generated (AI call on book open, cached per chapter) or template-based (rule-based from book data)? If AI, what's the trigger, caching strategy, and cost model?
+
+2. **Conversation context window** — The companion conversation is ephemeral, but does the companion have access to the last N exchanges *within a session* to maintain coherent dialogue? If yes, where is this stored (component state only)?
+
+3. **Tab schema migration** — The `questions`/`themes`/`characters`/`plot`/`notes` data is currently stored in arrays inside `shadowscribe_books`. Adding `source: 'companion'|'user'` fields is additive and safe. But what's the full schema for companion-filed items vs. user-created items?
+
+4. **Rate limiting** — How does the serverless function prevent abuse? Options: per-IP rate limit, require a simple token, tie to a user account (but Lantern has no accounts). This needs a decision before shipping the live API.
+
+5. **Spoiler safety in the companion** — The existing reflection engine is spoiler-aware (graduated visibility by chapter). The live companion API call needs to enforce the same rules — only information up to `currentChapter` should be available as context. How does the system prompt construction handle this?
+
+6. **Backend for ambient** — The ambient companion state uses the existing cached reflection engine (no API call). But the chapter contextual greeting (new) — is this also rule-based, or is it a cached AI call? If the latter, when does it generate?
+
+7. **Mobile bottom nav** — What routes/tabs does the new bottom nav have? Current routes: `/library`, `/book/:bookId`, `/new`, `/settings`. With a Companion tab, this needs to be rethought — "Companion" isn't a route without a book context. How does it work without a book selected?
 
 ---
 
@@ -28,6 +636,34 @@ The interface itself is the experience. It accumulates memory, cools with absenc
 ---
 
 ## 1 — CURRENT STATE
+
+### Session 120 — Alpha Week 1 — UX Hardening (2026-05-26)
+
+**Goal:** 10-item UX implementation pass. No companion language changes. No schema changes. No new localStorage keys.
+
+**10 items shipped:**
+
+1. **Dark mode toggle in nav bar** — ☀︎/◗ button added directly to `TopNav` (was only in hamburger dropdown). `src/components/layout/TopNav.jsx`.
+
+2. **ChapterUpdateModal NLP improvements** — blur no longer clears input; live "→ Chapter N" resolution feedback; improved placeholder; "all done"/"all of it" added to finish phrases; out-of-range digits clamp to `totalChapters`; Enter submits. `src/components/modals/ChapterUpdateModal.jsx`.
+
+3. **Mobile keyboard handling** — `interactive-widget=resizes-content` in viewport meta (Chrome/Android keyboard reflow); modal `maxHeight` uses `env(keyboard-inset-height)`. `index.html` + `ChapterUpdateModal.jsx`.
+
+4. **Modal initial focus** — NLP input auto-focused on mount via `nlpInputRef`. `ChapterUpdateModal.jsx`.
+
+5. **Reflection suppression UX** — `suppressReflection` wired into `PresenceStrip` (was only in `CompanionPanel`). Hover-reveal ✕ button on desktop; 700ms long-press on mobile. `src/components/dashboard/PresenceStrip.jsx`.
+
+6. **Reflection deduplication** — `deduplicateReflections()` applied to `cachedReflections` memo in `PresenceStrip` (was applied in `CompanionPanel`, missing from `PresenceStrip`). `PresenceStrip.jsx`.
+
+7. **Reflection saturation detection** — `isReflectionPoolSaturated()` wired into `PresenceStrip`; saturated pool shows actionable message instead of "The companion is quiet." `PresenceStrip.jsx`.
+
+8. **Tablet two-column layout** — `BookDashboard` switches to `lg:grid-cols-[1fr_260px]` at 1024px+; `CompanionPanel` rendered as sticky sidebar (was defined but never used). `src/components/dashboard/BookDashboard.jsx`.
+
+9. **Status transition keyboard support** — Confirm dialogs auto-focus confirm button; Enter confirms, Escape cancels via `useEffect` in `CompanionHeader`. `src/components/dashboard/CompanionHeader.jsx`.
+
+10. **Edit metadata improvements** — `totalChapters` field added to inline edit form; auto-rebuilds `chapters[]` array if count changes; title auto-focuses on open; Enter/Escape keyboard support on all fields; Save disabled when title empty. `CompanionHeader.jsx`.
+
+---
 
 ### Session 119 — Post-Ship / Alpha Week 1 (2026-05-26)
 

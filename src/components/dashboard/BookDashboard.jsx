@@ -1,24 +1,24 @@
 import { useState, useEffect, useRef } from 'react'
-import { useBooks } from '../../context/BooksContext.jsx'
+import { useBooks }    from '../../context/BooksContext.jsx'
 import { useSettings } from '../../context/SettingsContext.jsx'
-import { Ico } from '../shared/icons.jsx'
+import { Ico }         from '../shared/icons.jsx'
 import CompanionHeader from './CompanionHeader.jsx'
-import PresenceStrip from './PresenceStrip.jsx'
+import CompanionBand   from './CompanionBand.jsx'
 import ChapterUpdateModal from '../modals/ChapterUpdateModal.jsx'
-import ProgressTab from '../../tabs/ProgressTab.jsx'
-import CharactersTab from '../../tabs/CharactersTab.jsx'
-import PlotTab from '../../tabs/PlotTab.jsx'
-import NotesTab from '../../tabs/NotesTab.jsx'
-import MysteriesTab from '../../tabs/MysteriesTab.jsx'
-import DiscussionTab from '../../tabs/DiscussionTab.jsx'
+import CharactersTab   from '../../tabs/CharactersTab.jsx'
+import PlotTab         from '../../tabs/PlotTab.jsx'
+import NotesTab        from '../../tabs/NotesTab.jsx'
+import MysteriesTab    from '../../tabs/MysteriesTab.jsx'
+import DiscussionTab   from '../../tabs/DiscussionTab.jsx'
 
+// Progress tab content now lives in CompanionBand.
+// Tab order: Notes first (most active), then accumulated record.
 const TABS = [
-  { id: 'progress',   label: 'Reading'    },
-  { id: 'characters', label: 'Characters' },
-  { id: 'plot',       label: 'Chronicle'  },
   { id: 'notes',      label: 'Notes'      },
-  { id: 'mysteries',  label: 'Mysteries'  },
-  { id: 'discussion', label: 'Wondering'  },
+  { id: 'characters', label: 'Characters' },
+  { id: 'plot',       label: 'Plot'       },
+  { id: 'questions',  label: 'Questions'  },
+  { id: 'themes',     label: 'Themes'     },
 ]
 
 export default function BookDashboard({ bookId }) {
@@ -26,18 +26,27 @@ export default function BookDashboard({ bookId }) {
   const { settings } = useSettings()
   const book = books.find(b => b.id === bookId)
 
-  const [tab,        setTab]        = useState('progress')
+  const [tab,        setTab]        = useState('notes')
+  const [tabFlash,   setTabFlash]   = useState(null)
   const [showUpdate, setShowUpdate] = useState(false)
   const tabRefs = useRef({})
 
-  // Dynamic document title for book pages
+  const handleTabChange = (tabId) => {
+    setTab(tabId)
+    setTabFlash(tabId)
+    setTimeout(() => {
+      tabRefs.current[tabId]?.scrollIntoView({ behavior: 'smooth', inline: 'nearest', block: 'nearest' })
+    }, 20)
+    setTimeout(() => setTabFlash(null), 1400)
+  }
+
+  // Dynamic document title
   useEffect(() => {
     if (book?.title) document.title = `${book.title} — Lantern`
     return () => { document.title = 'Lantern — Library' }
   }, [book?.title])
 
-  // Invisible observation layer — stamp first open time once, stored in book data.
-  // Included in exports automatically. No new localStorage keys.
+  // Stamp first open time
   useEffect(() => {
     if (!book.firstOpenedAt) {
       updateBook(bookId, { firstOpenedAt: new Date().toISOString() })
@@ -45,7 +54,7 @@ export default function BookDashboard({ bookId }) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bookId])
 
-  // Scroll tab button into view but do NOT reset page scroll — tabs feel like document layers, not mode switches
+  // Scroll active tab into view
   useEffect(() => {
     tabRefs.current[tab]?.scrollIntoView({ behavior: 'smooth', inline: 'nearest', block: 'nearest' })
   }, [tab])
@@ -57,20 +66,22 @@ export default function BookDashboard({ bookId }) {
   return (
     <div className="book-enter">
 
-      {/* ── Full-width header ── */}
+      {/* ── Full-width book header ── */}
       <CompanionHeader book={book} onOpenUpdate={() => setShowUpdate(true)} onUpdateBook={onUpdateBook} />
 
-      {/* ── Sticky zone: presence strip + tab bar ── */}
-      <div className="sticky-bar top-14 mb-0">
-        <PresenceStrip book={book} onUpdateBook={onUpdateBook} />
+      {/* ── Companion Band — full-width presence above the fold ── */}
+      <CompanionBand book={book} onUpdateBook={onUpdateBook} onTabChange={handleTabChange} />
+
+      {/* ── Tab bar — sticky below the band ── */}
+      <div className="sticky-bar top-14 mt-5 mb-0">
         <div className="overflow-x-auto tab-scroll-fade">
-          <div className="flex min-w-max px-5 sm:px-10">
+          <div className="flex min-w-max px-5 sm:px-10 max-w-[1000px] mx-auto">
             {TABS.map(t => (
               <button
                 key={t.id}
                 ref={el => { tabRefs.current[t.id] = el }}
                 onClick={() => setTab(t.id)}
-                className={`tab-btn ${tab === t.id ? 'active' : ''}`}
+                className={`tab-btn ${tab === t.id ? 'active' : ''} ${tabFlash === t.id ? 'tab-flash' : ''}`}
               >
                 {t.label}
               </button>
@@ -79,15 +90,17 @@ export default function BookDashboard({ bookId }) {
         </div>
       </div>
 
-      {/* ── Full-width content ── */}
-      <div className="max-w-[1000px] mx-auto px-5 sm:px-10 pt-9 pb-safe">
-        <div key={tab} className="animate-tab-in">
-          {tab === 'progress'   && <ProgressTab   book={book} onUpdateBook={onUpdateBook} onOpenUpdate={() => setShowUpdate(true)} settings={settings} />}
+      {/* ── Tab content — single full-width column ── */}
+      <div
+        className="mx-auto px-5 sm:px-10 pt-9 pb-safe"
+        style={{ maxWidth: 1000 }}
+      >
+        <div key={tab} className="animate-tab-in min-w-0">
+          {tab === 'notes'      && <NotesTab      book={book} onUpdateBook={onUpdateBook} />}
           {tab === 'characters' && <CharactersTab book={book} onUpdateBook={onUpdateBook} />}
           {tab === 'plot'       && <PlotTab       book={book} onUpdateBook={onUpdateBook} />}
-          {tab === 'notes'      && <NotesTab      book={book} onUpdateBook={onUpdateBook} />}
-          {tab === 'mysteries'  && <MysteriesTab  book={book} onUpdateBook={onUpdateBook} />}
-          {tab === 'discussion' && <DiscussionTab book={book} onUpdateBook={onUpdateBook} />}
+          {tab === 'questions'  && <MysteriesTab  book={book} onUpdateBook={onUpdateBook} />}
+          {tab === 'themes'     && <DiscussionTab book={book} onUpdateBook={onUpdateBook} />}
         </div>
       </div>
 

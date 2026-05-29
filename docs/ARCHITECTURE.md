@@ -1,5 +1,5 @@
 # Lantern — Architecture
-**Last updated:** 2026-05-20 (Session 79)
+**Last updated:** 2026-05-27 (Session 121)
 
 ---
 
@@ -11,36 +11,68 @@
 | Build | Vite 8 | `node node_modules/vite/bin/vite.js build` — `.bin/vite` is NOT a real symlink |
 | Styles | Tailwind CSS v4 | `@import "tailwindcss"` — NOT v3 syntax |
 | Routing | React Router v7 | BrowserRouter + Routes |
-| Persistence | localStorage | No backend, no auth |
-| AI | Anthropic API | Direct browser calls via `anthropic-dangerous-direct-browser-access: true` |
+| Persistence | localStorage | Keys are FROZEN — never rename |
+| AI (ambient) | Existing reflection engine | Rule-based, cached in book data, no API call |
+| AI (live companion) | Anthropic API via Vercel serverless | `api/companion.js` — planned, not yet built |
 
-**Routes:** `/library`, `/new`, `/book/:bookId`, `/settings`
+**Routes (current):** `/library`, `/new`, `/book/:bookId`, `/settings`
+
+**Routes (planned, post-redesign):** Above + mobile bottom nav Companion tab (routing TBD — depends on book context decisions)
 
 ---
 
 ## Component Tree
+
+### Current (Session 120, in production)
 
 ```
 BrowserRouter
 └── SettingsProvider  (shadowscribe_settings)
     └── BooksProvider  (shadowscribe_books)
         └── AppShell  (dark mode sync, view transition key)
-            ├── TopNav  (fixed, z-30)
+            ├── TopNav  (fixed, z-30; dark mode toggle + hamburger)
             └── Routes
                 ├── /library       → LibraryPage → Library
                 ├── /new           → NewCompanionPage → CreateCompanion
                 ├── /book/:bookId  → BookPage → BookDashboard
                 │                     ├── CompanionHeader
-                │                     ├── [sticky bar: PresenceStrip + tab bar]
-                │                     ├── ProgressTab
-                │                     ├── CharactersTab → RelationshipMap
-                │                     ├── PlotTab
-                │                     ├── NotesTab
-                │                     ├── MysteriesTab
-                │                     ├── DiscussionTab
+                │                     ├── [sticky: PresenceStrip + tab bar]
+                │                     ├── [lg+ two-column: 1fr + 260px CompanionPanel]
+                │                     │     Tabs: ProgressTab / CharactersTab / PlotTab /
+                │                     │           NotesTab / MysteriesTab / DiscussionTab
                 │                     └── ChapterUpdateModal
                 └── /settings      → SettingsPage
 ```
+
+### Planned (Session 121 redesign, not yet implemented)
+
+```
+BrowserRouter
+└── SettingsProvider
+    └── BooksProvider
+        └── AppShell  (+ atmospheric glow gradient)
+            ├── TopNav
+            └── Routes
+                ├── /library       → LibraryPage → Library  [restyled — Vellum]
+                ├── /new           → NewCompanionPage → CreateCompanion
+                ├── /book/:bookId  → BookPage → BookDashboard
+                │                     ├── CompanionHeader
+                │                     ├── CompanionBand  [NEW — full-width, above tabs]
+                │                     │     ├── AmbientGreeting  (rule-based from book data)
+                │                     │     ├── SurfacedCards  (characters / themes / questions)
+                │                     │     └── CompanionInput  (ephemeral, calls api/companion.js)
+                │                     ├── [tab bar — 5 tabs]
+                │                     │     Tabs: QuestionsTab / ThemesTab / CharactersTab /
+                │                     │           PlotTab / NotesTab
+                │                     │     [ProgressTab retired — content in CompanionBand]
+                │                     │     [MysteriesTab → QuestionsTab]
+                │                     │     [DiscussionTab → ThemesTab]
+                │                     └── ChapterUpdateModal
+                ├── /companion     → CompanionPage  [NEW — mobile full-screen companion]
+                └── /settings      → SettingsPage
+```
+
+**Layout note (planned):** No more `[1fr_260px]` grid. `BookDashboard` is single-column: `CompanionBand` fills full width, then `TabBar`, then tab content. `CompanionPanel` sidebar component retired. Two-column layout decision reverted in favor of companion-first single column.
 
 ---
 

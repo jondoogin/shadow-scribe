@@ -1,5 +1,5 @@
 # Shadow Scribe — Beta Testing Checklist
-**Version:** Session 61 (2026-05-14)
+**Version:** Session 120 (2026-05-26)
 
 Practical checklist for external beta testers and internal QA. Not exhaustive — focuses on the flows most likely to surface real-world issues.
 
@@ -155,6 +155,33 @@ Practical checklist for external beta testers and internal QA. Not exhaustive �
 - [ ] Notes tab: note creation form usable with keyboard open
 - [ ] Long chapter titles truncate gracefully; chapter checklist rows not overflowing
 - [ ] EPUB chapter list (320px max-height) scrollable; type badge and title both tappable
+
+---
+
+## 14. Session 120 — UX Hardening (new items)
+
+- [ ] Dark mode toggle: ☀︎/◗ button visible in nav bar at all times; switches mode without opening menu
+- [ ] Dark mode toggle: hamburger menu also still has the toggle (both work)
+- [ ] Chapter update modal: NLP input receives focus immediately on open (no extra tap needed)
+- [ ] Chapter update modal: typing "chapter twenty" shows "→ Chapter 20" feedback below input
+- [ ] Chapter update modal: typing "done" or "finished" resolves to final chapter
+- [ ] Chapter update modal: input NOT cleared when clicking elsewhere (field holds value until submit)
+- [ ] Chapter update modal: Enter key in NLP input submits the update
+- [ ] Chapter update modal: Escape closes the modal
+- [ ] Edit metadata: "· edit" form auto-focuses the title field
+- [ ] Edit metadata: total chapters field is present and pre-filled with current value
+- [ ] Edit metadata: changing total chapters rebuilds the chapter list (new chapters scaffold, existing preserved)
+- [ ] Edit metadata: Enter in any field saves; Escape cancels
+- [ ] Edit metadata: Save button disabled while title field is empty
+- [ ] Status confirm dialog: confirm button is auto-focused when dialog appears
+- [ ] Status confirm dialog: Enter confirms; Escape cancels
+- [ ] Desktop (1024px+): CompanionPanel sidebar visible to the right of tab content
+- [ ] Desktop: CompanionPanel shows "COMPANION" label, current observation, open questions
+- [ ] Desktop: CompanionPanel sidebar sticks while scrolling main content
+- [ ] Companion strip: hovering a reflection (cached, not a presence observation) shows ✕ dismiss button
+- [ ] Companion strip: clicking ✕ dismisses the reflection and advances to next observation
+- [ ] Companion strip: long-pressing (700ms) a reflection on mobile dismisses it
+- [ ] Companion strip: when reflection pool is saturated, shows "Add more notes to refresh companion thoughts."
 
 ---
 

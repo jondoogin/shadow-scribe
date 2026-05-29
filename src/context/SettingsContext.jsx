@@ -7,7 +7,7 @@ export const SETTINGS_DEFAULTS = {
   insightStyle:   'observational',  // 'observational' | 'analytical' | 'minimal'
   defaultFormat:  'print',          // 'print' | 'ebook' | 'audiobook'
   anthropicKey:   '',               // Anthropic API key for AI-assisted extraction
-  darkMode:       false,            // dark colour palette
+  darkMode:       true,             // dark colour palette
   devMode:        false,            // bypass companion cooldowns + fast carousel for testing
   // ── Cloud-sync groundwork ─────────────────────────────────────────────────
   // deviceId: stable identity for this device — generated once on first run.
