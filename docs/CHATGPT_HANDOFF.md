@@ -32,15 +32,11 @@
 - `App.jsx` — `AuthProvider` wraps `SettingsProvider → BooksProvider`.
 - `SignInPanel` mounted at top of `SettingsPage` in a new "Sync" section.
 
-### Action required from John
+### Sync is live ✓
 
-To activate cloud sync (the app works fine without it):
-1. Follow `docs/SUPABASE_SETUP.md` — create a Supabase project (~5 minutes).
-2. Run `docs/SUPABASE_SCHEMA.sql` in the Supabase SQL editor — creates two JSONB tables with Row Level Security.
-3. Add to `.env.local` (dev) and Vercel project env (prod):
-   - `VITE_SUPABASE_URL`
-   - `VITE_SUPABASE_ANON_KEY`
-4. Verify by signing in via Settings and checking that books appear in the Supabase `lantern_books` table.
+Verified end-to-end on 2026-05-29 — Supabase project provisioned, schema deployed, RLS enforced, env vars set in `.env.local` and Vercel production. Magic-link sign-in works, library books push to `lantern_books`, settings push to `lantern_settings`.
+
+**Note on Supabase's new key format:** the publishable key (`sb_publishable_...`) is what we're using, not the legacy `eyJ...` anon key. Both work with `@supabase/supabase-js` — the new format is forward-compatible.
 
 ### Build
 clean ✓ | 131 modules | dev server on port 5220 | Commits `6ecdbae`, `c8c6866`
