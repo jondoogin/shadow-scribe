@@ -1,9 +1,51 @@
 # Lantern — Handoff Document
-**Last updated:** 2026-05-29 · Session 131 (Depth Level + dark-mode input sweep + Supabase cloud sync scaffolding)
+**Last updated:** 2026-05-29 · Session 132 (auth chip + sign-out clarity + delete cloud + Depth Level wiring + field-level merge)
 **Stack:** React 19 · Vite 8 · Tailwind CSS v4 · React Router v7 · localStorage + Vercel Serverless Functions (`/api/companion` — live)
 **localStorage keys (FROZEN):** `shadowscribe_books` · `shadowscribe_settings` · `lantern_welcomed` — must NEVER be renamed
 **Build command:** `node node_modules/vite/bin/vite.js build`
 **Status: V2 COMPANION-FIRST REDESIGN — Phase 1 + Atmospheric pass + Playground translation complete, Phase 2–5 pending**
+
+---
+
+## SESSION 132 — 2026-05-29 — Auth UX polish + Depth Level behavior + field-level merge
+
+### What shipped (five commits, all small-medium scope, all touching live sync)
+
+**1. Auth chip in TopNav (`TopNav.jsx`)**
+- Signed in: amber-tinted circle with email initial, click → /settings, tooltip = email.
+- Signed out: small italic "✦ Sign in" link → /settings.
+- Hidden entirely when Supabase env vars missing — local-only experience stays clean.
+
+**2. Sign-out clarity (`SignInPanel.jsx`)**
+- Sign-out link now reads "Sign out (your library stays on this device)".
+- Two-step: click reveals an inline confirmation explaining what happens before the actual sign-out fires.
+- Prevents accidental sign-out, makes the semantics explicit.
+
+**3. Delete cloud data (`syncEngine.js`, `SignInPanel.jsx`, `SettingsPage.jsx`)**
+- `deleteCloudData(userId)` wipes both `lantern_books` and `lantern_settings` rows for the user.
+- Auth identity survives (admin.deleteUser requires service_role, never exposed to client) — user can sign back in clean.
+- Pending pushes cancelled before delete so they don't race.
+- Confirmation flow in SignInPanel: ember-styled "Delete cloud data" link → confirmation with explicit "what's wiped vs what's kept" copy → delete + sign out.
+
+**4. Depth Level behavior wiring (`utils/depthLevel.js` + 5 call sites)**
+- New utility: `bookDepth()`, `aiEnabled()`, `ambientEnabled()`, `observationDensity()`, `depthLabel()`.
+- **Quiet** → no companion AI calls, no ambient carousel, no chat input. Notes save as record only.
+- **Resonant** → unchanged default behavior.
+- **Saturated** → ambient carousel rotates ~30% faster.
+- Gated: NotesTab thread persistence (addNote + threadReply), ChapterUpdateModal session reflection, CompanionBand chat input + conversation log + ambient carousel.
+- Per-book editing: CompanionHeader's edit-metadata form gains a three-button Depth selector matching the create-book picker. Saved via `onUpdateBook({ depthLevel })`.
+- Quiet mode shows a quiet italic line in the band: *"Quiet — the companion is silent for this reading."*
+
+**5. Field-level sync merge (`utils/syncEngine.js`, `NotesTab.jsx`, `MysteriesTab.jsx`)**
+- Whole-book last-write-wins is gone for id-keyed arrays. New `mergeBook(local, cloud)`:
+  - Scalar fields: book.lastUpdated wins.
+  - Arrays (`notes`, `mysteries`, `readingLog`, `discussionQuestions`, `userDiscussionQuestions`): unioned by id, per-item later-`updatedAt` wins. Falls back through `updatedAt → revisedAt → date` for items without explicit `updatedAt`.
+- `mergeBooks` calls `mergeBook` per id pair.
+- Writers stamp `updatedAt` on every change via `touch()` (NotesTab) and `touchMyst()` (MysteriesTab). Covers: add, edit, reflection save/remove, every thread persistence path (initial reply, user reply, companion reply, settle, expand/collapse), mystery toggle/status/observation/refine/add.
+- **Known limitation:** deletion semantics. Union preserves items in either side, so deleting on device A then syncing from B revives the item. Proper fix needs tombstone flags (`{ deleted: true, updatedAt }`) — planned follow-up.
+
+### Build
+clean ✓ | 132 modules | dev server on port 5220 | Commits `a2383f6`, `a1cac77`, `7fd64ae`
 
 ---
 
