@@ -4,6 +4,7 @@ import { Ico } from '../shared/icons.jsx'
 import EmptyState from '../shared/EmptyState.jsx'
 import BookCard from './BookCard.jsx'
 import LibraryCompanion from './LibraryCompanion.jsx'
+import FirstBookInvitation from './FirstBookInvitation.jsx'
 import { useBooks } from '../../context/BooksContext.jsx'
 import { useSettings } from '../../context/SettingsContext.jsx'
 import { getProgress } from '../../utils/progress.js'
@@ -47,9 +48,9 @@ function WelcomeBanner({ hasKey, onDismiss }) {
           </p>
         ) : (
           <p className="text-[12px] leading-relaxed mb-5 italic" style={{ color: 'var(--color-ink-400)', lineHeight: 1.7 }}>
-            The sample companions below show what an annotated reading looks like. To begin your own, import an EPUB or create a companion manually with the{' '}
+            The example books below show what an annotated reading looks like. To begin your own, import an EPUB or add a book manually with the{' '}
             <Link to="/new" onClick={onDismiss} className="underline hover:opacity-80 transition-opacity" style={{ color: 'var(--color-ink-500)' }}>
-              New Companion
+              Add a book
             </Link>
             {' '}button above.
           </p>
@@ -190,6 +191,23 @@ export default function Library() {
     updateSetting('snapshotReminderDismissedAt', new Date().toISOString())
   }
 
+  // ── First-book invitation ────────────────────────────────────────────────
+  // Detect whether the user has added their own book (vs only seeded demos).
+  // User-created books have IDs prefixed `book_` via uid('book_').
+  const hasUserBook = useMemo(
+    () => books.some(b => (b.id || '').startsWith('book_')),
+    [books]
+  )
+  const invitationRecentlyDismissed = useMemo(() => {
+    const at = settings.firstBookInvitationDismissedAt
+    if (!at) return false
+    return (Date.now() - new Date(at)) / 86400000 < 7
+  }, [settings.firstBookInvitationDismissedAt])
+  const showFirstBookInvitation =
+    welcomed && !hasUserBook && !invitationRecentlyDismissed
+  const deferInvitation = () =>
+    updateSetting('firstBookInvitationDismissedAt', new Date().toISOString())
+
   const filterOpts = [
     { k: 'all',      l: 'All'       },
     { k: 'reading',  l: 'Reading'   },
@@ -270,6 +288,14 @@ export default function Library() {
 
   return (
     <>
+      {/* ── First-book invitation — surfaces once after welcome dismissed ── */}
+      {showFirstBookInvitation && (
+        <FirstBookInvitation
+          onAddBook={deferInvitation}
+          onDismiss={deferInvitation}
+        />
+      )}
+
       {/* ── Search + filter bar ── */}
       <div className="sticky-bar top-14">
         <div className="max-w-[1000px] mx-auto px-5 sm:px-10 py-3 space-y-2.5">

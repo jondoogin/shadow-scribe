@@ -23,6 +23,9 @@ export const SETTINGS_DEFAULTS = {
   // snapshotReminderDismissedAt: when the user last dismissed the snapshot banner.
   // Banner suppressed for 7 days after dismissal.
   snapshotReminderDismissedAt: null,
+  // firstBookInvitationDismissedAt: when the user last deferred the "add your
+  // first book" invitation. Suppressed for 7 days after dismissal.
+  firstBookInvitationDismissedAt: null,
 }
 
 const KEY = 'shadowscribe_settings'

@@ -458,6 +458,85 @@ Write one sentence summarizing what this exchange illuminated — what the discu
   return text3
 }
 
+// ── Session note reply (from ChapterUpdateModal) ──────────────────────────────
+
+/**
+ * Generate a companion response to a reader's session note after they update
+ * their reading progress. This is one of the most emotional moments in the
+ * product — the reader has just paused, marked their place, and described
+ * how the reading felt.
+ *
+ * @param {string} sessionNote  What the reader wrote ("How did it feel?")
+ * @param {Object} book         The book they were reading
+ * @param {Object} sessionMeta  { chaptersRead, prevCh, newCh, progressAfter }
+ * @param {string} apiKey       Anthropic API key (empty = use proxy)
+ * @returns {Promise<string>}   One quiet observation (1-2 sentences)
+ */
+export async function generateSessionReflection(sessionNote, book, sessionMeta, apiKey) {
+  const { chaptersRead = 1, prevCh = 0, newCh = 0, progressAfter = 0 } = sessionMeta || {}
+  const bookTitle = `"${book.title}"${book.author ? ` by ${book.author}` : ''}`
+
+  const recentNotes = (book.notes || [])
+    .slice(-4)
+    .map(n => `  [${n.tag}] ${n.text.slice(0, 90)}${n.text.length > 90 ? '…' : ''}`)
+    .join('\n')
+
+  const openMysteries = (book.mysteries || [])
+    .filter(m => !m.resolved)
+    .slice(0, 3)
+    .map(m => `  "${m.text.slice(0, 80)}"`)
+    .join('\n')
+
+  const dominant = detectDominantCluster(book.notes || [])
+
+  const contextLines = [
+    `Book: ${bookTitle}`,
+    `The reader just finished reading from chapter ${prevCh + 1} to chapter ${newCh} (${chaptersRead} chapter${chaptersRead === 1 ? '' : 's'}, now at ${progressAfter}%).`,
+    recentNotes ? `\nTheir recent notes:\n${recentNotes}` : null,
+    openMysteries ? `\nOpen questions they're carrying:\n${openMysteries}` : null,
+    dominant ? `\nEmotional territory of their reading: ${dominant.label}` : null,
+  ].filter(Boolean).join('\n')
+
+  const systemPrompt = `You are a literary companion. The reader has just paused after a reading session and described how it felt. Respond with one quiet observation that notices what they noticed — not advice, not summary, just the kind of thing a good reader-friend would say after hearing them out.
+
+${contextLines}
+
+Rules:
+- Be specific to this book and this session note — not generic
+- Never use "I" — write impersonally or in second person
+- No affirmations ("Great!", "Beautiful!", "Interesting!")
+- Understated and literary in tone — not chatty
+- One sentence; two at most if genuinely needed
+- Do not ask follow-up questions`
+
+  const controller = new AbortController()
+  const timer      = setTimeout(() => controller.abort(), 14_000)
+
+  const { url, headers, bodyStr } = buildAiCall(apiKey, {
+    model:      PROVIDER_CONFIG.model,
+    max_tokens: 130,
+    system:     systemPrompt,
+    messages:   [{ role: 'user', content: sessionNote }],
+  })
+
+  let response
+  try {
+    response = await fetch(url, { signal: controller.signal, method: 'POST', headers, body: bodyStr })
+  } finally {
+    clearTimeout(timer)
+  }
+
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}))
+    throw new Error(err.error?.message || `API error ${response.status}`)
+  }
+
+  const data4 = await response.json()
+  const text4 = (data4.content?.[0]?.text ?? '').trim()
+  if (!text4) throw new Error('Empty response')
+  return text4
+}
+
 // ── Companion band direct chat ────────────────────────────────────────────────
 
 /**

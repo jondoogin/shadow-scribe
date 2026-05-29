@@ -84,7 +84,7 @@ export default function TopNav() {
             }}
           >
             <Ico.Plus />
-            <span className="hidden sm:inline">New Companion</span>
+            <span className="hidden sm:inline">Add a book</span>
           </button>
 
           <button
@@ -131,7 +131,7 @@ export default function TopNav() {
               <nav className="p-1.5">
                 {[
                   { label: 'Library',       icon: <Ico.Library />,  path: '/library',  active: isLibrary  },
-                  { label: 'New Companion', icon: <Ico.Plus />,     path: '/new',      active: false      },
+                  { label: 'Add a book', icon: <Ico.Plus />,     path: '/new',      active: false      },
                   { label: 'About Lantern', icon: <span style={{ fontSize: 12, opacity: 0.7 }}>✦</span>, path: '/about', active: isAbout },
                   { label: 'Settings',      icon: <Ico.Settings />, path: '/settings', active: isSettings },
                 ].map(({ label, icon, path, active }) => (

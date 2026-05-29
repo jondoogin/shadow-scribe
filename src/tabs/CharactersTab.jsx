@@ -726,7 +726,7 @@ export default function CharactersTab({ book, onUpdateBook, flashItemId }) {
             </div>
           )}
 
-          {/* <RelationshipMap book={book} /> */}{/* disabled — needs rework */}
+          <RelationshipMap book={book} />
 
           {anyVeiled && mode !== 'full' && (
             <p className="text-[11px] text-ink-400 text-center italic">

@@ -11,6 +11,7 @@ import {
   pickReturnReflection,
   markReflectionSurfaced,
 } from '../../utils/reflectionEngine.js'
+import { generateSessionReflection } from '../../utils/companionThread.js'
 
 // ── Natural language chapter parser ──────────────────────────────────────────
 // Accepts flexible phrasing and returns a chapter number, or null if unparseable.
@@ -253,7 +254,24 @@ export default function ChapterUpdateModal({ book, onClose, onUpdateBook }) {
       ...reflectionCacheUpdate,
     })
     setNewCh(n)
-    if (sessionNote.trim()) setCompanionNoteReply(generateNoteReply(sessionNote))
+
+    // ── Companion session reflection ──────────────────────────────────────
+    // Use real Claude AI when a note is present; falls back to keyword match
+    // if the API call fails. Show keyword fallback instantly so the reader
+    // sees a response with no blank period, then replace with AI when ready.
+    if (sessionNote.trim()) {
+      const fallback = generateNoteReply(sessionNote)
+      setCompanionNoteReply(fallback)
+      const apiKey = settings?.anthropicKey
+      generateSessionReflection(
+        sessionNote.trim(),
+        book,
+        { chaptersRead, prevCh: book.currentChapter, newCh: n, progressAfter },
+        apiKey || ''
+      )
+        .then(aiReply => { if (aiReply) setCompanionNoteReply(aiReply) })
+        .catch(() => { /* keep fallback */ })
+    }
     setDone(true)
   }
 
