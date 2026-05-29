@@ -71,7 +71,7 @@ export default function CompanionHeader({ book, onOpenUpdate, onUpdateBook }) {
   const [menuOpen,       setMenuOpen]       = useState(false)
   const [confirmDelete,  setConfirmDelete]  = useState(false)
   const [editingMeta,    setEditingMeta]    = useState(false)
-  const [metaForm,       setMetaForm]       = useState({ title: book.title, author: book.author, temperament: book.temperament || '', totalChapters: String(book.totalChapters || '') })
+  const [metaForm,       setMetaForm]       = useState({ title: book.title, author: book.author, temperament: book.temperament || '', totalChapters: String(book.totalChapters || ''), depthLevel: book.depthLevel || 'resonant' })
   const [reextracting,   setReextracting]   = useState(false)
   const [reextractMsg,   setReextractMsg]   = useState(null)
   const menuRef        = useRef()
@@ -108,7 +108,7 @@ export default function CompanionHeader({ book, onOpenUpdate, onUpdateBook }) {
   }, [menuOpen])
 
   const openEditMeta = () => {
-    setMetaForm({ title: book.title, author: book.author, temperament: book.temperament || '', totalChapters: String(book.totalChapters || '') })
+    setMetaForm({ title: book.title, author: book.author, temperament: book.temperament || '', totalChapters: String(book.totalChapters || ''), depthLevel: book.depthLevel || 'resonant' })
     setEditingMeta(true)
     setMenuOpen(false)
     setConfirmDelete(false)
@@ -129,7 +129,7 @@ export default function CompanionHeader({ book, onOpenUpdate, onUpdateBook }) {
           }),
         }
       : {}
-    onUpdateBook({ title: t, author: a, ...(metaForm.temperament ? { temperament: metaForm.temperament } : {}), ...chapUpdate })
+    onUpdateBook({ title: t, author: a, depthLevel: metaForm.depthLevel || 'resonant', ...(metaForm.temperament ? { temperament: metaForm.temperament } : {}), ...chapUpdate })
     setEditingMeta(false)
   }
 
@@ -639,6 +639,37 @@ export default function CompanionHeader({ book, onOpenUpdate, onUpdateBook }) {
                     </button>
                   ))}
                 </div>
+
+                {/* Depth level — per-book companion presence */}
+                <div className="pt-2">
+                  <p className="italic mb-1.5" style={{ fontSize: 10, color: 'var(--color-ink-400)', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+                    Companion depth
+                  </p>
+                  <div className="flex gap-1.5 flex-wrap">
+                    {[
+                      { k: 'quiet',     label: 'Quiet' },
+                      { k: 'resonant',  label: 'Resonant' },
+                      { k: 'saturated', label: 'Saturated' },
+                    ].map(opt => {
+                      const selected = metaForm.depthLevel === opt.k
+                      return (
+                        <button
+                          key={opt.k}
+                          onClick={() => setMetaForm(f => ({ ...f, depthLevel: opt.k }))}
+                          className="text-[11px] px-2.5 py-1 rounded-full border transition-all"
+                          style={{
+                            background:  selected ? 'var(--ca, #B8860B)' : '',
+                            borderColor: selected ? 'var(--ca, #B8860B)' : '',
+                            color:       selected ? 'white' : '',
+                          }}
+                        >
+                          {opt.label}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+
                 <div className="flex gap-2">
                   <button onClick={() => setEditingMeta(false)} className="text-[12px] text-ink-500 hover:text-ink-700 px-3 py-1.5 rounded-lg border border-ink-200 transition-colors">Cancel</button>
                   <button onClick={saveMeta} disabled={!metaForm.title.trim()} className="text-[12px] font-semibold px-3 py-1.5 rounded-lg text-white transition-all disabled:opacity-40" style={{ background:'var(--ca, #B8860B)' }}>Save</button>

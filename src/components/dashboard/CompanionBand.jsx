@@ -12,6 +12,7 @@ import {
 } from '../../utils/reflectionEngine.js'
 import { generateCompanionReflections } from '../../utils/aiExtractor.js'
 import { generateCompanionChatResponse } from '../../utils/companionThread.js'
+import { bookDepth } from '../../utils/depthLevel.js'
 import { computePresenceVisibility, shouldYieldToBook } from '../../utils/invisiblePresence.js'
 import { isMysteryVisible, getEffectiveMode } from '../../utils/spoiler.js'
 import { mysteryHauntScore, hauntLevel }       from '../../utils/hauntScore.js'
@@ -196,9 +197,13 @@ export default function CompanionBand({ book, onUpdateBook, onTabChange }) {
   }, [obsIdx, reflIndexMap, book.id, updateBook])
 
   // ── Carousel auto-advance ──────────────────────────────────────────────────
+  // Saturated depth rotates ~30% faster; Quiet doesn't run at all (caller gates).
   useEffect(() => {
     if (observations.length < 2 || yieldsToBook) return
-    const interval = presenceVisibility < 0.65 ? 18000 : 12000
+    const depthNow = bookDepth(book, settings)
+    if (depthNow === 'quiet') return
+    const baseInterval = presenceVisibility < 0.65 ? 18000 : 12000
+    const interval = depthNow === 'saturated' ? Math.round(baseInterval * 0.7) : baseInterval
     const t = setTimeout(function tick() {
       setObsFade(false)
       setTimeout(() => {
@@ -209,7 +214,7 @@ export default function CompanionBand({ book, onUpdateBook, onTabChange }) {
     }, interval + Math.random() * 2000)
     return () => clearTimeout(t)
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [observations.length, yieldsToBook, presenceVisibility])
+  }, [observations.length, yieldsToBook, presenceVisibility, book.depthLevel, settings.defaultDepthLevel])
 
   // Scroll to latest message
   useEffect(() => {
@@ -261,7 +266,12 @@ export default function CompanionBand({ book, onUpdateBook, onTabChange }) {
   const pct             = getProgress(book)
   const hasConversation = messages.length > 0
 
-  const ambientObservation = !yieldsToBook && observations.length > 0
+  // Depth Level gates ambient + chat visibility
+  const depth          = bookDepth(book, settings)
+  const showAmbient    = depth !== 'quiet'
+  const showChat       = depth !== 'quiet'
+
+  const ambientObservation = showAmbient && !yieldsToBook && observations.length > 0
     ? observations[obsIdx]
     : null
 
@@ -321,53 +331,55 @@ export default function CompanionBand({ book, onUpdateBook, onTabChange }) {
           {/* Left: input first, then ambient reflection / conversation */}
           <div className="flex-1 min-w-0 flex flex-col gap-4">
 
-            {/* Input field — primary position */}
-            <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>
-              <textarea
-                ref={inputRef}
-                value={input}
-                onChange={e => { setInput(e.target.value); autoResize() }}
-                onInput={autoResize}
-                onKeyDown={handleKeyDown}
-                placeholder="A thought, a question, a reaction…"
-                className="companion-band-input"
-                rows={1}
-                disabled={thinking}
-              />
-              {input.trim() && (
-                <button
-                  onClick={sendMessage}
-                  className="companion-band-send"
+            {/* Input field — primary position. Hidden in Quiet mode. */}
+            {showChat && (
+              <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>
+                <textarea
+                  ref={inputRef}
+                  value={input}
+                  onChange={e => { setInput(e.target.value); autoResize() }}
+                  onInput={autoResize}
+                  onKeyDown={handleKeyDown}
+                  placeholder="A thought, a question, a reaction…"
+                  className="companion-band-input"
+                  rows={1}
                   disabled={thinking}
-                >
-                  send →
-                </button>
-              )}
-              {hasConversation && !input.trim() && (
-                <button
-                  onClick={() => setMessages([])}
-                  style={{
-                    background: 'transparent',
-                    border: 'none',
-                    color: 'var(--color-text-dim)',
-                    fontSize: 11,
-                    cursor: 'pointer',
-                    padding: '6px 4px',
-                    whiteSpace: 'nowrap',
-                    opacity: 0.6,
-                    transition: 'opacity 0.40s ease',
-                    fontFamily: 'var(--font-sans)',
-                  }}
-                  onMouseEnter={e => { e.currentTarget.style.opacity = '1' }}
-                  onMouseLeave={e => { e.currentTarget.style.opacity = '0.6' }}
-                >
-                  clear
-                </button>
-              )}
-            </div>
+                />
+                {input.trim() && (
+                  <button
+                    onClick={sendMessage}
+                    className="companion-band-send"
+                    disabled={thinking}
+                  >
+                    send →
+                  </button>
+                )}
+                {hasConversation && !input.trim() && (
+                  <button
+                    onClick={() => setMessages([])}
+                    style={{
+                      background: 'transparent',
+                      border: 'none',
+                      color: 'var(--color-text-dim)',
+                      fontSize: 11,
+                      cursor: 'pointer',
+                      padding: '6px 4px',
+                      whiteSpace: 'nowrap',
+                      opacity: 0.6,
+                      transition: 'opacity 0.40s ease',
+                      fontFamily: 'var(--font-sans)',
+                    }}
+                    onMouseEnter={e => { e.currentTarget.style.opacity = '1' }}
+                    onMouseLeave={e => { e.currentTarget.style.opacity = '0.6' }}
+                  >
+                    clear
+                  </button>
+                )}
+              </div>
+            )}
 
             {/* Conversation history — ephemeral, manuscript annotation style */}
-            {hasConversation && (
+            {showChat && hasConversation && (
               <div className="flex flex-col gap-4" style={{ maxHeight: 240, overflowY: 'auto', paddingRight: 4 }}>
                 {messages.map((m, i) =>
                   m.role === 'user'
@@ -405,9 +417,11 @@ export default function CompanionBand({ book, onUpdateBook, onTabChange }) {
             {/* Ambient silence */}
             {!hasConversation && !ambientObservation && (
               <p className="companion-band-reflection" style={{ opacity: 0.42 }}>
-                {poolSaturated
-                  ? 'Add more notes to deepen the manuscript.'
-                  : 'The companion is present.'}
+                {depth === 'quiet'
+                  ? 'Quiet — the companion is silent for this reading.'
+                  : poolSaturated
+                    ? 'Add more notes to deepen the manuscript.'
+                    : 'The companion is present.'}
               </p>
             )}
 

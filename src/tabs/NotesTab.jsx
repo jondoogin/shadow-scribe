@@ -10,6 +10,7 @@ import { detectSingularities, noteGravityPersistence } from '../utils/emotionalG
 import { detectMotifs } from '../utils/residueMemory.js'
 import { useSettings } from '../context/SettingsContext.jsx'
 import { generateNoteThreadResponse, generateNoteThreadReply, generateThreadSummary, threadFallback, detectNoteEcho, detectDominantCluster } from '../utils/companionThread.js'
+import { aiEnabled } from '../utils/depthLevel.js'
 import { uid } from '../utils/uid.js'
 import { track } from '../utils/analytics.js'
 
@@ -327,7 +328,9 @@ export default function NotesTab({ book, onUpdateBook }) {
     setNoteExpanded(false)
     setRecentNoteId(note.id)
 
-    // ── Companion thread ──────────────────────────────────────────────────
+    // ── Companion thread — gated by Depth Level ──────────────────────────
+    // Quiet mode: note saves as a record, no companion engagement.
+    if (!aiEnabled(book, settings)) return
     const apiKey   = settings?.anthropicKey
     const minDelay = calcNoteDelay(note.text, note.tag)
     if (thinkingTimerRef.current) clearTimeout(thinkingTimerRef.current)
@@ -427,6 +430,8 @@ export default function NotesTab({ book, onUpdateBook }) {
   const submitThreadReply = (note) => {
     const text = replyText.trim()
     if (!text) return
+    // Quiet mode: persist the user reply but don't fire a companion response.
+    const allowAi    = aiEnabled(book, settings)
     const apiKey     = settings?.anthropicKey
     const userMsg    = { role: 'user', text, date: today() }
     const newThread  = [...(note.thread || []), userMsg]
@@ -435,6 +440,10 @@ export default function NotesTab({ book, onUpdateBook }) {
     onUpdateBook({ notes: bookNotesRef.current.map(n => n.id === note.id ? { ...n, thread: newThread } : n) })
     setReplyText('')
     setReplyNoteId(null)
+
+    // Quiet mode: user reply stays in thread, no companion response fires.
+    if (!allowAi) return
+
     setThinkingNoteId(note.id)
 
     // 2. Generate companion reply

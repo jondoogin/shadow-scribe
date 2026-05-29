@@ -12,6 +12,7 @@ import {
   markReflectionSurfaced,
 } from '../../utils/reflectionEngine.js'
 import { generateSessionReflection } from '../../utils/companionThread.js'
+import { aiEnabled } from '../../utils/depthLevel.js'
 
 // ── Natural language chapter parser ──────────────────────────────────────────
 // Accepts flexible phrasing and returns a chapter number, or null if unparseable.
@@ -256,10 +257,9 @@ export default function ChapterUpdateModal({ book, onClose, onUpdateBook }) {
     setNewCh(n)
 
     // ── Companion session reflection ──────────────────────────────────────
-    // Use real Claude AI when a note is present; falls back to keyword match
-    // if the API call fails. Show keyword fallback instantly so the reader
-    // sees a response with no blank period, then replace with AI when ready.
-    if (sessionNote.trim()) {
+    // Gated by Depth Level. Quiet mode: no companion reply card at all.
+    // Resonant/Saturated: show keyword fallback instantly, upgrade to AI.
+    if (sessionNote.trim() && aiEnabled(book, settings)) {
       const fallback = generateNoteReply(sessionNote)
       setCompanionNoteReply(fallback)
       const apiKey = settings?.anthropicKey
