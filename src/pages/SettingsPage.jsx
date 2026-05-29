@@ -6,6 +6,7 @@ import { useBooks } from '../context/BooksContext.jsx'
 import { useSettings } from '../context/SettingsContext.jsx'
 import { Ico } from '../components/shared/icons.jsx'
 import { parseImport, estimateLocalStorageUsage, downloadLibrarySnapshot } from '../utils/storage.js'
+import SignInPanel from '../components/auth/SignInPanel.jsx'
 import { track } from '../utils/analytics.js'
 
 function SettingsSection({ title, description, children }) {
@@ -136,6 +137,17 @@ export default function SettingsPage() {
       <div className="mb-10">
         <h1 className="font-serif text-2xl font-bold text-ink-900 mb-1">Settings</h1>
         <p className="text-[13px] text-ink-500">Your preferences travel with your companions.</p>
+      </div>
+
+      {/* ── Sync — sign in for cross-device library ── */}
+      <div className="mb-10">
+        <h2
+          className="font-serif uppercase tracking-widest mb-3"
+          style={{ fontSize: 10, color: 'var(--color-ink-400)', letterSpacing: '0.12em' }}
+        >
+          Sync
+        </h2>
+        <SignInPanel />
       </div>
 
       {/* ── Appearance ── */}

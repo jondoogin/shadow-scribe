@@ -1,10 +1,15 @@
-import { createContext, useContext, useState, useCallback, useEffect } from 'react'
+import { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react'
 import { loadBooks, saveBooks, resetBooks, sanitizeBook, checkStorageHealth } from '../utils/storage.js'
+import { useAuth } from './AuthContext.jsx'
+import { syncBooks, pullAndMerge } from '../utils/syncEngine.js'
 
 const BooksContext = createContext(null)
 
 export function BooksProvider({ children }) {
   const [books, setBooks] = useState(loadBooks)
+  const { user, status } = useAuth()
+  const userId = user?.id ?? null
+  const lastSignedInUserId = useRef(null)
 
   // Check storage health once on mount — detects data that was present but unreadable
   // (caused by partial writes, storage truncation, or external corruption).
@@ -19,6 +24,40 @@ export function BooksProvider({ children }) {
     }, 300)
     return () => clearTimeout(t)
   }, [books])
+
+  // ── Cloud sync ────────────────────────────────────────────────────────────
+  // On sign-in: pull cloud books, merge with local using last-write-wins,
+  // adopt the merged result, then push it back. On every books change while
+  // signed in: schedule a debounced push.
+  useEffect(() => {
+    if (status !== 'signed-in' || !userId) return
+    if (lastSignedInUserId.current === userId) return    // only pull on first transition
+    lastSignedInUserId.current = userId
+
+    let cancelled = false
+    ;(async () => {
+      const { books: merged } = await pullAndMerge(userId, books, null)
+      if (cancelled) return
+      if (merged && Array.isArray(merged) && merged.length) {
+        setBooks(merged)
+        syncBooks(userId, merged)
+      } else {
+        syncBooks(userId, books)
+      }
+    })()
+    return () => { cancelled = true }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [status, userId])
+
+  useEffect(() => {
+    if (status === 'signed-out') lastSignedInUserId.current = null
+  }, [status])
+
+  // Push on every books change while signed in (debounced inside the engine)
+  useEffect(() => {
+    if (status === 'signed-in' && userId) syncBooks(userId, books)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [books, status, userId])
 
   const clearStorageWarning = useCallback(() => setStorageWarning(false), [])
 

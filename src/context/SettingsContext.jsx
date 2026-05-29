@@ -1,4 +1,6 @@
-import { createContext, useContext, useState, useEffect } from 'react'
+import { createContext, useContext, useState, useEffect, useRef } from 'react'
+import { useAuth } from './AuthContext.jsx'
+import { syncSettings, pullAndMerge } from '../utils/syncEngine.js'
 
 const SettingsContext = createContext(null)
 
@@ -53,10 +55,50 @@ function loadSettings() {
 
 export function SettingsProvider({ children }) {
   const [settings, setSettings] = useState(loadSettings)
+  const { user, status } = useAuth()
+  const userId = user?.id ?? null
+  const lastSignedInUserId = useRef(null)
 
   useEffect(() => {
     try { localStorage.setItem(KEY, JSON.stringify(settings)) } catch {}
   }, [settings])
+
+  // ── Cloud sync ────────────────────────────────────────────────────────────
+  useEffect(() => {
+    if (status !== 'signed-in' || !userId) return
+    if (lastSignedInUserId.current === userId) return
+    lastSignedInUserId.current = userId
+
+    let cancelled = false
+    ;(async () => {
+      const { settings: cloudSettings } = await pullAndMerge(userId, null, settings)
+      if (cancelled) return
+      if (cloudSettings && typeof cloudSettings === 'object') {
+        // Cloud wins on conflict; preserve device-local fields (deviceId, anthropicKey)
+        // that should remain per-device rather than syncing across.
+        const next = {
+          ...cloudSettings,
+          deviceId:      settings.deviceId,
+          anthropicKey:  settings.anthropicKey,
+        }
+        setSettings(next)
+        syncSettings(userId, next)
+      } else {
+        syncSettings(userId, settings)
+      }
+    })()
+    return () => { cancelled = true }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [status, userId])
+
+  useEffect(() => {
+    if (status === 'signed-out') lastSignedInUserId.current = null
+  }, [status])
+
+  useEffect(() => {
+    if (status === 'signed-in' && userId) syncSettings(userId, settings)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [settings, status, userId])
 
   const updateSetting = (key, value) =>
     setSettings(s => ({ ...s, [key]: value }))

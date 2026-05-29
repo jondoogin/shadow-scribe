@@ -3,6 +3,7 @@ import { useLocation, BrowserRouter, Routes, Route, Navigate, Link } from 'react
 import { BooksProvider, useBooks } from './context/BooksContext.jsx'
 import { SettingsProvider } from './context/SettingsContext.jsx'
 import { useSettings } from './context/SettingsContext.jsx'
+import { AuthProvider } from './context/AuthContext.jsx'
 import TopNav from './components/layout/TopNav.jsx'
 import LibraryPage from './pages/LibraryPage.jsx'
 import BookPage from './pages/BookPage.jsx'
@@ -269,13 +270,15 @@ function AppShell() {
 export default function App() {
   return (
     <BrowserRouter>
-      <SettingsProvider>
-        <BooksProvider>
-          <ErrorBoundary>
-            <AppShell />
-          </ErrorBoundary>
-        </BooksProvider>
-      </SettingsProvider>
+      <AuthProvider>
+        <SettingsProvider>
+          <BooksProvider>
+            <ErrorBoundary>
+              <AppShell />
+            </ErrorBoundary>
+          </BooksProvider>
+        </SettingsProvider>
+      </AuthProvider>
     </BrowserRouter>
   )
 }
