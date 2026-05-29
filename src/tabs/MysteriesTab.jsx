@@ -67,7 +67,7 @@ function generateMysteryResponse(text) {
   return MYSTERY_THREAD_RESPONSES[h % MYSTERY_THREAD_RESPONSES.length]
 }
 
-export default function MysteriesTab({ book, onUpdateBook }) {
+export default function MysteriesTab({ book, onUpdateBook, flashItemId }) {
   // ── Note density by chapter — for companion residue echo ─────────────────
   const notesByChapter = useMemo(() => {
     const map = {}
@@ -336,7 +336,7 @@ export default function MysteriesTab({ book, onUpdateBook }) {
                     : m._veiled
                       ? 'opacity-75'
                       : ''
-                }`}
+                } ${flashItemId != null && flashItemId === m.id ? 'item-glow' : ''}`}
                 style={{
                   background:  m.resolved ? 'var(--color-cream-200)' : 'var(--color-card-base)',
                   opacity:     mysteryOpacity,

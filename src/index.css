@@ -254,18 +254,18 @@ html.dark .companion-band {
   animation: bandBreatheDark 14s ease-in-out infinite;
 }
 
-/* ── Ambient reflection text — generous, editorial ── */
+/* ── Ambient reflection text — quieter beneath the input ── */
 .companion-band-reflection {
   font-family: var(--font-serif);
-  font-size: 19px;
+  font-size: 15px;
   font-weight: 400;
   font-style: italic;
-  line-height: 1.72;
+  line-height: 1.65;
   color: var(--color-text-secondary);
   letter-spacing: -0.008em;
 }
 
-/* ── Textarea input — manuscript feel, no box ── */
+/* ── Textarea input — primary voice, generous scale ── */
 .companion-band-input {
   background: transparent;
   border: none;
@@ -273,7 +273,7 @@ html.dark .companion-band {
   border-radius: 0;
   color: var(--color-text-primary);
   font-family: var(--font-serif);
-  font-size: 15px;
+  font-size: 19px;
   font-style: italic;
   line-height: 1.6;
   width: 100%;
@@ -400,6 +400,37 @@ html.dark .companion-band--thinking {
   animation: tabFlash 1.4s cubic-bezier(.2,.9,.2,1) !important;
   color: var(--color-accent) !important;
   border-bottom-color: var(--color-accent) !important;
+}
+
+/* ── EPUB loading overlay — phrase reveal animation ── */
+@keyframes phraseReveal {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.phrase-reveal {
+  animation: phraseReveal 1.1s cubic-bezier(.16,1,.3,1) both;
+}
+
+/* ── Epub loading spark ── */
+@keyframes sparkPulse {
+  0%, 100% { opacity: 0.35; transform: scale(1); }
+  50%       { opacity: 1;    transform: scale(1.25); }
+}
+.epub-spark {
+  animation: sparkPulse 2.8s ease-in-out infinite;
+  display: block;
+}
+
+/* ── Item glow — card-level confirmation when navigated from companion ── */
+@keyframes itemGlow {
+  0%   { box-shadow: 0 0 0   0   rgba(200,138,26,0);    border-color: transparent; }
+  12%  { box-shadow: 0 0 28px 6px rgba(200,138,26,.28);  border-color: rgba(200,138,26,.38); }
+  40%  { box-shadow: 0 0 22px 4px rgba(200,138,26,.20);  border-color: rgba(200,138,26,.28); }
+  100% { box-shadow: 0 0 0   0   rgba(200,138,26,0);    border-color: transparent; }
+}
+.item-glow {
+  animation: itemGlow 4s cubic-bezier(.16,1,.3,1) !important;
+  border-color: rgba(200,138,26,.38) !important;
 }
 
 /* ── Editorial filter links — nearly silent until activated ── */
@@ -1027,8 +1058,8 @@ html.dark .tag-quote    { background: rgba(200,112,32,0.12); color: var(--ca, #c
 
   /* CompanionBand — more intimate on mobile */
   .companion-band { border-radius: 16px; }
-  .companion-band-reflection { font-size: 17px; line-height: 1.68; }
-  .companion-band-input { font-size: 15px; }
+  .companion-band-reflection { font-size: 13px; line-height: 1.60; }
+  .companion-band-input { font-size: 17px; }
 
   /* Book header — tighter vertical rhythm on mobile */
   .book-header-inner { padding-top: 16px !important; padding-bottom: 16px !important; }

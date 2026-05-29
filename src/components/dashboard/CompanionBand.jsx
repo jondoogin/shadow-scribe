@@ -449,7 +449,7 @@ export default function CompanionBand({ book, onUpdateBook, onTabChange }) {
                         <button
                           key={m.id ?? i}
                           className="companion-band-context-card w-full text-left"
-                          onClick={() => onTabChange?.('questions')}
+                          onClick={() => onTabChange?.('questions', m.id ?? i)}
                           title="Open in Questions tab"
                         >
                           <div className="flex items-start gap-2">
@@ -497,7 +497,7 @@ export default function CompanionBand({ book, onUpdateBook, onTabChange }) {
                     {surfacedCharacters.map((c, i) => (
                       <button
                         key={c.id ?? i}
-                        onClick={() => onTabChange?.('characters')}
+                        onClick={() => onTabChange?.('characters', c.id ?? i)}
                         title="Open in Characters tab"
                         style={{
                           fontFamily: 'var(--font-serif)',
@@ -558,7 +558,7 @@ export default function CompanionBand({ book, onUpdateBook, onTabChange }) {
                         return (
                           <button
                             key={m.id ?? i}
-                            onClick={() => onTabChange?.('questions')}
+                            onClick={() => onTabChange?.('questions', m.id ?? i)}
                             className="text-left flex items-start gap-1.5 w-full min-w-0"
                           >
                             <span style={{
@@ -605,7 +605,7 @@ export default function CompanionBand({ book, onUpdateBook, onTabChange }) {
                       {surfacedCharacters.map((c, i) => (
                         <button
                           key={c.id ?? i}
-                          onClick={() => onTabChange?.('characters')}
+                          onClick={() => onTabChange?.('characters', c.id ?? i)}
                           style={{
                             fontFamily: 'var(--font-serif)',
                             fontSize: 10,

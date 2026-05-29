@@ -197,7 +197,7 @@ function charRelationalLine(ch, notes) {
 
 // ── Character card ─────────────────────────────────────────────────────────
 
-function CharCard({ ch, raw, veiled, book, visibleChars, onSave, onUpdateBook, onDelete }) {
+function CharCard({ ch, raw, veiled, flash, book, visibleChars, onSave, onUpdateBook, onDelete }) {
   const [open,          setOpen]          = useState(false)
   const [editing,       setEditing]       = useState(false)
   const [confirming,    setConfirming]    = useState(false)
@@ -306,7 +306,7 @@ function CharCard({ ch, raw, veiled, book, visibleChars, onSave, onUpdateBook, o
   const inputCls    = 'w-full border border-ink-200 rounded-lg px-2.5 py-1.5 text-sm text-ink-800 bg-white'
 
   return (
-    <div className={`note-card overflow-hidden ${veiled ? 'opacity-70' : ''}`}>
+    <div className={`note-card overflow-hidden ${veiled ? 'opacity-70' : ''} ${flash ? 'item-glow' : ''}`}>
       <button
         className="w-full text-left p-4 flex items-center gap-3"
         onClick={() => {
@@ -593,7 +593,7 @@ function CharCard({ ch, raw, veiled, book, visibleChars, onSave, onUpdateBook, o
 
 // ── Main tab ──────────────────────────────────────────────────────────────
 
-export default function CharactersTab({ book, onUpdateBook }) {
+export default function CharactersTab({ book, onUpdateBook, flashItemId }) {
   const { settings } = useSettings()
   const mode         = getEffectiveMode(book, settings)
   const [adding, setAdding] = useState(false)
@@ -657,6 +657,7 @@ export default function CharactersTab({ book, onUpdateBook }) {
     const raw = rawFound ? { ...rawFound, _tier: charType } : rawFound
     return (
       <CharCard key={ch.id} ch={ch} raw={raw} veiled={ch._veiled}
+        flash={flashItemId != null && flashItemId === ch.id}
         book={book}
         visibleChars={visibleChars}
         onSave={updated => saveChar(charType, updated)}
@@ -725,7 +726,7 @@ export default function CharactersTab({ book, onUpdateBook }) {
             </div>
           )}
 
-          <RelationshipMap book={book} />
+          {/* <RelationshipMap book={book} /> */}{/* disabled — needs rework */}
 
           {anyVeiled && mode !== 'full' && (
             <p className="text-[11px] text-ink-400 text-center italic">

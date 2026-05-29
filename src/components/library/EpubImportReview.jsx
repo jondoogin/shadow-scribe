@@ -113,6 +113,7 @@ export default function EpubImportReview({ importData, duplicateWarning, onCreat
   const [coverErr, setCoverErr] = useState(false)
   const [extracting, setExtracting] = useState(false)
   const [extractPhrase, setExtractPhrase] = useState(EXTRACTION_PHRASES[0])
+  const [phraseKey, setPhraseKey] = useState(0)
   const phraseRef = useRef(0)
 
   const [form, setForm] = useState({
@@ -142,7 +143,8 @@ export default function EpubImportReview({ importData, duplicateWarning, onCreat
     const timer = setInterval(() => {
       phraseRef.current = (phraseRef.current + 1) % phrases.length
       setExtractPhrase(phrases[phraseRef.current])
-    }, 1400)
+      setPhraseKey(k => k + 1)
+    }, 3500)
     return () => clearInterval(timer)
   }, [extracting, settings.anthropicKey])
 
@@ -229,10 +231,38 @@ export default function EpubImportReview({ importData, duplicateWarning, onCreat
     <>
       {/* ── Extraction loading overlay ── */}
       {extracting && (
-        <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-cream-50/95 backdrop-blur-sm animate-fade-in">
-          <div className="text-center max-w-xs px-6">
-            <p className="font-serif text-ink-800 text-[17px] mb-2 leading-snug">{extractPhrase}</p>
-            <p className="text-ink-400 text-[13px] italic">Preparing your companion…</p>
+        <div
+          className="fixed inset-0 z-50 flex flex-col items-center justify-center animate-fade-in"
+          style={{ background: 'var(--color-bg)' }}
+        >
+          {/* Atmospheric glow */}
+          <div style={{
+            position: 'absolute', inset: 0, pointerEvents: 'none',
+            background: [
+              'radial-gradient(ellipse 70% 50% at 50% 38%, color-mix(in srgb, var(--color-accent) 9%, transparent) 0%, transparent 65%)',
+              'radial-gradient(ellipse 40% 30% at 70% 65%, color-mix(in srgb, var(--color-accent) 4%, transparent) 0%, transparent 60%)',
+            ].join(', '),
+          }} />
+          {/* Content */}
+          <div className="text-center relative" style={{ maxWidth: 320, padding: '0 32px' }}>
+            <span
+              className="epub-spark"
+              style={{ fontSize: 18, color: 'var(--color-accent)', marginBottom: 28 }}
+            >✦</span>
+            <div key={phraseKey} className="phrase-reveal">
+              <p
+                className="font-serif leading-relaxed"
+                style={{ fontSize: 17, color: 'var(--color-text-secondary)', marginBottom: 0 }}
+              >
+                {extractPhrase}
+              </p>
+            </div>
+            <p
+              className="font-serif italic"
+              style={{ fontSize: 12, color: 'var(--color-text-dim)', opacity: 0.5, marginTop: 18 }}
+            >
+              Preparing your companion…
+            </p>
           </div>
         </div>
       )}

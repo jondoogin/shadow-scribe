@@ -159,16 +159,16 @@ function VoiceCard({ quote, name, role, delay = 0 }) {
 // ── Exhibit: live-looking companion demo ──────────────────────────────────────
 function Exhibit() {
   const [typed, setTyped] = useState(false)
-  const fullText = 'Why does Woland keep choosing the buffoons? He could have anyone.'
-  const typedText = useTyping(fullText, typed, 32)
+  const fullText = 'Rocky keeps saying "I not understand" when I describe music. Is that confusion — or sadness?'
+  const typedText = useTyping(fullText, typed, 28)
   const fullyTyped = typedText.length >= fullText.length
 
   const characters = [
-    { name: 'Woland' },
-    { name: 'The Master' },
-    { name: 'Margarita' },
-    { name: 'Behemoth' },
-    { name: 'Pilate' },
+    { name: 'Rocky' },
+    { name: 'Ryland Grace' },
+    { name: 'Stratt' },
+    { name: 'Yáo' },
+    { name: 'Ilyukhina' },
   ]
 
   return (
@@ -186,16 +186,16 @@ function Exhibit() {
               </span>
             </div>
             <div style={{ fontFamily: 'var(--font-serif)', fontSize: 17, lineHeight: 1.2, color: 'var(--color-text-primary)', marginBottom: 3 }}>
-              The Master and Margarita
+              Project Hail Mary
             </div>
             <div style={{ fontFamily: 'var(--font-serif)', fontStyle: 'italic', fontSize: 12, color: 'var(--color-text-secondary)', marginBottom: 10 }}>
-              Mikhail Bulgakov
+              Andy Weir
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <div style={{ height: 2, width: 100, background: 'var(--color-separator)', borderRadius: 2, overflow: 'hidden', flexShrink: 0 }}>
-                <div style={{ width: '59%', height: '100%', background: 'var(--lantern-gradient)', borderRadius: 2 }} />
+                <div style={{ width: '44%', height: '100%', background: 'var(--lantern-gradient)', borderRadius: 2 }} />
               </div>
-              <span style={{ fontSize: 10, color: 'var(--color-text-dim)', fontFamily: 'var(--font-sans)', whiteSpace: 'nowrap' }}>Ch. 19 · 54 days · 59%</span>
+              <span style={{ fontSize: 10, color: 'var(--color-text-dim)', fontFamily: 'var(--font-sans)', whiteSpace: 'nowrap' }}>Ch. 14 · 22 days · 44%</span>
             </div>
           </div>
         </div>
@@ -214,7 +214,7 @@ function Exhibit() {
               Companion · still here
             </div>
             <p style={{ fontFamily: 'var(--font-serif)', fontStyle: 'italic', fontSize: 12, lineHeight: 1.65, color: 'var(--color-text-secondary)', margin: 0 }}>
-              You've been here fifty-four days. The questions aren't getting smaller — but you keep returning. That matters more than you think.
+              Twenty-two days in, and you've barely thought about the mission. You keep reading for Rocky.
             </p>
           </div>
         </div>
@@ -248,8 +248,8 @@ function Exhibit() {
         </p>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
           {[
-            { text: 'Is Woland the devil — or a metaphor for Soviet repression?', haunted: true },
-            { text: 'What happened to the manuscript before it was burned?', haunted: false },
+            { text: 'Does Rocky have any concept of loneliness, or is that entirely a human problem?', haunted: true },
+            { text: 'Grace volunteered — or was chosen? The memory gaps feel deliberate.', haunted: false },
           ].map((q, i) => (
             <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 7 }}>
               <span style={{ fontSize: 7, color: q.haunted ? 'var(--color-accent)' : 'var(--color-text-dim)', opacity: q.haunted ? 0.85 : 0.35, marginTop: 3, flexShrink: 0 }}>✦</span>
@@ -267,10 +267,10 @@ function Exhibit() {
           <div style={{ width: 2, flexShrink: 0, alignSelf: 'stretch', background: 'var(--color-separator)', borderRadius: 1 }} />
           <div>
             <p style={{ fontFamily: 'var(--font-sans)', fontSize: 9, fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--color-text-dim)', opacity: 0.5, marginBottom: 4 }}>
-              Note · ch. 12 · theory
+              Note · ch. 9 · reaction
             </p>
             <p style={{ fontFamily: 'var(--font-serif)', fontStyle: 'italic', fontSize: 12, lineHeight: 1.55, color: 'var(--color-text-secondary)', margin: 0 }}>
-              "The Yeshua chapters feel like a different book entirely — lighter, as if written in a different century."
+              "The first time Rocky says 'friend' — I had to put the book down."
             </p>
           </div>
         </div>
@@ -293,11 +293,11 @@ function Exhibit() {
               </span>
           }
         </div>
-        {typed && typedText.length >= 30 && (
+        {typed && typedText.length >= 40 && (
           <div className="lp-companion-response">
             <span style={{ fontSize: 8, color: 'var(--color-accent)', marginRight: 8, opacity: 0.7 }}>✦</span>
             <span style={{ fontFamily: 'var(--font-serif)', fontStyle: 'italic', fontSize: 12, lineHeight: 1.6, color: 'var(--color-text-secondary)' }}>
-              The buffoons are the ones who reveal the truth without meaning to. Woland doesn't need loyal servants — he needs mirrors.
+              Rocky's language doesn't have a word for music because his world has never needed one. Your noticing that gap — that's the translation happening.
             </span>
           </div>
         )}
@@ -728,7 +728,7 @@ export default function AboutPage() {
 
             <div className="lp-reveal" style={{ transitionDelay: '300ms' }}>
               <button className="lp-hero-cta" onClick={() => navigate('/library')}>
-                Open the room ✦
+                Enter your library ✦
               </button>
             </div>
           </div>
@@ -813,14 +813,14 @@ export default function AboutPage() {
               <div className="lp-exhibit-copy lp-reveal">
                 <SLabel>An exhibit</SLabel>
                 <h2>
-                  Fifty-four days<br />
+                  Twenty-two days<br />
                   with one book.<br />
                   <em>The room has been keeping watch.</em>
                 </h2>
                 <p>
-                  A reader in Edinburgh has been with <em>The Master and Margarita</em> since late March.
-                  The questions she's been carrying — they're not getting smaller.
-                  Lantern has been holding them where she put them.
+                  A reader has been with <em>Project Hail Mary</em> for three weeks.
+                  They're not reading for the plot anymore — they're reading for Rocky.
+                  Lantern has been holding that thread where they left it.
                 </p>
                 <p>
                   The companion is not a chatbot. It is a presence — a way the room itself notices things,
@@ -856,9 +856,9 @@ export default function AboutPage() {
 
             <div className="lp-residue-grid lp-reveal" style={{ transitionDelay: '120ms' }}>
               <ResidueCard
-                when="held · 41 days"
-                thought="Is Woland the devil — or a metaphor for Soviet repression?"
-                from="The Master and Margarita · ch. 19"
+                when="held · 22 days"
+                thought="Does Rocky have any concept of loneliness, or is that entirely a human problem?"
+                from="Project Hail Mary · ch. 14"
                 gold
               />
               <ResidueCard
@@ -868,8 +868,8 @@ export default function AboutPage() {
               />
               <ResidueCard
                 when="drifting · 19 days"
-                thought="The woman without a shadow at the theatre — never returned to."
-                from="The Master and Margarita · ch. 12"
+                thought="Grace volunteered — or was chosen? The memory gaps feel deliberate."
+                from="Project Hail Mary · ch. 5"
               />
               <ResidueCard
                 when="held · 6 days"
@@ -884,8 +884,8 @@ export default function AboutPage() {
               />
               <ResidueCard
                 when="drifting · 33 days"
-                thought="Why does Pilate's headache return whenever the moon does?"
-                from="The Master and Margarita · ch. 26"
+                thought="The science feels real, but the friendship is what I keep coming back to."
+                from="Project Hail Mary · ch. 11"
               />
             </div>
 
@@ -1018,7 +1018,7 @@ export default function AboutPage() {
               </h2>
               <div className="lp-reveal" style={{ transitionDelay: '100ms' }}>
                 <button className="lp-hero-cta" onClick={() => navigate('/library')}>
-                  Open the room ↘
+                  Enter your library →
                 </button>
               </div>
               <p className="lp-reveal lp-below" style={{ transitionDelay: '200ms' }}>

@@ -134,7 +134,7 @@ export default function BookCard({ book, onClick, hero = false, primary = false,
 
         {/* Cover */}
         <div
-          className="flex-shrink-0"
+          className="flex-shrink-0 self-start"
           style={{
             boxShadow: coverShadow,
             borderRadius: 8,

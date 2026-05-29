@@ -28,6 +28,7 @@ export default function BookDashboard({ bookId }) {
 
   const [tab,           setTab]          = useState('notes')
   const [tabFlash,      setTabFlash]     = useState(null)
+  const [flashItemId,   setFlashItemId]  = useState(null)
   const [showUpdate,    setShowUpdate]   = useState(false)
   const [headerVisible, setHeaderVisible] = useState(true)
   const tabRefs   = useRef({})
@@ -45,13 +46,15 @@ export default function BookDashboard({ bookId }) {
     return () => io.disconnect()
   }, [])
 
-  const handleTabChange = (tabId) => {
+  const handleTabChange = (tabId, itemId) => {
     setTab(tabId)
     setTabFlash(tabId)
+    setFlashItemId(itemId ?? null)
     setTimeout(() => {
       tabRefs.current[tabId]?.scrollIntoView({ behavior: 'smooth', inline: 'nearest', block: 'nearest' })
     }, 20)
     setTimeout(() => setTabFlash(null), 1400)
+    setTimeout(() => setFlashItemId(null), 4200)
   }
 
   // Dynamic document title
@@ -113,9 +116,9 @@ export default function BookDashboard({ bookId }) {
       >
         <div key={tab} className="animate-tab-in min-w-0">
           {tab === 'notes'      && <NotesTab      book={book} onUpdateBook={onUpdateBook} />}
-          {tab === 'characters' && <CharactersTab book={book} onUpdateBook={onUpdateBook} />}
+          {tab === 'characters' && <CharactersTab book={book} onUpdateBook={onUpdateBook} flashItemId={flashItemId} />}
           {tab === 'plot'       && <PlotTab       book={book} onUpdateBook={onUpdateBook} />}
-          {tab === 'questions'  && <MysteriesTab  book={book} onUpdateBook={onUpdateBook} />}
+          {tab === 'questions'  && <MysteriesTab  book={book} onUpdateBook={onUpdateBook} flashItemId={flashItemId} />}
           {tab === 'themes'     && <DiscussionTab book={book} onUpdateBook={onUpdateBook} />}
         </div>
       </div>
