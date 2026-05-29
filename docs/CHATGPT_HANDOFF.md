@@ -1,5 +1,5 @@
 # Lantern — Handoff Document
-**Last updated:** 2026-05-28 · Session 128 (About page, import screen, scroll, Continue button, shared API proxy)
+**Last updated:** 2026-05-28 · Session 129 (item glow, cover heights, About page refresh, input prominence, EPUB atmosphere)
 **Stack:** React 19 · Vite 8 · Tailwind CSS v4 · React Router v7 · localStorage + Vercel Serverless Functions (`/api/companion` — live)
 **localStorage keys (FROZEN):** `shadowscribe_books` · `shadowscribe_settings` · `lantern_welcomed` — must NEVER be renamed
 **Build command:** `node node_modules/vite/bin/vite.js build`
@@ -12,6 +12,71 @@
 A **living literary companion**. Not a reading tracker. Not a productivity tool. Not an AI chatbot. A personal, atmospheric space built around a companion that sits with the reader — surfacing thoughts, asking questions, and quietly building a record of the reading experience as it unfolds.
 
 The companion is the star. Book data — characters, questions, themes, plot notes — is what the companion accumulates over time. The interface is built around access to the companion first; structured data second. The companion's accumulated record becomes the texture of the reading experience.
+
+---
+
+## SESSION 129 — 2026-05-28 — Item glow, cover heights, About page refresh, input prominence, EPUB atmosphere
+
+### What shipped
+
+**1. Book cover thumbnail heights fixed (`src/components/library/BookCard.jsx`)**
+- Cover wrapper div changed from `flex-shrink-0` → `flex-shrink-0 self-start`.
+- Previously: wrapper was a direct flex child with default `align-items: stretch`, causing the boxShadow+borderRadius rectangle to grow to the card's full height.
+- Fix: `self-start` (= `align-self: flex-start`) keeps wrapper tightly hugging the BookCover content.
+
+**2. About page CTA text (`src/pages/AboutPage.jsx`)**
+- "Open the room ✦" → "Enter your library ✦"
+- "Open the room ↘" → "Enter your library →"
+
+**3. About page Exhibit → Project Hail Mary (`src/pages/AboutPage.jsx`)**
+- Book: "Project Hail Mary" by Andy Weir, Ch. 14 · 22 days · 44%
+- Characters: Rocky, Ryland Grace, Stratt, Yáo, Ilyukhina
+- Companion observation: "Twenty-two days in, and you've barely thought about the mission. You keep reading for Rocky."
+- Open questions: "Does Rocky have any concept of loneliness…" (haunted), "Grace volunteered — or was chosen?…"
+- Note snippet: ch. 9 · reaction — "The first time Rocky says 'friend' — I had to put the book down."
+- Typing input: "Rocky keeps saying 'I not understand' when I describe music. Is that confusion — or sadness?"
+- Companion response: "Rocky's language doesn't have a word for music because his world has never needed one. Your noticing that gap — that's the translation happening."
+- Exhibit copy section updated; Section 5 ResidueCards updated (3 M&M refs → Project Hail Mary refs)
+
+**4. Companion input font prominence (`src/index.css`)**
+- `.companion-band-input`: 15px → **19px** (primary voice, deserves the scale)
+- `.companion-band-reflection`: 19px → **15px** (quieter, observational)
+- Mobile overrides updated to match: input 17px, reflection 13px
+
+**5. Item glow system (`src/components/dashboard/CompanionBand.jsx`, `BookDashboard.jsx`, `CharactersTab.jsx`, `MysteriesTab.jsx`, `src/index.css`)**
+- When companion links to a character or question, the ITEM now glows (not the tab button).
+- `onTabChange(tabId, itemId)` — CompanionBand passes item ID as second arg (both desktop and mobile strip versions).
+- `BookDashboard` stores `flashItemId` state with 4.2s timeout (was 1.4s). Both tab flash and item flash fire simultaneously.
+- `CharactersTab` accepts `flashItemId` prop; `CharCard` accepts `flash` boolean; root div gets `item-glow` class.
+- `MysteriesTab` accepts `flashItemId` prop; mystery card div gets `item-glow` class.
+- `@keyframes itemGlow`: 4s warm amber glow on `box-shadow` + `border-color`. Fades slowly in/out.
+- `.item-glow` class applies `itemGlow 4s cubic-bezier(.16,1,.3,1)`.
+
+**6. Relationship Dynamics disabled (`src/tabs/CharactersTab.jsx`)**
+- `<RelationshipMap book={book} />` commented out (tagged: `/* disabled — needs rework */`)
+- Import still present; RelationshipMap.jsx untouched.
+
+**7. EPUB loading overlay atmospheric redesign (`src/components/library/EpubImportReview.jsx`, `src/index.css`)**
+- Phrase interval: 1400ms → **3500ms** (slower, more contemplative)
+- `phraseKey` state: increments each phrase change, keys the reveal div → React re-mounts → fade animation re-triggers
+- Overlay background: `bg-cream-50/95 backdrop-blur-sm` → solid `var(--color-bg)` (no backdrop-filter)
+- Atmospheric glow: two radial-gradient layers behind the content
+- Pulsing ✦ spark: `epub-spark` CSS class (`sparkPulse` keyframe, 2.8s)
+- Phrase reveal: `phrase-reveal` CSS class (`phraseReveal` keyframe: fade+rise, 1.1s)
+- "Preparing your companion…" stays constant below phrase
+
+### Files changed
+- `src/components/library/BookCard.jsx` — self-start on cover wrapper
+- `src/components/library/EpubImportReview.jsx` — phraseKey state, 3500ms interval, atmospheric overlay
+- `src/components/dashboard/CompanionBand.jsx` — onTabChange passes itemId (4 call sites)
+- `src/components/dashboard/BookDashboard.jsx` — flashItemId state + 4.2s timeout, passed to tabs
+- `src/tabs/CharactersTab.jsx` — flashItemId prop, flash prop on CharCard, item-glow class; RelationshipMap disabled
+- `src/tabs/MysteriesTab.jsx` — flashItemId prop, item-glow class on mystery cards
+- `src/pages/AboutPage.jsx` — CTA text, Exhibit → Project Hail Mary, ResidueCards updated
+- `src/index.css` — input/reflection font swap, phraseReveal+sparkPulse keyframes, itemGlow keyframe
+
+### Build
+clean ✓ | No localStorage key changes | No schema changes | Commit `8ca392e`
 
 ---
 
