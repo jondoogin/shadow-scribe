@@ -1,9 +1,66 @@
 # Lantern — Handoff Document
-**Last updated:** 2026-05-28 · Session 129 audit (real companion AI, Timeline tab, Settings dark mode, dead UI removal)
+**Last updated:** 2026-05-29 · Session 130 (threaded notes, persistence, snapshot reminder, list relationships, first-book invitation)
 **Stack:** React 19 · Vite 8 · Tailwind CSS v4 · React Router v7 · localStorage + Vercel Serverless Functions (`/api/companion` — live)
 **localStorage keys (FROZEN):** `shadowscribe_books` · `shadowscribe_settings` · `lantern_welcomed` — must NEVER be renamed
 **Build command:** `node node_modules/vite/bin/vite.js build`
 **Status: V2 COMPANION-FIRST REDESIGN — Phase 1 + Atmospheric pass + Playground translation complete, Phase 2–5 pending**
+
+---
+
+## SESSION 130 — 2026-05-29 — Threaded notes, persistence, snapshot reminder, list relationships, first-book invitation
+
+### What shipped
+
+**1. Threaded note conversations (`src/tabs/NotesTab.jsx`, `src/utils/companionThread.js`)**
+- Note threads now persist to `note.thread[]` in localStorage (initial companion reply was previously ephemeral).
+- User can reply inline to companion's note response — replies appear threaded below.
+- `generateNoteThreadReply()` — multi-turn back-and-forth, full thread sent as message history.
+- `generateThreadSummary()` — one-sentence summary when the reader "settles" the thread.
+- Compaction: after ≥ 2 exchanges (4 thread messages), "settle thread →" button generates summary and collapses to a residue line.
+- Expand/re-collapse toggles for settled threads.
+- `bookNotesRef` keeps async AI callbacks in sync with latest note state across multi-step updates.
+- Schema additions (additive): `note.thread`, `note.threadSummary`, `note.threadCollapsed`.
+
+**2. Companion band chat persistence (`src/components/dashboard/CompanionBand.jsx`, `BookDashboard.jsx`)**
+- Conversation now persisted to `book.companionChat[]` (rolling window of 20 messages).
+- Survives page reloads — was previously ephemeral.
+- `<CompanionBand key={book.id} ...>` in BookDashboard so it remounts cleanly when switching books.
+
+**3. Snapshot reminder banner (`src/components/library/Library.jsx`, `src/utils/storage.js`)**
+- Quiet nudge surfaces on Library when meaningful content has accumulated since last export.
+- Trigger logic: never exported AND totalNotes ≥ 8, OR (totalNotes − lastExportedNoteCount) ≥ 10.
+- Suppressed for 7 days after "later" dismissal.
+- `downloadLibrarySnapshot()` extracted to shared util — Settings and Library use one path.
+- Settings additions: `lastExportedNoteCount`, `snapshotReminderDismissedAt`.
+
+**4. ChapterUpdateModal session reply → real Claude AI (`src/components/modals/ChapterUpdateModal.jsx`, `companionThread.js`)**
+- Reader's session note ("How did it feel?") now gets an AI response via `generateSessionReflection()`.
+- Was previously keyword-matched (~7 canned phrases).
+- Context: recent notes, open mysteries, emotional cluster, session metadata (chapters read, % complete).
+- Keyword fallback shown instantly so reader never sees blank, then upgraded to AI when ready.
+
+**5. RelationshipMap → list view (`src/components/dashboard/RelationshipMap.jsx`)**
+- Replaced cramped SVG network graph with a typographic list of `A ↔ B — label · type` pairs.
+- Sorted: non-veiled first, then by type (love → ally → tension → hierarchy).
+- Small color stripe per type — accent, never dominant.
+- Re-enabled in `CharactersTab` (was disabled since Session 129).
+
+**6. First-book invitation modal (`src/components/library/FirstBookInvitation.jsx`)**
+- After welcome dismissal, calm modal surfaces for users who haven't yet added their own book.
+- Detected via book ID prefix (`book_*` = user-created, short ids = demo seeds).
+- "Add your first book →" navigates to /new. "Just explore for now" dismisses for 7 days.
+- Suppressed permanently once any user-created book exists.
+- Settings addition: `firstBookInvitationDismissedAt`.
+
+**7. Dead file cleanup**
+- Deleted: `CompanionPanel.jsx`, `CompanionInsights.jsx`, `PresenceStrip.jsx`, `DirectionsDemoPage.jsx`.
+- None were imported anywhere. ~4,300 lines removed.
+
+**8. Copy: "New Companion" → "Add a book" (`TopNav.jsx`, `WelcomeBanner` copy in `Library.jsx`)**
+- Old label was opaque to new users with no product vocabulary.
+
+### Build
+clean ✓ | 86 modules | dev server on port 5220 | Commits `e96c9d7`, `e67074a`, `8d8537f`
 
 ---
 
