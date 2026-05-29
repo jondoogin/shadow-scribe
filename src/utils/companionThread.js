@@ -340,6 +340,124 @@ Do not introduce yourself. Do not ask questions. Just the response — nothing e
   return text
 }
 
+// ── Note thread reply ─────────────────────────────────────────────────────────
+
+/**
+ * Continue a multi-turn thread on a specific note.
+ *
+ * Called after the reader replies to the companion's initial note response.
+ * The thread array already contains the reader's latest message as the last entry.
+ *
+ * @param {Array}  thread   Full thread [{ role:'companion'|'user', text, date }]
+ * @param {Object} note     The note being discussed { text, tag, chapter }
+ * @param {Object} book     The full book object
+ * @param {string} apiKey   Anthropic API key (empty = use proxy)
+ * @returns {Promise<string>} Companion's next response
+ */
+export async function generateNoteThreadReply(thread, note, book, apiKey) {
+  const bookTitle  = `"${book.title}"${book.author ? ` by ${book.author}` : ''}`
+  const chapterCtx = note.chapter ? ` The reader is at chapter ${note.chapter}.` : ''
+
+  const systemPrompt = `You are a literary companion continuing a conversation with a reader about their annotation of ${bookTitle}.${chapterCtx}
+
+The note being discussed: "${note.text}"
+
+You are in a direct back-and-forth with the reader about this specific thought. Rules:
+- Respond only to what the reader just said — do not re-summarize the whole thread
+- Never use "I" — write in third person or impersonally
+- No affirmations ("Great!", "Interesting!", "That's a good point")
+- Be specific to this book — not generic literary commentary
+- One sentence; two at most if the question genuinely requires it
+- Do not ask follow-up questions unless the reader's message is a direct question requiring one`
+
+  const messages = thread.map(t => ({
+    role:    t.role === 'companion' ? 'assistant' : 'user',
+    content: t.text,
+  }))
+
+  const controller = new AbortController()
+  const timer      = setTimeout(() => controller.abort(), 14_000)
+
+  const { url, headers, bodyStr } = buildAiCall(apiKey, {
+    model:      PROVIDER_CONFIG.model,
+    max_tokens: 120,
+    system:     systemPrompt,
+    messages,
+  })
+
+  let response
+  try {
+    response = await fetch(url, { signal: controller.signal, method: 'POST', headers, body: bodyStr })
+  } finally {
+    clearTimeout(timer)
+  }
+
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}))
+    throw new Error(err.error?.message || `API error ${response.status}`)
+  }
+
+  const data2 = await response.json()
+  const text2 = (data2.content?.[0]?.text ?? '').trim()
+  if (!text2) throw new Error('Empty response')
+  return text2
+}
+
+// ── Thread summary (for settling / compacting) ────────────────────────────────
+
+/**
+ * Generate a one-sentence summary of what a note thread illuminated.
+ * Used when the reader "settles" a thread to compress it into a residue line.
+ *
+ * @param {Array}  thread   Full thread [{ role:'companion'|'user', text, date }]
+ * @param {Object} note     The note at the root of the thread
+ * @param {Object} book     The full book object
+ * @param {string} apiKey   Anthropic API key
+ * @returns {Promise<string>} One-sentence summary from the companion's perspective
+ */
+export async function generateThreadSummary(thread, note, book, apiKey) {
+  const bookTitle = `"${book.title}"${book.author ? ` by ${book.author}` : ''}`
+
+  const threadLines = thread
+    .map(t => `${t.role === 'companion' ? 'Companion' : 'Reader'}: ${t.text}`)
+    .join('\n')
+
+  const prompt = `A reader has been discussing an annotation they made while reading ${bookTitle}.
+
+Original note: "${note.text}"
+
+Conversation:
+${threadLines}
+
+Write one sentence summarizing what this exchange illuminated — what the discussion revealed or where it landed. Write from the companion's perspective. Do not begin with "I". Be specific to this book and this note. No quotation marks. Just the sentence.`
+
+  const controller = new AbortController()
+  const timer      = setTimeout(() => controller.abort(), 14_000)
+
+  const { url, headers, bodyStr } = buildAiCall(apiKey, {
+    model:      PROVIDER_CONFIG.model,
+    max_tokens: 80,
+    messages:   [{ role: 'user', content: prompt }],
+  })
+
+  let response
+  try {
+    response = await fetch(url, { signal: controller.signal, method: 'POST', headers, body: bodyStr })
+  } finally {
+    clearTimeout(timer)
+  }
+
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}))
+    throw new Error(err.error?.message || `API error ${response.status}`)
+  }
+
+  const data3 = await response.json()
+  const text3 = (data3.content?.[0]?.text ?? '').trim()
+  if (!text3) throw new Error('Empty response')
+  return text3
+}
+
 // ── Companion band direct chat ────────────────────────────────────────────────
 
 /**

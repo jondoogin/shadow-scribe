@@ -9,7 +9,7 @@ import { noteAgeOpacity, notePatinaBorder } from '../utils/literaryPatina.js'
 import { detectSingularities, noteGravityPersistence } from '../utils/emotionalGravity.js'
 import { detectMotifs } from '../utils/residueMemory.js'
 import { useSettings } from '../context/SettingsContext.jsx'
-import { generateNoteThreadResponse, threadFallback, detectNoteEcho, detectDominantCluster } from '../utils/companionThread.js'
+import { generateNoteThreadResponse, generateNoteThreadReply, generateThreadSummary, threadFallback, detectNoteEcho, detectDominantCluster } from '../utils/companionThread.js'
 import { uid } from '../utils/uid.js'
 import { track } from '../utils/analytics.js'
 
@@ -179,10 +179,16 @@ export default function NotesTab({ book, onUpdateBook }) {
   const textareaRef = useRef()
 
   // ── Companion thread state ────────────────────────────────────────────────
-  const [thinkingNoteId, setThinkingNoteId] = useState(null)
-  const [noteReplies,    setNoteReplies]    = useState({})
-  const [noteEchoes,     setNoteEchoes]     = useState({})
+  const [thinkingNoteId,  setThinkingNoteId]  = useState(null)
+  const [noteEchoes,      setNoteEchoes]      = useState({})
+  const [replyNoteId,     setReplyNoteId]     = useState(null)   // which note has reply input open
+  const [replyText,       setReplyText]       = useState('')
+  const [compactingNoteId, setCompactingNoteId] = useState(null) // settling in progress
   const thinkingTimerRef = useRef(null)
+
+  // ── Ref to current notes — needed for async AI callbacks ─────────────────
+  const bookNotesRef = useRef(book.notes)
+  useEffect(() => { bookNotesRef.current = book.notes }, [book.notes])
 
   // ── Echo rarity — resurfacing is earned, not mechanical ──────────────────
   // Minimum 2 non-echo notes between each echo. Starts at 2 so the first
@@ -326,12 +332,21 @@ export default function NotesTab({ book, onUpdateBook }) {
     const minDelay = calcNoteDelay(note.text, note.tag)
     if (thinkingTimerRef.current) clearTimeout(thinkingTimerRef.current)
 
+    // ── Persist companion initial response to note.thread ────────────────
+    const persistThread = (noteId, text) => {
+      onUpdateBook({
+        notes: bookNotesRef.current.map(n =>
+          n.id === noteId ? { ...n, thread: [{ role: 'companion', text, date: today() }] } : n
+        ),
+      })
+    }
+
     if (isFirstNote) {
       setThinkingNoteId(note.id)
       const introText = generateNoteCompanionResponse(note, true)
       thinkingTimerRef.current = setTimeout(() => {
         setThinkingNoteId(null)
-        setNoteReplies(prev => ({ ...prev, [note.id]: introText }))
+        persistThread(note.id, introText)
       }, minDelay)
     } else {
       setThinkingNoteId(note.id)
@@ -342,7 +357,7 @@ export default function NotesTab({ book, onUpdateBook }) {
           const remaining = Math.max(0, minDelay - elapsed)
           thinkingTimerRef.current = setTimeout(() => {
             setThinkingNoteId(null)
-            setNoteReplies(prev => ({ ...prev, [note.id]: aiText }))
+            persistThread(note.id, aiText)
           }, remaining)
         })
         .catch(() => {
@@ -350,7 +365,7 @@ export default function NotesTab({ book, onUpdateBook }) {
           const remaining = Math.max(0, minDelay - elapsed)
           thinkingTimerRef.current = setTimeout(() => {
             setThinkingNoteId(null)
-            setNoteReplies(prev => ({ ...prev, [note.id]: threadFallback(note.tag) }))
+            persistThread(note.id, threadFallback(note.tag))
           }, remaining)
         })
     }
@@ -406,6 +421,68 @@ export default function NotesTab({ book, onUpdateBook }) {
       ),
     })
     setRemovingReflId(null)
+  }
+
+  // ── Thread reply — user replies to companion in a note thread ────────────
+  const submitThreadReply = (note) => {
+    const text = replyText.trim()
+    if (!text) return
+    const apiKey     = settings?.anthropicKey
+    const userMsg    = { role: 'user', text, date: today() }
+    const newThread  = [...(note.thread || []), userMsg]
+
+    // 1. Persist user message immediately
+    onUpdateBook({ notes: bookNotesRef.current.map(n => n.id === note.id ? { ...n, thread: newThread } : n) })
+    setReplyText('')
+    setReplyNoteId(null)
+    setThinkingNoteId(note.id)
+
+    // 2. Generate companion reply
+    generateNoteThreadReply(newThread, note, book, apiKey || '')
+      .then(companionText => {
+        const companionMsg = { role: 'companion', text: companionText, date: today() }
+        setThinkingNoteId(null)
+        const latestNote = bookNotesRef.current.find(n => n.id === note.id)
+        onUpdateBook({
+          notes: bookNotesRef.current.map(n =>
+            n.id === note.id ? { ...n, thread: [...(latestNote?.thread || newThread), companionMsg] } : n
+          ),
+        })
+      })
+      .catch(() => {
+        const companionMsg = { role: 'companion', text: threadFallback(note.tag), date: today() }
+        setThinkingNoteId(null)
+        const latestNote = bookNotesRef.current.find(n => n.id === note.id)
+        onUpdateBook({
+          notes: bookNotesRef.current.map(n =>
+            n.id === note.id ? { ...n, thread: [...(latestNote?.thread || newThread), companionMsg] } : n
+          ),
+        })
+      })
+  }
+
+  // ── Settle thread — compact to a companion summary ────────────────────────
+  const settleThread = (note) => {
+    const apiKey = settings?.anthropicKey
+    setCompactingNoteId(note.id)
+    generateThreadSummary(note.thread || [], note, book, apiKey || '')
+      .then(summary => {
+        setCompactingNoteId(null)
+        onUpdateBook({
+          notes: bookNotesRef.current.map(n =>
+            n.id === note.id ? { ...n, threadSummary: summary, threadCollapsed: true } : n
+          ),
+        })
+      })
+      .catch(() => {
+        // Collapse without summary on error
+        setCompactingNoteId(null)
+        onUpdateBook({
+          notes: bookNotesRef.current.map(n =>
+            n.id === note.id ? { ...n, threadCollapsed: true } : n
+          ),
+        })
+      })
   }
 
   const notesPresence = deriveNotesPresence(book.notes, book.rereadCount || 0)
@@ -714,38 +791,121 @@ export default function NotesTab({ book, onUpdateBook }) {
                     )}
 
                     {/* ── Companion thread ────────────────────────────────── */}
-                    {(thinkingNoteId === note.id || noteReplies[note.id]) && (
-                      <div style={{
-                        marginTop: 10,
-                        marginLeft: 2,
-                        paddingLeft: 12,
-                        borderLeft: '1px solid rgba(184,134,11,.15)',
-                      }}>
-                        {thinkingNoteId === note.id ? (
-                          <div style={{ display: 'flex', gap: 5, paddingTop: 3, paddingBottom: 3 }}>
-                            {[[2.3, 0], [3.1, 0.7], [1.9, 1.5]].map(([dur, d], idx) => (
-                              <span key={idx} style={{
-                                fontSize: 9,
-                                color: 'var(--ca, #B8860B)',
-                                animation: `companionPulse ${dur}s ease-in-out infinite`,
-                                animationDelay: `${d}s`,
-                                display: 'inline-block',
-                              }}>✦</span>
-                            ))}
-                          </div>
+                    {(thinkingNoteId === note.id || note.thread?.length > 0) && (
+                      <div style={{ marginTop: 10, marginLeft: 2, paddingLeft: 12, borderLeft: '1px solid rgba(184,134,11,.15)' }}>
+
+                        {/* COLLAPSED: show summary + expand */}
+                        {note.threadCollapsed ? (
+                          <>
+                            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 7, paddingTop: 1 }}>
+                              <span style={{ fontSize: 9, color: 'var(--ca, #B8860B)', marginTop: 4, flexShrink: 0, opacity: 0.65 }}>✦</span>
+                              <p style={{ fontSize: 13, fontFamily: 'var(--font-sans)', lineHeight: 1.6, color: 'var(--color-ink-700)', fontStyle: 'italic', margin: 0 }}>
+                                {note.threadSummary || 'Thread settled.'}
+                              </p>
+                            </div>
+                            <button
+                              onClick={() => onUpdateBook({ notes: book.notes.map(n => n.id === note.id ? { ...n, threadCollapsed: false } : n) })}
+                              style={{ fontSize: 10, color: 'var(--color-ink-200)', fontStyle: 'italic', marginTop: 5, marginLeft: 16 }}
+                              className="transition-colors hover:text-ink-400"
+                            >
+                              ↓ expand thread
+                            </button>
+                          </>
                         ) : (
-                          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 7, paddingTop: 1 }}>
-                            <span className="companion-glyph-settle" style={{
-                              fontSize: 9, color: 'var(--ca, #B8860B)',
-                              marginTop: 4, flexShrink: 0, opacity: 0.65,
-                            }}>✦</span>
-                            <p className="companion-text-surface" style={{
-                              fontSize: 13, fontFamily: 'var(--font-sans)',
-                              lineHeight: 1.6, color: 'var(--color-ink-700)', margin: 0,
-                            }}>
-                              {noteReplies[note.id]}
-                            </p>
-                          </div>
+                          <>
+                            {/* THINKING: initial companion response pending */}
+                            {thinkingNoteId === note.id && (!note.thread || note.thread.length === 0) && (
+                              <div style={{ display: 'flex', gap: 5, paddingTop: 3, paddingBottom: 3 }}>
+                                {[[2.3, 0], [3.1, 0.7], [1.9, 1.5]].map(([dur, d], idx) => (
+                                  <span key={idx} style={{ fontSize: 9, color: 'var(--ca, #B8860B)', animation: `companionPulse ${dur}s ease-in-out infinite`, animationDelay: `${d}s`, display: 'inline-block' }}>✦</span>
+                                ))}
+                              </div>
+                            )}
+
+                            {/* THREAD MESSAGES */}
+                            {(note.thread || []).map((msg, idx) => (
+                              <div key={idx} style={{ marginBottom: idx < note.thread.length - 1 ? 8 : 0 }}>
+                                {msg.role === 'companion' ? (
+                                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: 7, paddingTop: 1 }}>
+                                    <span className="companion-glyph-settle" style={{ fontSize: 9, color: 'var(--ca, #B8860B)', marginTop: 4, flexShrink: 0, opacity: 0.65 }}>✦</span>
+                                    <p className="companion-text-surface" style={{ fontSize: 13, fontFamily: 'var(--font-sans)', lineHeight: 1.6, color: 'var(--color-ink-700)', margin: 0 }}>
+                                      {msg.text}
+                                    </p>
+                                  </div>
+                                ) : (
+                                  <p style={{ paddingLeft: 16, fontSize: 12, color: 'var(--color-ink-400)', fontStyle: 'italic', margin: 0, lineHeight: 1.55, paddingTop: 1 }}>
+                                    {msg.text}
+                                  </p>
+                                )}
+                              </div>
+                            ))}
+
+                            {/* THINKING: thread reply pending */}
+                            {thinkingNoteId === note.id && note.thread?.length > 0 && (
+                              <div style={{ display: 'flex', gap: 5, paddingTop: 5, paddingLeft: 0 }}>
+                                {[[2.3, 0], [3.1, 0.7], [1.9, 1.5]].map(([dur, d], idx) => (
+                                  <span key={idx} style={{ fontSize: 9, color: 'var(--ca, #B8860B)', animation: `companionPulse ${dur}s ease-in-out infinite`, animationDelay: `${d}s`, display: 'inline-block' }}>✦</span>
+                                ))}
+                              </div>
+                            )}
+
+                            {/* REPLY INPUT — visible when thread ends with companion message */}
+                            {note.thread?.length > 0 &&
+                             note.thread[note.thread.length - 1]?.role === 'companion' &&
+                             thinkingNoteId !== note.id && (
+                              <div style={{ paddingLeft: 16, marginTop: 7 }}>
+                                {replyNoteId === note.id ? (
+                                  <input
+                                    autoFocus
+                                    value={replyText}
+                                    onChange={e => setReplyText(e.target.value)}
+                                    onKeyDown={e => {
+                                      if (e.key === 'Enter' && !e.shiftKey && replyText.trim()) { e.preventDefault(); submitThreadReply(note) }
+                                      if (e.key === 'Escape') { setReplyNoteId(null); setReplyText('') }
+                                    }}
+                                    placeholder="a reply…"
+                                    style={{ fontSize: 12, background: 'transparent', outline: 'none', borderBottom: '1px solid var(--color-hairline)', color: 'var(--color-ink-500)', paddingBottom: 2, width: '100%', fontStyle: 'italic', caretColor: 'var(--color-accent)' }}
+                                  />
+                                ) : (
+                                  <button
+                                    onClick={() => { setReplyNoteId(note.id); setReplyText('') }}
+                                    style={{ fontSize: 10, color: 'var(--color-ink-200)', fontStyle: 'italic' }}
+                                    className="transition-colors hover:text-ink-400"
+                                  >
+                                    reply
+                                  </button>
+                                )}
+                              </div>
+                            )}
+
+                            {/* SETTLE — after ≥2 user turns (≥4 messages: C U C U) */}
+                            {note.thread?.length >= 4 && thinkingNoteId !== note.id && replyNoteId !== note.id && (
+                              <div style={{ paddingLeft: 16, marginTop: 7 }}>
+                                {compactingNoteId === note.id ? (
+                                  <span style={{ fontSize: 10, color: 'var(--color-ink-300)', fontStyle: 'italic' }}>settling…</span>
+                                ) : (
+                                  <button
+                                    onClick={() => settleThread(note)}
+                                    style={{ fontSize: 10, color: 'var(--color-ink-200)', fontStyle: 'italic' }}
+                                    className="transition-colors hover:text-ink-400"
+                                  >
+                                    settle thread →
+                                  </button>
+                                )}
+                              </div>
+                            )}
+
+                            {/* RE-COLLAPSE — for threads that were settled and re-opened */}
+                            {note.threadSummary && !note.threadCollapsed && (
+                              <button
+                                onClick={() => onUpdateBook({ notes: book.notes.map(n => n.id === note.id ? { ...n, threadCollapsed: true } : n) })}
+                                style={{ fontSize: 10, color: 'var(--color-ink-200)', fontStyle: 'italic', marginTop: 6, paddingLeft: 16 }}
+                                className="transition-colors hover:text-ink-400"
+                              >
+                                ↑ collapse
+                              </button>
+                            )}
+                          </>
                         )}
                       </div>
                     )}
