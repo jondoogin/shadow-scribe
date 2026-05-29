@@ -137,3 +137,28 @@ export function isInflight(key) {
 export function getInflightKeys() {
   return [..._inflight.keys()]
 }
+
+// ── Shared API call builder ───────────────────────────────────────────────────
+// Constructs the fetch arguments for an Anthropic API request.
+//
+// When a user API key is present: calls Anthropic directly (existing behaviour).
+// When no key is configured: routes through /api/companion (shared alpha key).
+//
+// Callers receive { url, headers, bodyStr } and should do:
+//   fetch(url, { method: 'POST', headers, body: bodyStr, signal })
+
+export function buildAiCall(apiKey, requestBody) {
+  const hasKey = !!apiKey?.trim()
+  return {
+    url: hasKey ? PROVIDER_CONFIG.apiUrl : '/api/companion',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(hasKey ? {
+        'x-api-key': apiKey.trim(),
+        'anthropic-version': PROVIDER_CONFIG.version,
+        'anthropic-dangerous-direct-browser-access': 'true',
+      } : {}),
+    },
+    bodyStr: JSON.stringify(requestBody),
+  }
+}

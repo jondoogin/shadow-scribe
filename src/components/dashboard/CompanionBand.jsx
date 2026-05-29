@@ -176,9 +176,9 @@ export default function CompanionBand({ book, onUpdateBook, onTabChange }) {
         aiEnhanced:  false,
       },
     })
-    if (settings.anthropicKey?.trim() && ctx.noteCount >= 5) {
+    if (ctx.noteCount >= 5) {
       Promise.resolve()
-        .then(() => generateCompanionReflections(ctx, settings.anthropicKey))
+        .then(() => generateCompanionReflections(ctx, settings.anthropicKey || ''))
         .then(aiR => {
           if (!aiR?.length) return
           updateBook(book.id, {

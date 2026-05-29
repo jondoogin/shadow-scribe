@@ -154,9 +154,9 @@ export default function PresenceStrip({ book, onUpdateBook }) {
     updateBook(book.id, {
       reflectionCache: { contextHash: hash, generatedAt: new Date().toISOString(), reflections: ruleReflections, aiEnhanced: false },
     })
-    if (settings.anthropicKey?.trim() && ctx.noteCount >= 5) {
+    if (ctx.noteCount >= 5) {
       Promise.resolve()
-        .then(() => generateCompanionReflections(ctx, settings.anthropicKey))
+        .then(() => generateCompanionReflections(ctx, settings.anthropicKey || ''))
         .then(aiReflections => {
           if (!aiReflections?.length) return
           updateBook(book.id, {

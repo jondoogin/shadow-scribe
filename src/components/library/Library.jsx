@@ -292,7 +292,7 @@ export default function Library() {
             {/* Welcome banner — first-time user orientation, dismissed to localStorage */}
             {!welcomed && (
               <WelcomeBanner
-                hasKey={!!settings.anthropicKey?.trim()}
+                hasKey={true}
                 onDismiss={dismissWelcome}
               />
             )}

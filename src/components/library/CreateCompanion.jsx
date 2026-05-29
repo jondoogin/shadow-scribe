@@ -2,7 +2,7 @@ import { useState, useRef } from 'react'
 import { uid } from '../../utils/uid.js'
 import { Ico } from '../shared/icons.jsx'
 import SectionLabel from '../shared/SectionLabel.jsx'
-import { MOOD_CONFIG, STRUCTURE_TYPES } from '../../data/config.js'
+import { STRUCTURE_TYPES } from '../../data/config.js'
 import { useSettings } from '../../context/SettingsContext.jsx'
 import { useBooks } from '../../context/BooksContext.jsx'
 import { parseEpub } from '../../utils/epubParser.js'
@@ -111,7 +111,7 @@ export default function CreateCompanion({ onCreate, onCancel }) {
     ? `https://covers.openlibrary.org/b/isbn/${form.isbn}-M.jpg`
     : null
 
-  const inputCls = "w-full border border-ink-200 rounded-xl px-3.5 py-2.5 text-sm text-ink-800 placeholder-ink-400 bg-white transition-all"
+  const inputCls = "w-full border border-ink-200 rounded-xl px-3.5 py-2.5 text-sm text-ink-800 placeholder-ink-400 bg-cream-200 transition-all"
 
   // ── EPUB import loading state ──
   if (importing) {
@@ -175,7 +175,7 @@ export default function CreateCompanion({ onCreate, onCancel }) {
               />
               <button
                 onClick={() => fileInputRef.current?.click()}
-                className="flex items-center gap-2 px-4 py-2 rounded-xl border border-ink-200 bg-white text-[13px] font-medium text-ink-700 hover:border-ink-400 hover:text-ink-900 transition-all">
+                className="flex items-center gap-2 px-4 py-2 rounded-xl border border-ink-200 bg-cream-200 text-[13px] font-medium text-ink-700 hover:border-ink-400 hover:text-ink-900 transition-all">
                 <Ico.Book /> Import from EPUB
               </button>
               {importError && (
@@ -230,42 +230,13 @@ export default function CreateCompanion({ onCreate, onCancel }) {
                     className={`flex-1 py-3.5 rounded-xl border-2 text-[13px] font-medium transition-all ${
                       form.format === f.k
                         ? 'border-gold bg-gold-bg text-gold'
-                        : 'border-ink-200 text-ink-600 hover:border-ink-300 bg-white'
+                        : 'border-ink-200 text-ink-600 hover:border-ink-300 bg-cream-200'
                     }`}>
                     <div className="text-xl mb-1">{f.icon}</div>
                     {f.l}
                   </button>
                 ))}
               </div>
-            </div>
-
-            {/* Companion mood */}
-            <div className="mb-7">
-              <label className="block text-[10px] font-semibold text-ink-500 uppercase tracking-widest mb-3">Companion mood</label>
-              <div className="flex items-center gap-3 flex-wrap">
-                {Object.entries(MOOD_CONFIG).map(([k, cfg]) => (
-                  <button
-                    key={k}
-                    onClick={() => set('mood', k)}
-                    title={cfg.label}
-                    className={`flex items-center gap-2 px-3 py-2 rounded-xl border-2 text-[12px] font-medium transition-all ${
-                      form.mood === k
-                        ? 'border-current bg-white'
-                        : 'border-ink-200 text-ink-500 hover:border-ink-300 bg-white'
-                    }`}
-                    style={form.mood === k ? { color: MOOD_COLORS[k], borderColor: MOOD_COLORS[k] } : {}}
-                  >
-                    <span
-                      className="w-3 h-3 rounded-full flex-shrink-0"
-                      style={{ background: MOOD_COLORS[k] }}
-                    />
-                    {cfg.label}
-                  </button>
-                ))}
-              </div>
-              {form.mood && (
-                <p className="text-[11px] text-ink-400 mt-2">{MOOD_CONFIG[form.mood]?.description}</p>
-              )}
             </div>
 
             <button onClick={() => form.title && setStep(2)}
@@ -293,7 +264,7 @@ export default function CreateCompanion({ onCreate, onCancel }) {
                       className={`w-full text-left px-4 py-3 rounded-xl border-2 transition-all ${
                         form.structureType === s.k
                           ? 'border-gold bg-gold-bg'
-                          : 'border-ink-200 bg-white hover:border-ink-300'
+                          : 'border-ink-200 bg-cream-200 hover:border-ink-300'
                       }`}>
                       <div className="flex items-center gap-3">
                         <div className={`w-3.5 h-3.5 rounded-full border-2 flex-shrink-0 transition-all ${
@@ -327,7 +298,7 @@ export default function CreateCompanion({ onCreate, onCancel }) {
                   className={`flex items-center gap-2.5 px-4 py-2.5 rounded-xl border-2 text-[13px] font-medium transition-all ${
                     form.hasSeries
                       ? 'border-gold bg-gold-bg text-gold'
-                      : 'border-ink-200 bg-white text-ink-600 hover:border-ink-300'
+                      : 'border-ink-200 bg-cream-200 text-ink-600 hover:border-ink-300'
                   }`}
                 >
                   <div className={`w-4 h-4 rounded border-2 flex items-center justify-center transition-all ${
@@ -376,13 +347,13 @@ export default function CreateCompanion({ onCreate, onCancel }) {
               {spoilerModes.map(m => (
                 <button key={m.k} onClick={() => set('spoilerMode', m.k)}
                   className={`w-full text-left p-4 rounded-xl border-2 transition-all ${
-                    form.spoilerMode === m.k ? 'border-gold bg-gold-bg' : 'border-ink-200 hover:border-ink-300 bg-white'
+                    form.spoilerMode === m.k ? 'border-gold bg-gold-bg' : 'border-ink-200 hover:border-ink-300 bg-cream-200'
                   }`}>
                   <div className="flex items-center gap-3">
                     <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-all ${
                       form.spoilerMode === m.k ? 'border-gold bg-gold' : 'border-ink-300'
                     }`}>
-                      {form.spoilerMode === m.k && <span className="w-1.5 h-1.5 rounded-full bg-white block" />}
+                      {form.spoilerMode === m.k && <span className="w-1.5 h-1.5 rounded-full bg-cream-200 block" />}
                     </div>
                     <div>
                       <p className={`text-sm font-semibold ${form.spoilerMode === m.k ? 'text-gold' : 'text-ink-800'}`}>{m.l}</p>
@@ -400,10 +371,6 @@ export default function CreateCompanion({ onCreate, onCancel }) {
               <p className="text-[12px] text-ink-500 mt-0.5">
                 {form.author || 'Unknown'} · {form.format} · {form.totalChapters || '?'} {form.structureType}s · {form.spoilerMode} spoilers
               </p>
-              <div className="flex items-center gap-1.5 mt-2">
-                <span className="w-2.5 h-2.5 rounded-full" style={{ background: MOOD_COLORS[form.mood] }} />
-                <span className="text-[11px] text-ink-400">{MOOD_CONFIG[form.mood]?.label} mood</span>
-              </div>
             </div>
 
             <div className="flex gap-3">

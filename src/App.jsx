@@ -205,6 +205,13 @@ function StorageBanner() {
   return null
 }
 
+// ── Scroll to top on every route change ───────────────────────────────────────
+function ScrollToTop() {
+  const { pathname } = useLocation()
+  useEffect(() => { window.scrollTo(0, 0) }, [pathname])
+  return null
+}
+
 const PAGE_TITLES = {
   '/library':  'Lantern — Library',
   '/':         'Lantern — Library',
@@ -234,6 +241,7 @@ function AppShell() {
 
   return (
     <div className="min-h-screen" style={{ background: 'var(--color-bg)' }}>
+      <ScrollToTop />
       <AmbientLayer />
       <AtmosphericGlow />
       <TopNav />

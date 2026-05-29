@@ -333,10 +333,10 @@ export default function NotesTab({ book, onUpdateBook }) {
         setThinkingNoteId(null)
         setNoteReplies(prev => ({ ...prev, [note.id]: introText }))
       }, minDelay)
-    } else if (apiKey) {
+    } else {
       setThinkingNoteId(note.id)
       const startTime = Date.now()
-      generateNoteThreadResponse(note, book, apiKey, { echo })
+      generateNoteThreadResponse(note, book, apiKey || '', { echo })
         .then(aiText => {
           const elapsed   = Date.now() - startTime
           const remaining = Math.max(0, minDelay - elapsed)

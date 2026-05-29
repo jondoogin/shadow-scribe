@@ -258,9 +258,9 @@ export default function CompanionInsights({ book }) {
       },
     })
 
-    if (settings.anthropicKey?.trim() && ctx.noteCount >= 5) {
+    if (ctx.noteCount >= 5) {
       Promise.resolve()
-        .then(() => generateCompanionReflections(ctx, settings.anthropicKey))
+        .then(() => generateCompanionReflections(ctx, settings.anthropicKey || ''))
         .then(aiReflections => {
           if (!aiReflections?.length) return
           updateBook(book.id, {

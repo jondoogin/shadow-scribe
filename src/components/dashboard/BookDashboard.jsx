@@ -26,10 +26,24 @@ export default function BookDashboard({ bookId }) {
   const { settings } = useSettings()
   const book = books.find(b => b.id === bookId)
 
-  const [tab,        setTab]        = useState('notes')
-  const [tabFlash,   setTabFlash]   = useState(null)
-  const [showUpdate, setShowUpdate] = useState(false)
-  const tabRefs = useRef({})
+  const [tab,           setTab]          = useState('notes')
+  const [tabFlash,      setTabFlash]     = useState(null)
+  const [showUpdate,    setShowUpdate]   = useState(false)
+  const [headerVisible, setHeaderVisible] = useState(true)
+  const tabRefs   = useRef({})
+  const headerRef = useRef(null)
+
+  // Show sticky continue bar only after the header CTA scrolls out of view
+  useEffect(() => {
+    const el = headerRef.current
+    if (!el) return
+    const io = new IntersectionObserver(
+      ([entry]) => setHeaderVisible(entry.isIntersecting),
+      { threshold: 0 }
+    )
+    io.observe(el)
+    return () => io.disconnect()
+  }, [])
 
   const handleTabChange = (tabId) => {
     setTab(tabId)
@@ -67,7 +81,9 @@ export default function BookDashboard({ bookId }) {
     <div className="book-enter">
 
       {/* ── Full-width book header ── */}
-      <CompanionHeader book={book} onOpenUpdate={() => setShowUpdate(true)} onUpdateBook={onUpdateBook} />
+      <div ref={headerRef}>
+        <CompanionHeader book={book} onOpenUpdate={() => setShowUpdate(true)} onUpdateBook={onUpdateBook} />
+      </div>
 
       {/* ── Companion Band — full-width presence above the fold ── */}
       <CompanionBand book={book} onUpdateBook={onUpdateBook} onTabChange={handleTabChange} />
@@ -104,8 +120,8 @@ export default function BookDashboard({ bookId }) {
         </div>
       </div>
 
-      {/* ── Mobile: sticky action bar ── */}
-      {(book.status === 'reading' || book.status === 'paused') && !book.archived && (
+      {/* ── Mobile: sticky action bar — only visible once header scrolls away ── */}
+      {!headerVisible && (book.status === 'reading' || book.status === 'paused') && !book.archived && (
         <div className="sm:hidden sticky-bottom-bar">
           <button
             onClick={() => setShowUpdate(true)}

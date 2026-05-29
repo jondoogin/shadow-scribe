@@ -13,7 +13,7 @@
  * Falls back to canned responses when no API key is present.
  */
 
-import { PROVIDER_CONFIG } from './aiRequest.js'
+import { PROVIDER_CONFIG, buildAiCall } from './aiRequest.js'
 import { detectConfidenceDrift, detectFixations } from './readerState.js'
 import { detectMotifs } from './residueMemory.js'
 
@@ -174,7 +174,6 @@ export function threadFallback(tag) {
  * @returns {Promise<string>}   One or two sentence companion response
  */
 export async function generateNoteThreadResponse(note, book, apiKey, context = {}) {
-  if (!apiKey?.trim()) throw new Error('No API key')
 
   const { echo = null } = context
 
@@ -311,22 +310,19 @@ Do not introduce yourself. Do not ask questions. Just the response — nothing e
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), 12_000)
 
+  const { url, headers, bodyStr } = buildAiCall(apiKey, {
+    model: PROVIDER_CONFIG.model,
+    max_tokens: 120,
+    messages: [{ role: 'user', content: prompt }],
+  })
+
   let response
   try {
-    response = await fetch(PROVIDER_CONFIG.apiUrl, {
+    response = await fetch(url, {
       signal: controller.signal,
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey.trim(),
-        'anthropic-version': PROVIDER_CONFIG.version,
-        'anthropic-dangerous-direct-browser-access': 'true',
-      },
-      body: JSON.stringify({
-        model: PROVIDER_CONFIG.model,
-        max_tokens: 120,
-        messages: [{ role: 'user', content: prompt }],
-      }),
+      headers,
+      body: bodyStr,
     })
   } finally {
     clearTimeout(timer)

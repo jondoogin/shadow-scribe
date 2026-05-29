@@ -37,7 +37,7 @@ export default function DiscussionTab({ book, onUpdateBook }) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [book.notes?.length, book.mysteries?.length])
   const userQuestions = book.userDiscussionQuestions || []
-  const hasAiKey = !!settings.anthropicKey?.trim()
+  const hasAiKey = true // proxy available for alpha testers without personal key
   const hasGenerated = book.aiQuestionsGenerated
 
   const deleteUserQ = (i) => {

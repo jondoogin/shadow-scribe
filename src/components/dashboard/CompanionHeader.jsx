@@ -65,7 +65,7 @@ export default function CompanionHeader({ book, onOpenUpdate, onUpdateBook }) {
   const { deleteBook } = useBooks()
 
   const { settings } = useSettings()
-  const hasAiKey = !!settings.anthropicKey?.trim()
+  const hasAiKey = true // proxy available for alpha testers without personal key
 
   const [pendingAction,  setPendingAction]  = useState(null)
   const [menuOpen,       setMenuOpen]       = useState(false)
@@ -169,7 +169,7 @@ export default function CompanionHeader({ book, onOpenUpdate, onUpdateBook }) {
       const result = await aiExtractNarrative(
         chapterContents,
         book.chapters,
-        settings.anthropicKey,
+        settings.anthropicKey || '',
         { title: book.title, author: book.author },
       )
       const { characters, summaries, mysteries, extractionMeta } = result

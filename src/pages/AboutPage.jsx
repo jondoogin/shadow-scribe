@@ -159,92 +159,136 @@ function VoiceCard({ quote, name, role, delay = 0 }) {
 // ── Exhibit: live-looking companion demo ──────────────────────────────────────
 function Exhibit() {
   const [typed, setTyped] = useState(false)
-  const typedText = useTyping(
-    'Why does Woland keep choosing the buffoons? He could have anyone.',
-    typed,
-    32
-  )
+  const fullText = 'Why does Woland keep choosing the buffoons? He could have anyone.'
+  const typedText = useTyping(fullText, typed, 32)
+  const fullyTyped = typedText.length >= fullText.length
+
+  const characters = [
+    { name: 'Woland' },
+    { name: 'The Master' },
+    { name: 'Margarita' },
+    { name: 'Behemoth' },
+    { name: 'Pilate' },
+  ]
 
   return (
     <div className="lp-exhibit">
-      {/* Book header */}
+
+      {/* ── Book header ── */}
       <div className="lp-exhibit-header">
-        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16 }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14 }}>
           <div className="lp-book-cover" />
-          <div>
-            <div style={{
-              fontFamily: 'var(--font-sans)',
-              fontSize: 9,
-              fontWeight: 600,
-              letterSpacing: '0.12em',
-              textTransform: 'uppercase',
-              color: 'var(--color-text-dim)',
-              marginBottom: 6,
-              opacity: 0.7,
-            }}>Now reading</div>
-            <div style={{
-              fontFamily: 'var(--font-serif)',
-              fontSize: 18,
-              lineHeight: 1.2,
-              color: 'var(--color-text-primary)',
-              marginBottom: 4,
-            }}>The Master and Margarita</div>
-            <div style={{
-              fontFamily: 'var(--font-serif)',
-              fontStyle: 'italic',
-              fontSize: 13,
-              color: 'var(--color-text-secondary)',
-              marginBottom: 10,
-            }}>Mikhail Bulgakov</div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <div style={{
-                height: 2,
-                width: 120,
-                background: 'var(--color-separator)',
-                borderRadius: 2,
-                overflow: 'hidden',
-              }}>
-                <div style={{
-                  width: '59%',
-                  height: '100%',
-                  background: 'var(--lantern-gradient)',
-                  borderRadius: 2,
-                }} />
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+              <div style={{ width: 5, height: 5, borderRadius: '50%', background: 'var(--color-accent)', opacity: 0.85 }} />
+              <span style={{ fontFamily: 'var(--font-sans)', fontSize: 9, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--color-text-dim)', opacity: 0.7 }}>
+                Now reading
+              </span>
+            </div>
+            <div style={{ fontFamily: 'var(--font-serif)', fontSize: 17, lineHeight: 1.2, color: 'var(--color-text-primary)', marginBottom: 3 }}>
+              The Master and Margarita
+            </div>
+            <div style={{ fontFamily: 'var(--font-serif)', fontStyle: 'italic', fontSize: 12, color: 'var(--color-text-secondary)', marginBottom: 10 }}>
+              Mikhail Bulgakov
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <div style={{ height: 2, width: 100, background: 'var(--color-separator)', borderRadius: 2, overflow: 'hidden', flexShrink: 0 }}>
+                <div style={{ width: '59%', height: '100%', background: 'var(--lantern-gradient)', borderRadius: 2 }} />
               </div>
-              <span style={{ fontSize: 11, color: 'var(--color-text-dim)', fontFamily: 'var(--font-sans)' }}>Ch. 19 · 54 days · 59%</span>
+              <span style={{ fontSize: 10, color: 'var(--color-text-dim)', fontFamily: 'var(--font-sans)', whiteSpace: 'nowrap' }}>Ch. 19 · 54 days · 59%</span>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Companion band */}
-      <div className="lp-companion-section">
-        <div style={{ marginBottom: 12 }}>
-          <span style={{
-            fontFamily: 'var(--font-sans)',
-            fontSize: 9,
-            fontWeight: 700,
-            letterSpacing: '0.14em',
-            textTransform: 'uppercase',
-            color: 'var(--color-text-dim)',
-            opacity: 0.7,
-          }}>
-            Chapter 19 of 32. Deeper in now. There are 2 open threads still pulling.
-          </span>
+      {/* ── Companion ambient observation ── */}
+      <div style={{
+        padding: '13px 20px',
+        borderBottom: '1px solid var(--color-separator-soft)',
+        background: 'color-mix(in srgb, var(--color-accent) 5%, var(--color-card-base))',
+      }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+          <span style={{ fontSize: 9, color: 'var(--color-accent)', marginTop: 1, flexShrink: 0 }}>✦</span>
+          <div>
+            <div style={{ fontFamily: 'var(--font-sans)', fontSize: 9, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--color-accent)', opacity: 0.75, marginBottom: 5 }}>
+              Companion · still here
+            </div>
+            <p style={{ fontFamily: 'var(--font-serif)', fontStyle: 'italic', fontSize: 12, lineHeight: 1.65, color: 'var(--color-text-secondary)', margin: 0 }}>
+              You've been here fifty-four days. The questions aren't getting smaller — but you keep returning. That matters more than you think.
+            </p>
+          </div>
         </div>
+      </div>
+
+      {/* ── Characters ── */}
+      <div style={{ padding: '11px 20px', borderBottom: '1px solid var(--color-separator-soft)' }}>
+        <p style={{ fontFamily: 'var(--font-sans)', fontSize: 9, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--color-text-dim)', opacity: 0.55, marginBottom: 8 }}>
+          Characters · 5
+        </p>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
+          {characters.map((c, i) => (
+            <div key={i} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 9px 3px 4px', background: 'var(--color-card-base)', border: '1px solid var(--color-separator-soft)', borderRadius: 100 }}>
+              <div style={{
+                width: 16, height: 16, borderRadius: '50%',
+                background: 'color-mix(in srgb, var(--color-accent) 18%, transparent)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+              }}>
+                <span style={{ fontFamily: 'var(--font-sans)', fontSize: 8, fontWeight: 700, color: 'var(--color-accent)' }}>{c.name[0]}</span>
+              </div>
+              <span style={{ fontFamily: 'var(--font-sans)', fontSize: 11, color: 'var(--color-text-secondary)' }}>{c.name}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* ── Open questions ── */}
+      <div style={{ padding: '11px 20px', borderBottom: '1px solid var(--color-separator-soft)' }}>
+        <p style={{ fontFamily: 'var(--font-sans)', fontSize: 9, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--color-text-dim)', opacity: 0.55, marginBottom: 8 }}>
+          Open questions · 2
+        </p>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          {[
+            { text: 'Is Woland the devil — or a metaphor for Soviet repression?', haunted: true },
+            { text: 'What happened to the manuscript before it was burned?', haunted: false },
+          ].map((q, i) => (
+            <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 7 }}>
+              <span style={{ fontSize: 7, color: q.haunted ? 'var(--color-accent)' : 'var(--color-text-dim)', opacity: q.haunted ? 0.85 : 0.35, marginTop: 3, flexShrink: 0 }}>✦</span>
+              <p style={{ fontFamily: 'var(--font-serif)', fontStyle: 'italic', fontSize: 12, lineHeight: 1.5, color: 'var(--color-text-secondary)', margin: 0 }}>
+                {q.text}
+              </p>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* ── Note snippet ── */}
+      <div style={{ padding: '10px 20px', borderBottom: '1px solid var(--color-separator-soft)' }}>
+        <div style={{ display: 'flex', gap: 10 }}>
+          <div style={{ width: 2, flexShrink: 0, alignSelf: 'stretch', background: 'var(--color-separator)', borderRadius: 1 }} />
+          <div>
+            <p style={{ fontFamily: 'var(--font-sans)', fontSize: 9, fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--color-text-dim)', opacity: 0.5, marginBottom: 4 }}>
+              Note · ch. 12 · theory
+            </p>
+            <p style={{ fontFamily: 'var(--font-serif)', fontStyle: 'italic', fontSize: 12, lineHeight: 1.55, color: 'var(--color-text-secondary)', margin: 0 }}>
+              "The Yeshua chapters feel like a different book entirely — lighter, as if written in a different century."
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Conversation ── */}
+      <div className="lp-companion-section" style={{ paddingTop: 12, paddingBottom: typed ? 16 : 8 }}>
         <div
           className="lp-companion-input"
           onClick={() => !typed && setTyped(true)}
           style={{ cursor: typed ? 'default' : 'text' }}
         >
           {typed
-            ? <span style={{ fontFamily: 'var(--font-serif)', fontStyle: 'italic', fontSize: 14, color: 'var(--color-text-primary)' }}>
+            ? <span style={{ fontFamily: 'var(--font-serif)', fontStyle: 'italic', fontSize: 13, color: 'var(--color-text-primary)' }}>
                 {typedText}
-                {typedText.length < 'Why does Woland keep choosing the buffoons? He could have anyone.'.length && (
-                  <span className="lp-cursor" />
-                )}
+                {!fullyTyped && <span className="lp-cursor" />}
               </span>
-            : <span style={{ fontFamily: 'var(--font-serif)', fontStyle: 'italic', fontSize: 14, color: 'var(--color-text-dim)', opacity: 0.5 }}>
+            : <span style={{ fontFamily: 'var(--font-serif)', fontStyle: 'italic', fontSize: 13, color: 'var(--color-text-dim)', opacity: 0.45 }}>
                 A thought, a question, a reaction…
               </span>
           }
@@ -252,63 +296,16 @@ function Exhibit() {
         {typed && typedText.length >= 30 && (
           <div className="lp-companion-response">
             <span style={{ fontSize: 8, color: 'var(--color-accent)', marginRight: 8, opacity: 0.7 }}>✦</span>
-            <span style={{
-              fontFamily: 'var(--font-serif)',
-              fontStyle: 'italic',
-              fontSize: 13,
-              lineHeight: 1.6,
-              color: 'var(--color-text-secondary)',
-            }}>
+            <span style={{ fontFamily: 'var(--font-serif)', fontStyle: 'italic', fontSize: 12, lineHeight: 1.6, color: 'var(--color-text-secondary)' }}>
               The buffoons are the ones who reveal the truth without meaning to. Woland doesn't need loyal servants — he needs mirrors.
             </span>
           </div>
         )}
-
-        {/* Open questions */}
-        <div style={{ marginTop: 16 }}>
-          <p style={{
-            fontFamily: 'var(--font-sans)',
-            fontSize: 9,
-            fontWeight: 700,
-            letterSpacing: '0.12em',
-            textTransform: 'uppercase',
-            color: 'var(--color-text-dim)',
-            marginBottom: 8,
-            opacity: 0.6,
-          }}>Open questions</p>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            {[
-              { text: 'Is Woland the devil — or a metaphor for Soviet repression?', haunted: true },
-              { text: 'What happened to the manuscript before it was burned?', haunted: false },
-            ].map((q, i) => (
-              <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
-                <span style={{ fontSize: 7, color: q.haunted ? 'var(--color-accent)' : 'var(--color-text-dim)', opacity: q.haunted ? 0.85 : 0.4, marginTop: 3 }}>✦</span>
-                <p style={{
-                  fontFamily: 'var(--font-serif)',
-                  fontStyle: 'italic',
-                  fontSize: 12,
-                  lineHeight: 1.5,
-                  color: 'var(--color-text-secondary)',
-                }}>
-                  {q.text}
-                </p>
-              </div>
-            ))}
-          </div>
-        </div>
       </div>
 
       {!typed && (
-        <p style={{
-          textAlign: 'center',
-          marginTop: 16,
-          fontFamily: 'var(--font-serif)',
-          fontStyle: 'italic',
-          fontSize: 11,
-          color: 'var(--color-text-dim)',
-          opacity: 0.6,
-        }}>
-          click the field to speak to the companion →
+        <p style={{ textAlign: 'center', paddingBottom: 14, fontFamily: 'var(--font-serif)', fontStyle: 'italic', fontSize: 10, color: 'var(--color-text-dim)', opacity: 0.5 }}>
+          click the field above to speak to the companion
         </p>
       )}
     </div>
@@ -730,7 +727,7 @@ export default function AboutPage() {
             </div>
 
             <div className="lp-reveal" style={{ transitionDelay: '300ms' }}>
-              <button className="lp-hero-cta" onClick={() => navigate('/new')}>
+              <button className="lp-hero-cta" onClick={() => navigate('/library')}>
                 Open the room ✦
               </button>
             </div>
@@ -1020,7 +1017,7 @@ export default function AboutPage() {
                 are <em>where you left them</em>.
               </h2>
               <div className="lp-reveal" style={{ transitionDelay: '100ms' }}>
-                <button className="lp-hero-cta" onClick={() => navigate('/new')}>
+                <button className="lp-hero-cta" onClick={() => navigate('/library')}>
                   Open the room ↘
                 </button>
               </div>

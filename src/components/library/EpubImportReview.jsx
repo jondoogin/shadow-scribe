@@ -170,7 +170,7 @@ export default function EpubImportReview({ importData, duplicateWarning, onCreat
             result = await aiExtractNarrative(
               importData.chapterContents,
               book.chapters,
-              settings.anthropicKey,
+              settings.anthropicKey || '',
               { title: book.title, author: book.author },
             )
           } catch (aiErr) {
@@ -214,9 +214,9 @@ export default function EpubImportReview({ importData, duplicateWarning, onCreat
     }
   }
 
-  const hasAiKey = !!settings.anthropicKey?.trim()
+  const hasAiKey = true // proxy available for alpha testers without personal key
 
-  const inputCls = "w-full border border-ink-200 rounded-xl px-3.5 py-2.5 text-sm text-ink-800 placeholder-ink-400 bg-white transition-all"
+  const inputCls = "w-full border border-ink-200 rounded-xl px-3.5 py-2.5 text-sm text-ink-800 placeholder-ink-400 bg-cream-200 transition-all"
 
   const displayChapters = showAllChapters ? form.chapters : form.chapters.slice(0, 8)
   const hasMore = form.chapters.length > 8
@@ -543,9 +543,7 @@ export default function EpubImportReview({ importData, duplicateWarning, onCreat
                 <p className="text-[11px] text-ink-400 mt-1 italic">
                   {importData.chapters.length} chapters detected from EPUB
                   {importData.chapterContents && Object.keys(importData.chapterContents).length > 0 && (
-                    settings.anthropicKey?.trim()
-                      ? <span className="ml-1" style={{ color: 'var(--color-gold)' }}>· Claude AI extraction ready ✦</span>
-                      : <span className="ml-1" style={{ color: 'var(--color-ink-400)' }}>· pattern matching only</span>
+                    <span className="ml-1" style={{ color: 'var(--color-gold)' }}>· Claude AI extraction ready ✦</span>
                   )}
                 </p>
               )}

@@ -10,7 +10,7 @@
  */
 
 import { cleanChapterHtml } from './narrativeExtractor.js'
-import { PROVIDER_CONFIG, AI_OP, devLog, dedupRequest } from './aiRequest.js'
+import { PROVIDER_CONFIG, AI_OP, devLog, dedupRequest, buildAiCall } from './aiRequest.js'
 
 const MAX_CHAPTER_CHARS = 2500  // chars per chapter excerpt — ~600 tokens each
 const MAX_CHAPTERS      = 60    // hard cap for very long books
@@ -23,22 +23,19 @@ async function callClaude(apiKey, prompt, maxTokens = 2048, op = 'api') {
 
   devLog(op, 'request:start', { maxTokens })
 
+  const { url, headers, bodyStr } = buildAiCall(apiKey, {
+    model: PROVIDER_CONFIG.model,
+    max_tokens: maxTokens,
+    messages: [{ role: 'user', content: prompt }],
+  })
+
   let response
   try {
-    response = await fetch(PROVIDER_CONFIG.apiUrl, {
+    response = await fetch(url, {
       signal: controller.signal,
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey.trim(),
-        'anthropic-version': PROVIDER_CONFIG.version,
-        'anthropic-dangerous-direct-browser-access': 'true',
-      },
-      body: JSON.stringify({
-        model: PROVIDER_CONFIG.model,
-        max_tokens: maxTokens,
-        messages: [{ role: 'user', content: prompt }],
-      }),
+      headers,
+      body: bodyStr,
     })
   } catch (err) {
     if (err.name === 'AbortError') {
@@ -78,7 +75,6 @@ async function callClaude(apiKey, prompt, maxTokens = 2048, op = 'api') {
  * @returns {Object}                Same shape as extractNarrative()
  */
 export async function aiExtractNarrative(chapterContents, chapters, apiKey, { title = '', author = '' } = {}) {
-  if (!apiKey?.trim()) throw new Error('No API key provided')
 
   const chaptersToProcess = chapters.slice(0, MAX_CHAPTERS)
 
@@ -261,7 +257,6 @@ function normalizeAIResult(json, chapters) {
  * @returns {string[]}      Array of question strings
  */
 export function generateDiscussionQuestions(book, apiKey) {
-  if (!apiKey?.trim()) throw new Error('No API key provided')
 
   return dedupRequest(`discussion:${book.id}`, async () => {
     const pct          = Math.round((book.currentChapter / book.totalChapters) * 100)
@@ -461,7 +456,6 @@ export function buildAIReflectionContext(ctx) {
  * @returns {Array}        ReflectionEntry[]
  */
 export async function generateCompanionReflections(ctx, apiKey, insightStyle = 'observational') {
-  if (!apiKey?.trim()) throw new Error('No API key provided')
   if (ctx.noteCount < 5) throw new Error('Not enough notes for AI reflection')
 
   const { lines, signals } = buildAIReflectionContext(ctx)
