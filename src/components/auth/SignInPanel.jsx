@@ -11,12 +11,15 @@
 import { useState } from 'react'
 import { useAuth } from '../../context/AuthContext.jsx'
 
-export default function SignInPanel() {
+export default function SignInPanel({ onDeleteCloudData }) {
   const { status, user, sendMagicLink, signOut, isCloudEnabled } = useAuth()
-  const [email, setEmail]     = useState('')
-  const [sent, setSent]       = useState(false)
-  const [error, setError]     = useState(null)
-  const [busy, setBusy]       = useState(false)
+  const [email, setEmail]               = useState('')
+  const [sent, setSent]                 = useState(false)
+  const [error, setError]               = useState(null)
+  const [busy, setBusy]                 = useState(false)
+  const [confirmSignOut, setConfirmOut] = useState(false)
+  const [confirmDelete, setConfirmDel]  = useState(false)
+  const [deleting, setDeleting]         = useState(false)
 
   if (!isCloudEnabled) {
     return (
@@ -44,39 +47,123 @@ export default function SignInPanel() {
   }
 
   if (status === 'signed-in') {
+    const handleDelete = async () => {
+      if (!onDeleteCloudData) return
+      setDeleting(true)
+      try { await onDeleteCloudData() } finally { setDeleting(false); setConfirmDel(false) }
+    }
     return (
       <div
-        className="px-5 py-4 rounded-xl flex items-center justify-between gap-4"
+        className="px-5 py-4 rounded-xl"
         style={{
           background: 'var(--color-card-base)',
           border:     '1px solid var(--color-hairline)',
         }}
       >
-        <div className="min-w-0 flex-1">
-          <p style={{ fontSize: 12, color: 'var(--color-ink-400)', marginBottom: 2 }}>Signed in as</p>
-          <p
-            className="truncate"
-            style={{
-              fontSize:   13,
-              color:      'var(--color-ink-700)',
-              fontFamily: 'var(--font-sans)',
-              fontWeight: 500,
-            }}
-            title={user?.email || ''}
-          >
-            {user?.email || '—'}
-          </p>
-          <p className="italic mt-1.5" style={{ fontSize: 11, color: 'var(--color-ink-400)' }}>
-            Your library syncs across devices.
-          </p>
+        <div className="flex items-start justify-between gap-4">
+          <div className="min-w-0 flex-1">
+            <p style={{ fontSize: 12, color: 'var(--color-ink-400)', marginBottom: 2 }}>Signed in as</p>
+            <p
+              className="truncate"
+              style={{
+                fontSize:   13,
+                color:      'var(--color-ink-700)',
+                fontFamily: 'var(--font-sans)',
+                fontWeight: 500,
+              }}
+              title={user?.email || ''}
+            >
+              {user?.email || '—'}
+            </p>
+            <p className="italic mt-1.5" style={{ fontSize: 11, color: 'var(--color-ink-400)' }}>
+              Your library syncs across devices.
+            </p>
+          </div>
         </div>
-        <button
-          onClick={signOut}
-          className="italic transition-colors hover:text-ink-600 flex-shrink-0"
-          style={{ fontSize: 11, color: 'var(--color-ink-400)' }}
+
+        {/* ── Sign out — explicit about what stays vs goes ── */}
+        <div
+          className="mt-4 pt-4"
+          style={{ borderTop: '1px solid var(--color-hairline)' }}
         >
-          Sign out
-        </button>
+          {confirmSignOut ? (
+            <div className="animate-fade-in">
+              <p className="italic mb-3" style={{ fontSize: 12, color: 'var(--color-ink-500)', lineHeight: 1.55 }}>
+                Your library stays on this device. To get it back later, sign in with the same email.
+              </p>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => setConfirmOut(false)}
+                  className="italic transition-colors hover:text-ink-600"
+                  style={{ fontSize: 11, color: 'var(--color-ink-400)' }}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => { setConfirmOut(false); signOut() }}
+                  className="font-medium transition-opacity hover:opacity-75"
+                  style={{ fontSize: 12, color: 'var(--ca, #B8860B)' }}
+                >
+                  Sign out →
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+              <button
+                onClick={() => setConfirmOut(true)}
+                className="italic transition-colors hover:text-ink-600"
+                style={{ fontSize: 11, color: 'var(--color-ink-400)' }}
+              >
+                Sign out (your library stays on this device)
+              </button>
+              {onDeleteCloudData && (
+                <button
+                  onClick={() => setConfirmDel(true)}
+                  className="italic transition-colors hover:opacity-80"
+                  style={{ fontSize: 10, color: 'var(--color-ember, #9B2335)', opacity: 0.7 }}
+                >
+                  Delete cloud data
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* ── Delete cloud data — destructive confirmation ── */}
+        {confirmDelete && (
+          <div
+            className="mt-4 pt-4 animate-fade-in"
+            style={{ borderTop: '1px solid color-mix(in srgb, var(--color-ember, #9B2335) 25%, transparent)' }}
+          >
+            <p
+              className="italic mb-3 leading-relaxed"
+              style={{ fontSize: 12, color: 'var(--color-ink-600)' }}
+            >
+              This wipes every book and setting stored in the cloud for{' '}
+              <span style={{ fontStyle: 'normal', fontWeight: 500 }}>{user?.email}</span>
+              {' '}and signs you out. Your local library on this device is untouched — you can re-upload it by signing back in.
+            </p>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => setConfirmDel(false)}
+                disabled={deleting}
+                className="italic transition-colors hover:text-ink-600"
+                style={{ fontSize: 11, color: 'var(--color-ink-400)' }}
+              >
+                Keep my cloud data
+              </button>
+              <button
+                onClick={handleDelete}
+                disabled={deleting}
+                className="font-medium transition-opacity hover:opacity-75"
+                style={{ fontSize: 12, color: 'var(--color-ember, #9B2335)' }}
+              >
+                {deleting ? 'Deleting…' : 'Yes, delete it →'}
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     )
   }

@@ -166,3 +166,27 @@ export async function flushPending(userId, books, settings) {
     settings ? pushSettingsNow(userId, settings)  : Promise.resolve(),
   ])
 }
+
+/**
+ * Delete all cloud rows belonging to a user.
+ *
+ * The Supabase auth user itself is NOT deleted (that requires service_role
+ * privileges, which we don't expose to the client). Their auth identity
+ * survives — they can sign back in and start clean. Only the row data is wiped.
+ *
+ * Caller is responsible for calling signOut() afterward.
+ */
+export async function deleteCloudData(userId) {
+  if (!isCloudEnabled || !userId) return { ok: false, error: 'cloud not configured' }
+  // Cancel any pending pushes so they don't race against the delete
+  if (pushTimers.books)    { clearTimeout(pushTimers.books);    pushTimers.books = null    }
+  if (pushTimers.settings) { clearTimeout(pushTimers.settings); pushTimers.settings = null }
+  pushQueues.books = null
+  pushQueues.settings = null
+  const [booksRes, settingsRes] = await Promise.all([
+    supabase.from('lantern_books').delete().eq('user_id', userId),
+    supabase.from('lantern_settings').delete().eq('user_id', userId),
+  ])
+  const err = booksRes.error?.message || settingsRes.error?.message
+  return err ? { ok: false, error: err } : { ok: true }
+}

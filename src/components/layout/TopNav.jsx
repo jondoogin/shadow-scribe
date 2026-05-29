@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom'
 import { Ico } from '../shared/icons.jsx'
 import { useBooks } from '../../context/BooksContext.jsx'
 import { useSettings } from '../../context/SettingsContext.jsx'
+import { useAuth } from '../../context/AuthContext.jsx'
 
 const IS_DEV = import.meta.env.DEV
 
@@ -11,6 +12,7 @@ export default function TopNav() {
   const location  = useLocation()
   const { resetToDemo } = useBooks()
   const { settings, updateSetting } = useSettings()
+  const { user, status, isCloudEnabled } = useAuth()
   const isDark = !!settings.darkMode
   const [open, setOpen] = useState(false)
   const ref = useRef()
@@ -103,6 +105,47 @@ export default function TopNav() {
           >
             {isDark ? '☀︎' : '◗'}
           </button>
+
+          {/* ── Auth chip ── small, quiet; only renders when cloud is configured ── */}
+          {isCloudEnabled && status === 'signed-in' && (
+            <button
+              onClick={() => navigate('/settings')}
+              title={user?.email || 'Signed in'}
+              aria-label={`Signed in as ${user?.email || ''}`}
+              className="w-9 h-9 flex items-center justify-center rounded-lg transition-all"
+              style={{
+                border:     '1px solid color-mix(in srgb, var(--color-accent) 35%, transparent)',
+                background: 'color-mix(in srgb, var(--color-accent) 8%, transparent)',
+                color:      'var(--color-accent)',
+                fontSize:   12,
+                fontWeight: 600,
+                fontFamily: 'var(--font-sans)',
+              }}
+              onMouseEnter={e => { e.currentTarget.style.background = 'color-mix(in srgb, var(--color-accent) 14%, transparent)' }}
+              onMouseLeave={e => { e.currentTarget.style.background = 'color-mix(in srgb, var(--color-accent) 8%, transparent)' }}
+            >
+              {(user?.email || '?').trim()[0].toUpperCase()}
+            </button>
+          )}
+          {isCloudEnabled && status === 'signed-out' && (
+            <button
+              onClick={() => navigate('/settings')}
+              className="flex items-center gap-1 rounded-lg transition-all px-2.5 h-9"
+              style={{
+                border:     '1px solid var(--color-ink-200)',
+                background: 'transparent',
+                color:      'var(--color-ink-500)',
+                fontSize:   12,
+                fontStyle:  'italic',
+                fontFamily: 'var(--font-serif)',
+              }}
+              onMouseEnter={e => { e.currentTarget.style.color = 'var(--color-ink-700)'; e.currentTarget.style.borderColor = 'var(--color-ink-300)' }}
+              onMouseLeave={e => { e.currentTarget.style.color = 'var(--color-ink-500)'; e.currentTarget.style.borderColor = 'var(--color-ink-200)' }}
+            >
+              <span style={{ fontSize: 10, opacity: 0.7 }}>✦</span>
+              <span className="hidden sm:inline">Sign in</span>
+            </button>
+          )}
 
           <button
             onClick={() => setOpen(o => !o)}

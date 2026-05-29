@@ -6,7 +6,9 @@ import { useBooks } from '../context/BooksContext.jsx'
 import { useSettings } from '../context/SettingsContext.jsx'
 import { Ico } from '../components/shared/icons.jsx'
 import { parseImport, estimateLocalStorageUsage, downloadLibrarySnapshot } from '../utils/storage.js'
+import { deleteCloudData } from '../utils/syncEngine.js'
 import SignInPanel from '../components/auth/SignInPanel.jsx'
+import { useAuth } from '../context/AuthContext.jsx'
 import { track } from '../utils/analytics.js'
 
 function SettingsSection({ title, description, children }) {
@@ -56,7 +58,19 @@ export default function SettingsPage() {
   const navigate = useNavigate()
   const { books, resetToDemo, importLibrary, clearStorageWarning } = useBooks()
   const { settings, updateSetting } = useSettings()
+  const { user, signOut, isCloudEnabled } = useAuth()
   const importRef = useRef()
+
+  // Delete all cloud data for this user, then sign out. Local library untouched.
+  const handleDeleteCloudData = async () => {
+    if (!isCloudEnabled || !user?.id) return
+    const res = await deleteCloudData(user.id)
+    if (!res.ok) {
+      console.warn('[settings] cloud data deletion failed:', res.error)
+      return
+    }
+    await signOut()
+  }
 
   const [importMsg,    setImportMsg]    = useState(null)  // null | { ok, text }
   const [exportDone,   setExportDone]   = useState(false)
@@ -147,7 +161,7 @@ export default function SettingsPage() {
         >
           Sync
         </h2>
-        <SignInPanel />
+        <SignInPanel onDeleteCloudData={isCloudEnabled ? handleDeleteCloudData : null} />
       </div>
 
       {/* ── Appearance ── */}
