@@ -54,7 +54,7 @@ function AddCharForm({ book, onUpdateBook, onClose }) {
     onClose()
   }
 
-  const inputCls = 'w-full border border-ink-200 rounded-lg px-3 py-2 text-sm text-ink-800 placeholder-ink-400 bg-white'
+  const inputCls = 'w-full border border-ink-200 rounded-lg px-3 py-2 text-sm text-ink-800 placeholder-ink-400 bg-cream-200'
 
   return (
     <div className="bg-cream-50 border rounded-2xl p-4 mb-5 animate-slide-up" style={{ borderColor:'var(--ca-border, #E8D090)' }}>
@@ -78,7 +78,7 @@ function AddCharForm({ book, onUpdateBook, onClose }) {
               className={`text-[11px] px-3 py-1 rounded-full font-medium transition-all border ${
                 form.type === t
                   ? 'bg-ink-900 text-white border-ink-900'
-                  : 'bg-white text-ink-600 border-ink-200 hover:border-ink-400'
+                  : 'bg-cream-200 text-ink-600 border-ink-200 hover:border-ink-400'
               }`}>
               {t === 'main' ? 'Main' : 'Secondary'}
             </button>
@@ -107,7 +107,7 @@ function AddCharForm({ book, onUpdateBook, onClose }) {
               <label className="text-[10px] uppercase tracking-widest text-ink-400 block mb-1">Notes</label>
               <textarea value={form.description} onChange={set('description')} rows={2}
                 placeholder="First impressions, observations…"
-                className="w-full border border-ink-200 rounded-lg px-3 py-2 text-sm text-ink-800 placeholder-ink-400 bg-white resize-none" />
+                className="w-full border border-ink-200 rounded-lg px-3 py-2 text-sm text-ink-800 placeholder-ink-400 bg-cream-200 resize-none" />
             </div>
             <div>
               <label className="text-[10px] uppercase tracking-widest text-ink-400 block mb-1">
@@ -303,7 +303,7 @@ function CharCard({ ch, raw, veiled, flash, book, visibleChars, onSave, onUpdate
 
   const isUserAdded = raw?.userAdded
   const wasUpdated  = !isUserAdded && raw?.updatedAt
-  const inputCls    = 'w-full border border-ink-200 rounded-lg px-2.5 py-1.5 text-sm text-ink-800 bg-white'
+  const inputCls    = 'w-full border border-ink-200 rounded-lg px-2.5 py-1.5 text-sm text-ink-800 bg-cream-200'
 
   return (
     <div className={`note-card overflow-hidden ${veiled ? 'opacity-70' : ''} ${flash ? 'item-glow' : ''}`}>
@@ -372,7 +372,7 @@ function CharCard({ ch, raw, veiled, flash, book, visibleChars, onSave, onUpdate
                     className={`text-[11px] px-3 py-1 rounded-full font-medium transition-all border ${
                       editForm.tier === t
                         ? 'bg-ink-900 text-white border-ink-900'
-                        : 'bg-white text-ink-600 border-ink-200 hover:border-ink-400'
+                        : 'bg-cream-200 text-ink-600 border-ink-200 hover:border-ink-400'
                     }`}>
                     {t === 'main' ? 'Main' : 'Secondary'}
                   </button>
@@ -395,7 +395,7 @@ function CharCard({ ch, raw, veiled, flash, book, visibleChars, onSave, onUpdate
               <div>
                 <label className="text-[10px] uppercase tracking-widest text-ink-400 block mb-1">Description</label>
                 <textarea value={editForm.description} onChange={setE('description')} rows={3}
-                  className="w-full border border-ink-200 rounded-lg px-2.5 py-1.5 text-sm text-ink-800 bg-white resize-none" />
+                  className="w-full border border-ink-200 rounded-lg px-2.5 py-1.5 text-sm text-ink-800 bg-cream-200 resize-none" />
               </div>
               <div>
                 <label className="text-[10px] uppercase tracking-widest text-ink-400 block mb-1">
@@ -486,12 +486,12 @@ function CharCard({ ch, raw, veiled, flash, book, visibleChars, onSave, onUpdate
                           onChange={e => setEditRelForm(f => ({ ...f, label: e.target.value }))}
                           placeholder="Describe this connection…"
                           autoFocus
-                          className="w-full border border-ink-200 rounded-lg px-2.5 py-1.5 text-sm text-ink-800 placeholder-ink-400 bg-white" />
+                          className="w-full border border-ink-200 rounded-lg px-2.5 py-1.5 text-sm text-ink-800 placeholder-ink-400 bg-cream-200" />
                         <div className="flex items-center gap-2">
                           <select
                             value={editRelForm.type}
                             onChange={e => setEditRelForm(f => ({ ...f, type: e.target.value }))}
-                            className="border border-ink-200 rounded-lg px-2 py-1.5 text-sm text-ink-700 bg-white">
+                            className="border border-ink-200 rounded-lg px-2 py-1.5 text-sm text-ink-700 bg-cream-200">
                             {REL_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
                           </select>
                           <div className="flex gap-2 ml-auto">
@@ -540,7 +540,7 @@ function CharCard({ ch, raw, veiled, flash, book, visibleChars, onSave, onUpdate
                   <div className="grid grid-cols-[1fr_auto] gap-2">
                     <select value={relForm.toId}
                       onChange={e => setRelForm(f => ({ ...f, toId: e.target.value }))}
-                      className="border border-ink-200 rounded-lg px-2.5 py-1.5 text-sm text-ink-700 bg-white">
+                      className="border border-ink-200 rounded-lg px-2.5 py-1.5 text-sm text-ink-700 bg-cream-200">
                       <option value="">Select character…</option>
                       {relTargets.map(c => (
                         <option key={c.id} value={c.id}>{c.name}</option>
@@ -548,14 +548,14 @@ function CharCard({ ch, raw, veiled, flash, book, visibleChars, onSave, onUpdate
                     </select>
                     <select value={relForm.type}
                       onChange={e => setRelForm(f => ({ ...f, type: e.target.value }))}
-                      className="border border-ink-200 rounded-lg px-2 py-1.5 text-sm text-ink-700 bg-white">
+                      className="border border-ink-200 rounded-lg px-2 py-1.5 text-sm text-ink-700 bg-cream-200">
                       {REL_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
                     </select>
                   </div>
                   <input value={relForm.label}
                     onChange={e => setRelForm(f => ({ ...f, label: e.target.value }))}
                     placeholder="Describe this connection…"
-                    className="w-full border border-ink-200 rounded-lg px-2.5 py-1.5 text-sm text-ink-800 placeholder-ink-400 bg-white" />
+                    className="w-full border border-ink-200 rounded-lg px-2.5 py-1.5 text-sm text-ink-800 placeholder-ink-400 bg-cream-200" />
                   <div className="flex gap-2">
                     <button
                       onClick={() => { setAddingRel(false); setRelForm({ toId: '', type: 'neutral', label: '' }) }}

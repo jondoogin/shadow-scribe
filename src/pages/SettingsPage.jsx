@@ -264,6 +264,20 @@ export default function SettingsPage() {
             <option value="full">Full Spoilers</option>
           </select>
         </SettingsRow>
+        <SettingsRow
+          label="Default Companion Depth"
+          description="How present the companion is by default. Per-book override available."
+        >
+          <select
+            value={settings.defaultDepthLevel}
+            onChange={e => updateSetting('defaultDepthLevel', e.target.value)}
+            className="text-[12px] text-ink-700 border border-ink-200 rounded-lg px-2.5 py-1.5 bg-cream-200 cursor-pointer"
+          >
+            <option value="quiet">Quiet — mostly silent record</option>
+            <option value="resonant">Resonant — balanced presence</option>
+            <option value="saturated">Saturated — dense engagement</option>
+          </select>
+        </SettingsRow>
       </SettingsSection>
 
       {/* ── Data ── */}

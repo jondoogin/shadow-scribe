@@ -26,6 +26,9 @@ export const SETTINGS_DEFAULTS = {
   // firstBookInvitationDismissedAt: when the user last deferred the "add your
   // first book" invitation. Suppressed for 7 days after dismissal.
   firstBookInvitationDismissedAt: null,
+  // defaultDepthLevel: how present the companion is by default for new books.
+  // 'quiet' | 'resonant' | 'saturated'. Per-book override on book.depthLevel.
+  defaultDepthLevel: 'resonant',
 }
 
 const KEY = 'shadowscribe_settings'

@@ -362,7 +362,7 @@ export default function MysteriesTab({ book, onUpdateBook, flashItemId }) {
                       <div className="animate-fade-in mb-2">
                         <textarea value={refineText} onChange={e => setRefineText(e.target.value)}
                           rows={2} autoFocus
-                          className="w-full border border-ink-200 rounded-lg px-2.5 py-1.5 text-[13px] text-ink-800 bg-white resize-none" />
+                          className="w-full border border-ink-200 rounded-lg px-2.5 py-1.5 text-[13px] text-ink-800 bg-cream-200 resize-none" />
                         <div className="flex gap-2 mt-1.5">
                           <button onClick={() => setRefiningId(null)}
                             className="text-[11px] text-ink-400 hover:text-ink-600 transition-colors">Cancel</button>

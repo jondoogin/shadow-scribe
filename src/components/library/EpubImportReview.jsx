@@ -73,6 +73,7 @@ function buildBook(epubData, form) {
     lastUpdated: new Date().toISOString().split('T')[0],
     coverBg: `linear-gradient(160deg,${MOOD_COLORS[form.mood]}CC 0%,${MOOD_COLORS[form.mood]}66 100%)`,
     mood: form.mood,
+    depthLevel: form.depthLevel,
     readingLog: [],
     series: form.hasSeries && form.seriesName
       ? { name: form.seriesName, position: parseInt(form.seriesPos) || 1, total: parseInt(form.seriesTotal) || 0 }
@@ -121,7 +122,8 @@ export default function EpubImportReview({ importData, duplicateWarning, onCreat
     author:        importData.author,
     isbn:          importData.isbn || '',
     format:        settings.defaultFormat ?? 'print',
-    mood:          'gold',
+    mood:          'gold',                                          // kept for cover gradient (silent default)
+    depthLevel:    settings.defaultDepthLevel ?? 'resonant',        // companion engagement level
     spoilerMode:   settings.spoilerMode ?? 'relaxed',
     structureType: importData.structureType,
     totalChapters: String(importData.totalChapters),
@@ -365,7 +367,7 @@ export default function EpubImportReview({ importData, duplicateWarning, onCreat
                 {[{ k:'print', l:'Print', icon:'📖' }, { k:'ebook', l:'E-Book', icon:'📱' }, { k:'audiobook', l:'Audiobook', icon:'🎧' }].map(f => (
                   <button key={f.k} onClick={() => set('format', f.k)}
                     className={`flex-1 py-3.5 rounded-xl border-2 text-[13px] font-medium transition-all ${
-                      form.format === f.k ? 'border-gold bg-gold-bg text-gold' : 'border-ink-200 text-ink-600 hover:border-ink-300 bg-white'
+                      form.format === f.k ? 'border-gold bg-gold-bg text-gold' : 'border-ink-200 text-ink-600 hover:border-ink-300 bg-cream-200'
                     }`}>
                     <div className="text-xl mb-1">{f.icon}</div>{f.l}
                   </button>
@@ -373,20 +375,41 @@ export default function EpubImportReview({ importData, duplicateWarning, onCreat
               </div>
             </div>
 
-            {/* Mood */}
+            {/* Depth level — how present the companion is for this book */}
             <div className="mb-7">
-              <label className="block text-[10px] font-semibold text-ink-500 uppercase tracking-widest mb-3">Companion mood</label>
-              <div className="flex items-center gap-3 flex-wrap">
-                {Object.entries(MOOD_CONFIG).map(([k, cfg]) => (
-                  <button key={k} onClick={() => set('mood', k)} title={cfg.label}
-                    className={`flex items-center gap-2 px-3 py-2 rounded-xl border-2 text-[12px] font-medium transition-all ${
-                      form.mood === k ? 'border-current bg-white' : 'border-ink-200 text-ink-500 hover:border-ink-300 bg-white'
-                    }`}
-                    style={form.mood === k ? { color: MOOD_COLORS[k], borderColor: MOOD_COLORS[k] } : {}}>
-                    <span className="w-3 h-3 rounded-full flex-shrink-0" style={{ background: MOOD_COLORS[k] }} />
-                    {cfg.label}
-                  </button>
-                ))}
+              <label className="block text-[10px] font-semibold uppercase tracking-widest mb-3" style={{ color: 'var(--color-ink-500)' }}>
+                Companion depth
+              </label>
+              <p className="italic mb-3" style={{ fontSize: 11, color: 'var(--color-ink-400)', lineHeight: 1.55 }}>
+                How present the companion should be for this reading. You can change this later.
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                {[
+                  { k: 'quiet',     label: 'Quiet',     hint: 'mostly silent record' },
+                  { k: 'resonant',  label: 'Resonant',  hint: 'balanced presence' },
+                  { k: 'saturated', label: 'Saturated', hint: 'dense engagement' },
+                ].map(opt => {
+                  const selected = form.depthLevel === opt.k
+                  return (
+                    <button
+                      key={opt.k}
+                      onClick={() => set('depthLevel', opt.k)}
+                      className="text-left px-3 py-2.5 rounded-xl transition-all"
+                      style={{
+                        background:   selected ? 'var(--color-card-deep)' : 'var(--color-cream-200)',
+                        border:       selected ? '1px solid var(--color-accent)' : '1px solid var(--color-hairline)',
+                        boxShadow:    selected ? '0 0 0 2px color-mix(in srgb, var(--color-accent) 20%, transparent)' : 'none',
+                      }}
+                    >
+                      <div style={{ fontSize: 12, fontWeight: 500, color: selected ? 'var(--color-accent)' : 'var(--color-ink-700)' }}>
+                        {opt.label}
+                      </div>
+                      <div className="italic mt-0.5" style={{ fontSize: 10, color: 'var(--color-ink-400)' }}>
+                        {opt.hint}
+                      </div>
+                    </button>
+                  )
+                })}
               </div>
             </div>
 
@@ -417,7 +440,7 @@ export default function EpubImportReview({ importData, duplicateWarning, onCreat
                   {STRUCTURE_TYPES.map(s => (
                     <button key={s.k} onClick={() => set('structureType', s.k)}
                       className={`w-full text-left px-4 py-3 rounded-xl border-2 transition-all ${
-                        form.structureType === s.k ? 'border-gold bg-gold-bg' : 'border-ink-200 bg-white hover:border-ink-300'
+                        form.structureType === s.k ? 'border-gold bg-gold-bg' : 'border-ink-200 bg-cream-200 hover:border-ink-300'
                       }`}>
                       <div className="flex items-center gap-3">
                         <div className={`w-3.5 h-3.5 rounded-full border-2 flex-shrink-0 transition-all ${
@@ -450,7 +473,7 @@ export default function EpubImportReview({ importData, duplicateWarning, onCreat
                   </label>
                   <div className="border border-ink-200 rounded-xl overflow-hidden max-h-[320px] overflow-y-auto">
                     {displayChapters.map((ch, i) => (
-                      <div key={i} className="flex items-center gap-2 px-3 py-2.5 border-b border-ink-100 last:border-b-0 bg-white hover:bg-cream-50 transition-colors">
+                      <div key={i} className="flex items-center gap-2 px-3 py-2.5 border-b border-ink-100 last:border-b-0 bg-cream-200 hover:bg-cream-50 transition-colors">
                         {/* Type badge — tap to cycle */}
                         <button
                           onClick={() => updateChapter(i, { type: nextType(ch.type) })}
@@ -498,7 +521,7 @@ export default function EpubImportReview({ importData, duplicateWarning, onCreat
                 <button
                   onClick={() => set('hasSeries', !form.hasSeries)}
                   className={`flex items-center gap-2.5 px-4 py-2.5 rounded-xl border-2 text-[13px] font-medium transition-all ${
-                    form.hasSeries ? 'border-gold bg-gold-bg text-gold' : 'border-ink-200 bg-white text-ink-600 hover:border-ink-300'
+                    form.hasSeries ? 'border-gold bg-gold-bg text-gold' : 'border-ink-200 bg-cream-200 text-ink-600 hover:border-ink-300'
                   }`}>
                   <div className={`w-4 h-4 rounded border-2 flex items-center justify-center transition-all ${
                     form.hasSeries ? 'border-gold bg-gold' : 'border-ink-300'
@@ -545,7 +568,7 @@ export default function EpubImportReview({ importData, duplicateWarning, onCreat
               {spoilerModes.map(m => (
                 <button key={m.k} onClick={() => set('spoilerMode', m.k)}
                   className={`w-full text-left p-4 rounded-xl border-2 transition-all ${
-                    form.spoilerMode === m.k ? 'border-gold bg-gold-bg' : 'border-ink-200 hover:border-ink-300 bg-white'
+                    form.spoilerMode === m.k ? 'border-gold bg-gold-bg' : 'border-ink-200 hover:border-ink-300 bg-cream-200'
                   }`}>
                   <div className="flex items-center gap-3">
                     <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-all ${
@@ -578,8 +601,14 @@ export default function EpubImportReview({ importData, duplicateWarning, onCreat
                 </p>
               )}
               <div className="flex items-center gap-1.5 mt-2">
-                <span className="w-2.5 h-2.5 rounded-full" style={{ background: MOOD_COLORS[form.mood] }} />
-                <span className="text-[11px] text-ink-400">{MOOD_CONFIG[form.mood]?.label} mood</span>
+                <span className="italic" style={{ fontSize: 11, color: 'var(--color-ink-400)' }}>
+                  Companion depth:{' '}
+                  <span style={{ color: 'var(--color-ink-600)', fontStyle: 'normal', fontWeight: 500 }}>
+                    {form.depthLevel === 'quiet'     ? 'Quiet'
+                    : form.depthLevel === 'saturated' ? 'Saturated'
+                    : 'Resonant'}
+                  </span>
+                </span>
               </div>
             </div>
 

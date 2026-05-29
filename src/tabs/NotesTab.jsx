@@ -702,7 +702,7 @@ export default function NotesTab({ book, onUpdateBook }) {
                 ) : isEditing ? (
                   <div className="animate-fade-in">
                     <textarea value={editText} onChange={e => setEditText(e.target.value)} rows={3} autoFocus
-                      className="w-full border border-ink-200 rounded-xl px-3.5 py-2.5 text-sm text-ink-800 bg-white resize-none mb-3" />
+                      className="w-full border border-ink-200 rounded-xl px-3.5 py-2.5 text-sm text-ink-800 bg-cream-200 resize-none mb-3" />
                     <div className="flex items-center gap-3 flex-wrap mb-3">
                       <div className="flex gap-1.5 flex-wrap">
                         {Object.keys(TAG_CONFIG).map(t => (

@@ -24,6 +24,7 @@ export default function CreateCompanion({ onCreate, onCancel }) {
   const [step, setStep] = useState(1)
   const [form, setForm] = useState({
     title:'', author:'', isbn:'', format: settings.defaultFormat ?? 'print', mood:'gold',
+    depthLevel: settings.defaultDepthLevel ?? 'resonant',
     spoilerMode: settings.spoilerMode ?? 'relaxed', structureType:'chapter',
     hasSeries:false, seriesName:'', seriesPos:'', seriesTotal:'',
     totalChapters:'',
@@ -81,6 +82,7 @@ export default function CreateCompanion({ onCreate, onCancel }) {
       lastUpdated: new Date().toISOString().split('T')[0],
       coverBg: `linear-gradient(160deg,${MOOD_COLORS[form.mood]}CC 0%,${MOOD_COLORS[form.mood]}66 100%)`,
       mood: form.mood,
+      depthLevel: form.depthLevel,
       readingLog: [],
       series: form.hasSeries && form.seriesName
         ? { name:form.seriesName, position:parseInt(form.seriesPos)||1, total:parseInt(form.seriesTotal)||0 }
@@ -236,6 +238,44 @@ export default function CreateCompanion({ onCreate, onCancel }) {
                     {f.l}
                   </button>
                 ))}
+              </div>
+            </div>
+
+            {/* Companion depth — how present the companion should be */}
+            <div className="mb-6">
+              <label className="block text-[10px] font-semibold uppercase tracking-widest mb-2" style={{ color: 'var(--color-ink-500)' }}>
+                Companion depth
+              </label>
+              <p className="italic mb-3" style={{ fontSize: 11, color: 'var(--color-ink-400)', lineHeight: 1.55 }}>
+                How present the companion should be for this reading.
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                {[
+                  { k: 'quiet',     label: 'Quiet',     hint: 'mostly silent record' },
+                  { k: 'resonant',  label: 'Resonant',  hint: 'balanced presence' },
+                  { k: 'saturated', label: 'Saturated', hint: 'dense engagement' },
+                ].map(opt => {
+                  const selected = form.depthLevel === opt.k
+                  return (
+                    <button
+                      key={opt.k}
+                      onClick={() => set('depthLevel', opt.k)}
+                      className="text-left px-3 py-2.5 rounded-xl transition-all"
+                      style={{
+                        background:   selected ? 'var(--color-card-deep)' : 'var(--color-cream-200)',
+                        border:       selected ? '1px solid var(--color-accent)' : '1px solid var(--color-hairline)',
+                        boxShadow:    selected ? '0 0 0 2px color-mix(in srgb, var(--color-accent) 20%, transparent)' : 'none',
+                      }}
+                    >
+                      <div style={{ fontSize: 12, fontWeight: 500, color: selected ? 'var(--color-accent)' : 'var(--color-ink-700)' }}>
+                        {opt.label}
+                      </div>
+                      <div className="italic mt-0.5" style={{ fontSize: 10, color: 'var(--color-ink-400)' }}>
+                        {opt.hint}
+                      </div>
+                    </button>
+                  )
+                })}
               </div>
             </div>
 
