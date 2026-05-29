@@ -1,9 +1,49 @@
 # Lantern — Handoff Document
-**Last updated:** 2026-05-29 · Session 130 (threaded notes, persistence, snapshot reminder, list relationships, first-book invitation)
+**Last updated:** 2026-05-29 · Session 131 (Depth Level + dark-mode input sweep + Supabase cloud sync scaffolding)
 **Stack:** React 19 · Vite 8 · Tailwind CSS v4 · React Router v7 · localStorage + Vercel Serverless Functions (`/api/companion` — live)
 **localStorage keys (FROZEN):** `shadowscribe_books` · `shadowscribe_settings` · `lantern_welcomed` — must NEVER be renamed
 **Build command:** `node node_modules/vite/bin/vite.js build`
 **Status: V2 COMPANION-FIRST REDESIGN — Phase 1 + Atmospheric pass + Playground translation complete, Phase 2–5 pending**
+
+---
+
+## SESSION 131 — 2026-05-29 — Depth Level + dark-mode input sweep + Supabase cloud sync
+
+### What shipped
+
+**1. Companion Depth (`EpubImportReview.jsx`, `CreateCompanion.jsx`, `SettingsPage.jsx`, `SettingsContext.jsx`)**
+- Replaced the EPUB import's "Companion mood" picker with a three-option **Companion depth** selector: **Quiet** (mostly silent record), **Resonant** (balanced presence), **Saturated** (dense engagement).
+- Same selector mirrored into the manual `CreateCompanion` flow.
+- Default depth picker added to Settings (`Default Companion Depth`).
+- Persisted as `book.depthLevel`. UI ready — behavior wiring (frequency, AI involvement throttling) is a follow-up pass.
+
+**2. Dark-mode input sweep**
+- Replaced every `bg-white` on form surfaces with `bg-cream-200`, which adapts correctly to `#221e1a` in dark mode.
+- Files touched: `CharactersTab.jsx` (10 inputs/selects/state buttons), `MysteriesTab.jsx`, `NotesTab.jsx`, `EpubImportReview.jsx` (5 state buttons + chapter row).
+- Radio inner dot kept white (contrast against gold ring). DebugPage left untouched (dev-only).
+
+**3. Cloud sync scaffolding — Supabase + magic-link auth + auto-sync**
+- New dependency: `@supabase/supabase-js`
+- `src/lib/supabase.js` — single client wrapper, gracefully returns null when env vars absent (app continues to run identically on localStorage).
+- `src/context/AuthContext.jsx` — magic-link auth state. `sendMagicLink(email)`, `signOut()`, session persistence handled by Supabase.
+- `src/components/auth/SignInPanel.jsx` — email-input form, sent-state confirmation, signed-in display + sign-out. Shows an explanatory placeholder when cloud disabled.
+- `src/utils/syncEngine.js` — per-channel debounced push (1.5s) for books + settings. `pullAndMerge()` does last-write-wins merge keyed on `book.lastUpdated`. Cloud-wins on settings, with `deviceId` + `anthropicKey` preserved as device-local.
+- `BooksContext` + `SettingsContext` — on sign-in transition: pull, merge, adopt result, push back. On any change while signed in: schedule a debounced push. Pull marker resets on sign-out.
+- `App.jsx` — `AuthProvider` wraps `SettingsProvider → BooksProvider`.
+- `SignInPanel` mounted at top of `SettingsPage` in a new "Sync" section.
+
+### Action required from John
+
+To activate cloud sync (the app works fine without it):
+1. Follow `docs/SUPABASE_SETUP.md` — create a Supabase project (~5 minutes).
+2. Run `docs/SUPABASE_SCHEMA.sql` in the Supabase SQL editor — creates two JSONB tables with Row Level Security.
+3. Add to `.env.local` (dev) and Vercel project env (prod):
+   - `VITE_SUPABASE_URL`
+   - `VITE_SUPABASE_ANON_KEY`
+4. Verify by signing in via Settings and checking that books appear in the Supabase `lantern_books` table.
+
+### Build
+clean ✓ | 131 modules | dev server on port 5220 | Commits `6ecdbae`, `c8c6866`
 
 ---
 
