@@ -1,5 +1,6 @@
 /**
- * companionThread.js — AI-generated note thread responses + semantic echo detection
+ * companionThread.js — AI-generated note thread responses, semantic echo detection,
+ * and direct companion chat responses.
  *
  * Generates a companion response to each reader note, grounded in
  * the specific book, the reader's full interpretive history in it,
@@ -323,6 +324,104 @@ Do not introduce yourself. Do not ask questions. Just the response — nothing e
       method: 'POST',
       headers,
       body: bodyStr,
+    })
+  } finally {
+    clearTimeout(timer)
+  }
+
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}))
+    throw new Error(err.error?.message || `API error ${response.status}`)
+  }
+
+  const data = await response.json()
+  const text = (data.content?.[0]?.text ?? '').trim()
+  if (!text) throw new Error('Empty response')
+  return text
+}
+
+// ── Companion band direct chat ────────────────────────────────────────────────
+
+/**
+ * Generate a companion response to a direct chat message.
+ *
+ * The companion has full awareness of the reader's book context —
+ * notes, open questions, characters, chapter position — and responds
+ * as a quiet, literary presence rather than a Q&A chatbot.
+ *
+ * @param {string}   userMessage       What the reader typed
+ * @param {Object}   book              The full book object
+ * @param {string}   apiKey            Anthropic API key (empty string = use proxy)
+ * @param {Array}    history           Prior messages [{ role:'user'|'companion', text }]
+ * @returns {Promise<string>}          Companion's response (1–2 sentences)
+ */
+export async function generateCompanionChatResponse(userMessage, book, apiKey, history = []) {
+  const recentNotes = (book.notes || [])
+    .slice(-6)
+    .map(n => `  [${n.tag}] ch.${n.chapter ?? '?'}: ${n.text.slice(0, 100)}${n.text.length > 100 ? '…' : ''}`)
+    .join('\n')
+
+  const openMysteries = (book.mysteries || [])
+    .filter(m => !m.resolved)
+    .slice(0, 4)
+    .map(m => `  "${m.text.slice(0, 90)}"`)
+    .join('\n')
+
+  const mainChars = (book.characters?.main || []).slice(0, 6).map(c => c.name).join(', ')
+
+  const allNotes = book.notes || []
+  const motifs   = allNotes.length >= 4 ? detectMotifs(allNotes, book.currentChapter || Infinity) : []
+  const dominant = detectDominantCluster(allNotes)
+
+  const contextBlock = [
+    `Book: "${book.title}"${book.author ? ` by ${book.author}` : ''}`,
+    book.currentChapter ? `Reader is at chapter ${book.currentChapter}${book.totalChapters ? ` of ${book.totalChapters}` : ''}.` : null,
+    recentNotes    ? `\nRecent notes:\n${recentNotes}` : null,
+    openMysteries  ? `\nOpen questions the reader is carrying:\n${openMysteries}` : null,
+    mainChars      ? `\nCharacters: ${mainChars}` : null,
+    dominant       ? `\nEmotional territory of their reading: ${dominant.label}` : null,
+    motifs.length  ? `\nRecurring words in their annotations: ${motifs.slice(0, 2).map(m => `"${m.word}"`).join(', ')}` : null,
+  ].filter(Boolean).join('\n')
+
+  const systemPrompt = `You are a literary companion embedded in a reading app. The reader is speaking to you directly — not writing a note, but in conversation. You have absorbed everything they have annotated, questioned, and marked.
+
+${contextBlock}
+
+Respond as a quiet, intelligent literary presence. Rules:
+- Be specific to this book and this reader's annotations — not generic
+- Never use "I" — write in third person or impersonally
+- No affirmations ("Great!", "Interesting!", "That's a good point")
+- Understated and literary in tone — not chatty
+- One sentence usually sufficient; two at most
+- Do not summarize plot back to the reader — they know it
+- If they ask something you cannot know (e.g. what happens next), say something true about what they have noticed instead
+- Do not ask follow-up questions unless the reader's message is genuinely ambiguous`
+
+  const messages = [
+    ...history.slice(-6).map(m => ({
+      role:    m.role === 'user' ? 'user' : 'assistant',
+      content: m.text,
+    })),
+    { role: 'user', content: userMessage },
+  ]
+
+  const controller = new AbortController()
+  const timer      = setTimeout(() => controller.abort(), 14_000)
+
+  const { url, headers, bodyStr } = buildAiCall(apiKey, {
+    model:      PROVIDER_CONFIG.model,
+    max_tokens: 140,
+    system:     systemPrompt,
+    messages,
+  })
+
+  let response
+  try {
+    response = await fetch(url, {
+      signal: controller.signal,
+      method: 'POST',
+      headers,
+      body:   bodyStr,
     })
   } finally {
     clearTimeout(timer)

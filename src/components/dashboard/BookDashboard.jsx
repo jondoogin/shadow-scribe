@@ -7,18 +7,18 @@ import CompanionBand   from './CompanionBand.jsx'
 import ChapterUpdateModal from '../modals/ChapterUpdateModal.jsx'
 import CharactersTab   from '../../tabs/CharactersTab.jsx'
 import PlotTab         from '../../tabs/PlotTab.jsx'
+import ProgressTab     from '../../tabs/ProgressTab.jsx'
 import NotesTab        from '../../tabs/NotesTab.jsx'
 import MysteriesTab    from '../../tabs/MysteriesTab.jsx'
 import DiscussionTab   from '../../tabs/DiscussionTab.jsx'
 
-// Progress tab content now lives in CompanionBand.
-// Tab order: Notes first (most active), then accumulated record.
 const TABS = [
   { id: 'notes',      label: 'Notes'      },
   { id: 'characters', label: 'Characters' },
   { id: 'plot',       label: 'Plot'       },
   { id: 'questions',  label: 'Questions'  },
   { id: 'themes',     label: 'Themes'     },
+  { id: 'progress',   label: 'Timeline'   },
 ]
 
 export default function BookDashboard({ bookId }) {
@@ -104,6 +104,7 @@ export default function BookDashboard({ bookId }) {
           {tab === 'plot'       && <PlotTab       book={book} onUpdateBook={onUpdateBook} />}
           {tab === 'questions'  && <MysteriesTab  book={book} onUpdateBook={onUpdateBook} flashItemId={flashItemId} />}
           {tab === 'themes'     && <DiscussionTab book={book} onUpdateBook={onUpdateBook} />}
+          {tab === 'progress'   && <ProgressTab   book={book} onUpdateBook={onUpdateBook} />}
         </div>
       </div>
 

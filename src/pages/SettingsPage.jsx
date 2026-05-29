@@ -50,13 +50,6 @@ function Toggle({ value, onChange, disabled }) {
   )
 }
 
-function PlaceholderBadge() {
-  return (
-    <span className="text-[10px] font-semibold uppercase tracking-widest text-ink-400 bg-ink-100 px-2 py-0.5 rounded-full">
-      Soon
-    </span>
-  )
-}
 
 export default function SettingsPage() {
   const navigate = useNavigate()
@@ -66,7 +59,6 @@ export default function SettingsPage() {
 
   const [importMsg,    setImportMsg]    = useState(null)  // null | { ok, text }
   const [exportDone,   setExportDone]   = useState(false)
-  const [shadowMode,   setShadowMode]   = useState(false)
   const [confirmReset, setConfirmReset] = useState(false)
   const [showKey,      setShowKey]      = useState(false)
   const [keyDraft,     setKeyDraft]     = useState(settings.anthropicKey || '')
@@ -161,15 +153,6 @@ export default function SettingsPage() {
         >
           <Toggle value={settings.darkMode} onChange={v => updateSetting('darkMode', v)} />
         </SettingsRow>
-        <SettingsRow
-          label="Shadow Mode"
-          description="A dimmer, more contemplative reading atmosphere."
-        >
-          <div className="flex items-center gap-2">
-            <Toggle value={shadowMode} onChange={setShadowMode} disabled />
-            <PlaceholderBadge />
-          </div>
-        </SettingsRow>
       </SettingsSection>
 
       {/* ── Companion ── */}
@@ -181,7 +164,7 @@ export default function SettingsPage() {
           <select
             value={settings.insightStyle}
             onChange={e => updateSetting('insightStyle', e.target.value)}
-            className="text-[12px] text-ink-700 border border-ink-200 rounded-lg px-2.5 py-1.5 bg-white cursor-pointer"
+            className="text-[12px] text-ink-700 border border-ink-200 rounded-lg px-2.5 py-1.5 bg-cream-200 cursor-pointer"
           >
             <option value="observational">Observational</option>
             <option value="analytical">Analytical</option>
@@ -228,7 +211,7 @@ export default function SettingsPage() {
                 onChange={e => { setKeyDraft(e.target.value); setKeySaved(false) }}
                 onKeyDown={e => e.key === 'Enter' && saveKey()}
                 placeholder="sk-ant-..."
-                className="w-full border border-ink-200 rounded-xl px-3.5 py-2.5 text-sm text-ink-800 placeholder-ink-300 bg-white pr-10 font-mono tracking-wider"
+                className="w-full border border-ink-200 rounded-xl px-3.5 py-2.5 text-sm text-ink-800 placeholder-ink-300 bg-cream-200 pr-10 font-mono tracking-wider"
               />
               <button
                 onClick={() => setShowKey(v => !v)}
@@ -267,7 +250,7 @@ export default function SettingsPage() {
           <select
             value={settings.defaultFormat}
             onChange={e => updateSetting('defaultFormat', e.target.value)}
-            className="text-[12px] text-ink-700 border border-ink-200 rounded-lg px-2.5 py-1.5 bg-white cursor-pointer"
+            className="text-[12px] text-ink-700 border border-ink-200 rounded-lg px-2.5 py-1.5 bg-cream-200 cursor-pointer"
           >
             <option value="print">Print</option>
             <option value="ebook">E-Book</option>
@@ -281,7 +264,7 @@ export default function SettingsPage() {
           <select
             value={settings.spoilerMode}
             onChange={e => updateSetting('spoilerMode', e.target.value)}
-            className="text-[12px] text-ink-700 border border-ink-200 rounded-lg px-2.5 py-1.5 bg-white cursor-pointer"
+            className="text-[12px] text-ink-700 border border-ink-200 rounded-lg px-2.5 py-1.5 bg-cream-200 cursor-pointer"
           >
             <option value="strict">Strict</option>
             <option value="relaxed">Relaxed</option>

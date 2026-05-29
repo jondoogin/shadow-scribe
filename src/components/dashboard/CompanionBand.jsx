@@ -11,6 +11,7 @@ import {
   isReflectionPoolSaturated,
 } from '../../utils/reflectionEngine.js'
 import { generateCompanionReflections } from '../../utils/aiExtractor.js'
+import { generateCompanionChatResponse } from '../../utils/companionThread.js'
 import { computePresenceVisibility, shouldYieldToBook } from '../../utils/invisiblePresence.js'
 import { isMysteryVisible, getEffectiveMode } from '../../utils/spoiler.js'
 import { mysteryHauntScore, hauntLevel }       from '../../utils/hauntScore.js'
@@ -18,39 +19,17 @@ import { getProgress }   from '../../utils/progress.js'
 import { useSettings }   from '../../context/SettingsContext.jsx'
 import { useBooks }      from '../../context/BooksContext.jsx'
 
-// ── Simulated local responses (no backend required this pass) ─────────────────
-const RESPONSE_POOLS = {
-  question: [
-    "That question has weight. The story hasn't answered it directly — but it may be setting up the conditions.",
-    "Worth keeping open. The story is still deciding what it means.",
-    "Something in the earlier chapters might be circling the same ground from a different angle.",
-  ],
-  feeling: [
-    "Something is accumulating in how you're reading this. The discomfort — or pull — is probably intentional.",
-    "The story earns that feeling. It's been building toward it for a while.",
-    "That's a response worth trusting. The text put it there.",
-  ],
-  character: [
-    "That character is carrying more than the surface story. Something in their behavior keeps pointing elsewhere.",
-    "There's a pattern forming around that figure. Worth watching what they do when the stakes rise.",
-    "The relationship dynamics around them are still in motion.",
-  ],
-  default: [
-    "The story is still settling around that. Worth keeping the question open.",
-    "Something beneath the surface is at work there. The text rewards slow attention.",
-    "That observation belongs in the manuscript. It's doing something.",
-  ],
-}
+// ── Fallback responses — used only when AI call fails ─────────────────────────
+const FALLBACK_RESPONSES = [
+  "The story is still settling around that. Worth keeping the question open.",
+  "Something beneath the surface is at work there. The text rewards slow attention.",
+  "That observation belongs in the manuscript. It's doing something.",
+  "Worth keeping open. The story is still deciding what it means.",
+  "That's a response worth trusting. The text put it there.",
+]
 
-function simulateResponse(message) {
-  const m = message.toLowerCase()
-  if (m.includes('why') || m.includes('what does') || m.includes('mean') || m.includes('?'))
-    return RESPONSE_POOLS.question[Math.floor(Math.random() * RESPONSE_POOLS.question.length)]
-  if (m.includes('feel') || m.includes('think') || m.includes('sad') || m.includes('beautiful') || m.includes('unsettl'))
-    return RESPONSE_POOLS.feeling[Math.floor(Math.random() * RESPONSE_POOLS.feeling.length)]
-  if (m.includes('character') || m.includes('person') || m.includes('he ') || m.includes('she ') || m.includes('they '))
-    return RESPONSE_POOLS.character[Math.floor(Math.random() * RESPONSE_POOLS.character.length)]
-  return RESPONSE_POOLS.default[Math.floor(Math.random() * RESPONSE_POOLS.default.length)]
+function fallbackResponse() {
+  return FALLBACK_RESPONSES[Math.floor(Math.random() * FALLBACK_RESPONSES.length)]
 }
 
 // ── Chapter context greeting (rule-based, no AI required) ─────────────────────
@@ -249,12 +228,17 @@ export default function CompanionBand({ book, onUpdateBook, onTabChange }) {
     }
     setThinking(true)
 
-    const delay = 900 + Math.random() * 900
-    setTimeout(() => {
-      const response = simulateResponse(text)
-      setMessages(m => [...m, { role: 'companion', text: response }])
-      setThinking(false)
-    }, delay)
+    // Build history snapshot before state update
+    const historySnap = [...messages, { role: 'user', text }]
+
+    generateCompanionChatResponse(text, book, settings.anthropicKey || '', historySnap)
+      .then(response => {
+        setMessages(m => [...m, { role: 'companion', text: response }])
+      })
+      .catch(() => {
+        setMessages(m => [...m, { role: 'companion', text: fallbackResponse() }])
+      })
+      .finally(() => setThinking(false))
   }
 
   const handleKeyDown = (e) => {
