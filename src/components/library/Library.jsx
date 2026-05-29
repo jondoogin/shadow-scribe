@@ -7,6 +7,7 @@ import LibraryCompanion from './LibraryCompanion.jsx'
 import { useBooks } from '../../context/BooksContext.jsx'
 import { useSettings } from '../../context/SettingsContext.jsx'
 import { getProgress } from '../../utils/progress.js'
+import { downloadLibrarySnapshot } from '../../utils/storage.js'
 
 const WELCOMED_KEY = 'lantern_welcomed'
 
@@ -77,6 +78,59 @@ function WelcomeBanner({ hasKey, onDismiss }) {
   )
 }
 
+// ── Snapshot reminder — quiet nudge to back up the library ────────────────────
+// Surfaces when meaningful new content has accumulated since the last export.
+// Logic:
+//   • Never exported AND totalNotes ≥ 8           → show
+//   • Exported AND (totalNotes − lastCount) ≥ 10  → show
+//   • Suppressed for 7 days after dismissal
+function shouldShowSnapshotReminder(books, settings) {
+  const dismissedAt = settings.snapshotReminderDismissedAt
+  if (dismissedAt) {
+    const daysSince = (Date.now() - new Date(dismissedAt)) / 86400000
+    if (daysSince < 7) return false
+  }
+  const totalNotes = books.reduce((sum, b) => sum + (b.notes?.length || 0), 0)
+  if (!settings.lastExportedAt) return totalNotes >= 8
+  const lastCount = settings.lastExportedNoteCount || 0
+  return (totalNotes - lastCount) >= 10
+}
+
+function SnapshotReminder({ books, onSave, onDismiss }) {
+  const totalNotes = books.reduce((sum, b) => sum + (b.notes?.length || 0), 0)
+  return (
+    <div className="mb-8 animate-fade-in" role="region" aria-label="Backup reminder">
+      <div
+        className="px-5 py-4 rounded-xl flex items-center justify-between gap-4"
+        style={{
+          background: 'color-mix(in srgb, var(--color-gold-bg, #FDF8EC) 32%, var(--color-cream, #FAF6EE))',
+          border: '1px solid rgba(184,134,11,.10)',
+        }}
+      >
+        <p className="italic flex-1" style={{ fontSize: 12, color: 'var(--color-ink-600)', lineHeight: 1.55 }}>
+          Your library has grown — <span style={{ fontStyle: 'normal' }}>{totalNotes}</span> note{totalNotes !== 1 ? 's' : ''} now kept here. Save a snapshot somewhere safe.
+        </p>
+        <div className="flex items-center gap-4 flex-shrink-0">
+          <button
+            onClick={onDismiss}
+            className="italic transition-colors hover:text-ink-500"
+            style={{ fontSize: 11, color: 'var(--color-ink-300)' }}
+          >
+            later
+          </button>
+          <button
+            onClick={onSave}
+            className="font-medium transition-opacity hover:opacity-75"
+            style={{ fontSize: 12, color: 'var(--ca, #B8860B)' }}
+          >
+            Save snapshot →
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // Annotation density → inhabited presence level ('' | 'inhabited' | 'deep')
 // Presence is felt through annotation — sparse readers have no presence score
 // regardless of how many sessions they've logged. Reading without annotation
@@ -112,7 +166,7 @@ function bookDrift(book) {
 
 export default function Library() {
   const { books } = useBooks()
-  const { settings } = useSettings()
+  const { settings, updateSetting } = useSettings()
   const navigate  = useNavigate()
   const [q,        setQ]        = useState('')
   const [filter,   setFilter]   = useState('all')
@@ -122,6 +176,18 @@ export default function Library() {
   const dismissWelcome = () => {
     localStorage.setItem(WELCOMED_KEY, '1')
     setWelcomed(true)
+  }
+
+  // ── Snapshot reminder ────────────────────────────────────────────────────
+  const showSnapshotReminder = shouldShowSnapshotReminder(books, settings)
+  const saveSnapshot = () => {
+    const { noteCount } = downloadLibrarySnapshot(books)
+    updateSetting('lastExportedAt', new Date().toISOString())
+    updateSetting('lastExportedNoteCount', noteCount)
+    updateSetting('snapshotReminderDismissedAt', null)
+  }
+  const deferSnapshot = () => {
+    updateSetting('snapshotReminderDismissedAt', new Date().toISOString())
   }
 
   const filterOpts = [
@@ -294,6 +360,15 @@ export default function Library() {
               <WelcomeBanner
                 hasKey={true}
                 onDismiss={dismissWelcome}
+              />
+            )}
+
+            {/* Snapshot reminder — quiet nudge after meaningful accumulation */}
+            {welcomed && showSnapshotReminder && (
+              <SnapshotReminder
+                books={books}
+                onSave={saveSnapshot}
+                onDismiss={deferSnapshot}
               />
             )}
 

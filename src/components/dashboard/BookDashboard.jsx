@@ -73,7 +73,8 @@ export default function BookDashboard({ bookId }) {
       <CompanionHeader book={book} onOpenUpdate={() => setShowUpdate(true)} onUpdateBook={onUpdateBook} />
 
       {/* ── Companion Band — full-width presence above the fold ── */}
-      <CompanionBand book={book} onUpdateBook={onUpdateBook} onTabChange={handleTabChange} />
+      {/* keyed on book.id so it cleanly remounts when switching books */}
+      <CompanionBand key={book.id} book={book} onUpdateBook={onUpdateBook} onTabChange={handleTabChange} />
 
       {/* ── Tab bar — sticky below the band ── */}
       <div className="sticky-bar top-14 mt-5 mb-0">

@@ -17,6 +17,12 @@ export const SETTINGS_DEFAULTS = {
   // lastExportedAt: ISO timestamp of the most recent library export.
   // Enables future "nudge to back up" logic if the library hasn't been exported recently.
   lastExportedAt: null,
+  // lastExportedNoteCount: total notes across all books at the moment of last export.
+  // Used to detect when meaningful new content has accumulated since the snapshot.
+  lastExportedNoteCount: 0,
+  // snapshotReminderDismissedAt: when the user last dismissed the snapshot banner.
+  // Banner suppressed for 7 days after dismissal.
+  snapshotReminderDismissedAt: null,
 }
 
 const KEY = 'shadowscribe_settings'

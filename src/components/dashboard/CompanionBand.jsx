@@ -74,12 +74,20 @@ export default function CompanionBand({ book, onUpdateBook, onTabChange }) {
   const reflCacheRef          = useRef(book.reflectionCache)
   useEffect(() => { reflCacheRef.current = book.reflectionCache }, [book.reflectionCache])
 
-  // ── Conversation state (ephemeral — never persisted) ──────────────────────
+  // ── Conversation state — persisted per book (rolling window of 20) ───────
   const [input,    setInput]    = useState('')
-  const [messages, setMessages] = useState([])  // [{ role: 'user'|'companion', text }]
+  const [messages, setMessages] = useState(() => book.companionChat || [])
   const [thinking, setThinking] = useState(false)
   const inputRef                = useRef()
   const messagesEndRef          = useRef()
+
+  // Persist message changes to book.companionChat (skip initial mount)
+  const didMountChat = useRef(false)
+  useEffect(() => {
+    if (!didMountChat.current) { didMountChat.current = true; return }
+    updateBook(book.id, { companionChat: messages.slice(-20) })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [messages])
 
   // ── Presence + visibility ──────────────────────────────────────────────────
   const presenceVisibility = useMemo(

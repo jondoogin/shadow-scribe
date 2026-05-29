@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom'
 import { useBooks } from '../context/BooksContext.jsx'
 import { useSettings } from '../context/SettingsContext.jsx'
 import { Ico } from '../components/shared/icons.jsx'
-import { createExportEnvelope, parseImport, estimateLocalStorageUsage } from '../utils/storage.js'
+import { parseImport, estimateLocalStorageUsage, downloadLibrarySnapshot } from '../utils/storage.js'
 import { track } from '../utils/analytics.js'
 
 function SettingsSection({ title, description, children }) {
@@ -79,18 +79,11 @@ export default function SettingsPage() {
   }
 
   const handleExport = () => {
-    const date     = new Date().toISOString().split('T')[0]
-    const envelope = createExportEnvelope(books)
-    const blob     = new Blob([JSON.stringify(envelope, null, 2)], { type: 'application/json' })
-    const url      = URL.createObjectURL(blob)
-    const a        = document.createElement('a')
-    a.href     = url
-    a.download = `lantern-library-${date}.json`
-    a.click()
-    // Defer revoke so browser has time to initiate the download
-    setTimeout(() => URL.revokeObjectURL(url), 100)
-    // Record export timestamp + dismiss any storage quota banner
+    const { noteCount } = downloadLibrarySnapshot(books)
+    // Record export timestamp + note count so the snapshot reminder can compute growth
     updateSetting('lastExportedAt', new Date().toISOString())
+    updateSetting('lastExportedNoteCount', noteCount)
+    updateSetting('snapshotReminderDismissedAt', null)
     clearStorageWarning()
     // Brief confirmation feedback (mirrors import "✓ Imported")
     setExportDone(true)

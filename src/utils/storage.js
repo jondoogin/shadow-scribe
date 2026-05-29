@@ -122,6 +122,28 @@ export function createExportEnvelope(books, exportType = 'library') {
 }
 
 /**
+ * Trigger a browser download of the library as a JSON snapshot.
+ * Shared between Settings (manual button) and Library (snapshot reminder).
+ *
+ * @param {Array} books
+ * @returns {{ filename: string, noteCount: number }}
+ */
+export function downloadLibrarySnapshot(books) {
+  const date     = new Date().toISOString().split('T')[0]
+  const envelope = createExportEnvelope(books)
+  const blob     = new Blob([JSON.stringify(envelope, null, 2)], { type: 'application/json' })
+  const url      = URL.createObjectURL(blob)
+  const a        = document.createElement('a')
+  const filename = `lantern-library-${date}.json`
+  a.href     = url
+  a.download = filename
+  a.click()
+  setTimeout(() => URL.revokeObjectURL(url), 100)
+  const noteCount = books.reduce((sum, b) => sum + (b.notes?.length || 0), 0)
+  return { filename, noteCount }
+}
+
+/**
  * Parses and validates an import file (text string).
  * Handles both legacy raw-array exports and new envelope format.
  *
