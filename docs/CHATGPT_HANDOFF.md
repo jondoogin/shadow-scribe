@@ -1,5 +1,5 @@
 # Lantern — Handoff Document
-**Last updated:** 2026-05-28 · Session 129 (item glow, cover heights, About page refresh, input prominence, EPUB atmosphere)
+**Last updated:** 2026-05-28 · Session 129b (remove mobile sticky bar, CTA hover, desaturate palette, breathing room)
 **Stack:** React 19 · Vite 8 · Tailwind CSS v4 · React Router v7 · localStorage + Vercel Serverless Functions (`/api/companion` — live)
 **localStorage keys (FROZEN):** `shadowscribe_books` · `shadowscribe_settings` · `lantern_welcomed` — must NEVER be renamed
 **Build command:** `node node_modules/vite/bin/vite.js build`
@@ -12,6 +12,50 @@
 A **living literary companion**. Not a reading tracker. Not a productivity tool. Not an AI chatbot. A personal, atmospheric space built around a companion that sits with the reader — surfacing thoughts, asking questions, and quietly building a record of the reading experience as it unfolds.
 
 The companion is the star. Book data — characters, questions, themes, plot notes — is what the companion accumulates over time. The interface is built around access to the companion first; structured data second. The companion's accumulated record becomes the texture of the reading experience.
+
+---
+
+## SESSION 129b — 2026-05-28 — Mobile sticky bar, CTA hover, palette, breathing room
+
+### What shipped
+
+**1. Mobile sticky bottom bar removed (`src/components/dashboard/BookDashboard.jsx`)**
+- The "Continue from chapter N" / "Log your first session" sticky bar that appeared at the bottom of the screen on mobile has been removed entirely.
+- Also removed: `headerVisible` state, `headerRef`, `IntersectionObserver` that powered it. Cleaner component.
+- The "Log session" button in the book header (CompanionHeader) remains as the primary CTA.
+
+**2. CTA button hover — border ring, no fill change (`src/index.css`, `src/pages/AboutPage.jsx`)**
+- Previous behavior: hover opacity drop + large glow — felt like a fill change.
+- New behavior: `opacity: 0.93` (barely perceptible) + `box-shadow: 0 0 0 2px rgba(196,118,28,0.55)` — a ring that reads as a border.
+- Additional ambient glow underneath: `0 0 16px rgba(168,94,16,.14)`.
+- Applied to both `btn-accent` (app-wide) and `lp-hero-cta` (About page).
+
+**3. Color palette — slightly desaturated (`src/index.css`)**
+- Cream surfaces: ~4% saturation reduction. `#f8f4ec` → `#f6f3f0`, `#f1ede5` → `#eeeae6`, etc.
+- Ink scale: ~4-5% saturation reduction. `#3d382f` → `#3b3835`, `#6e6553` → `#6a6460`, etc.
+- Accent amber and gradient unchanged — the brand orange stays warm.
+- Result: surfaces read as warm neutral rather than amber-tinged; overall less "brown".
+
+**4. Typography + spacing — more breathing room (`src/index.css`, `src/components/dashboard/BookDashboard.jsx`)**
+- Body font: `15px` → `16px`; line-height `1.6` → `1.65`
+- Tab bar: height `40px` → `44px`; font-size `11px` → `12px` (active `12px` → `13px`)
+- Tab content area top padding: `pt-9` (36px) → `pt-12` (48px)
+- CompanionBand desktop padding: `28px 32px 24px` → `32px 36px 28px`
+- Topo gap active: `5.5rem` → `6.5rem`; dormant: `3.25rem` → `4rem`; archive: `1.5rem` → `2rem`
+- Note card border-radius: `10px` → `12px`
+
+### Vercel API key check
+- `www.readwithlantern.com/api/companion` tested and confirmed live.
+- Both `claude-haiku-4-5` and `claude-sonnet-4-5` return successful responses.
+- The key is working — no action needed.
+
+### Files changed
+- `src/components/dashboard/BookDashboard.jsx` — mobile sticky bar removed, headerRef/IntersectionObserver removed, pt-12
+- `src/index.css` — btn-accent hover, color palette desaturation, body font, tab-btn sizes, spacing
+- `src/pages/AboutPage.jsx` — lp-hero-cta hover style
+
+### Build
+clean ✓ | No localStorage key changes | No schema changes | Commit `abdd0ba`
 
 ---
 
