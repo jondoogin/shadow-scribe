@@ -1,9 +1,59 @@
 # Lantern — Handoff Document
-**Last updated:** 2026-05-28 · Session 129b (remove mobile sticky bar, CTA hover, desaturate palette, breathing room)
+**Last updated:** 2026-05-28 · Session 129 audit (real companion AI, Timeline tab, Settings dark mode, dead UI removal)
 **Stack:** React 19 · Vite 8 · Tailwind CSS v4 · React Router v7 · localStorage + Vercel Serverless Functions (`/api/companion` — live)
 **localStorage keys (FROZEN):** `shadowscribe_books` · `shadowscribe_settings` · `lantern_welcomed` — must NEVER be renamed
 **Build command:** `node node_modules/vite/bin/vite.js build`
 **Status: V2 COMPANION-FIRST REDESIGN — Phase 1 + Atmospheric pass + Playground translation complete, Phase 2–5 pending**
+
+---
+
+## SESSION 129 AUDIT — 2026-05-28 — Real companion AI, Timeline tab, Settings fixes, dead UI removal
+
+### What shipped
+
+**1. Companion band chat wired to real Claude AI (`src/components/dashboard/CompanionBand.jsx`, `src/utils/companionThread.js`)**
+- **CRITICAL FIX.** The companion band chat was using `simulateResponse()` — a keyword-matching function with ~15 canned responses. Users typing questions were getting fake AI replies.
+- Added `generateCompanionChatResponse(userMessage, book, apiKey, history)` to `companionThread.js`:
+  - Builds rich book context: recent notes (last 6), open mysteries (up to 4), characters (up to 6), motifs, dominant emotional cluster
+  - System prompt: literary companion persona — no "I", no affirmations, 1–2 sentences, specific to this book
+  - Uses `buildAiCall()` (routes to `/api/companion` proxy when no user key, direct otherwise)
+  - `max_tokens: 140`, 14s timeout
+- `CompanionBand` `sendMessage` now calls `generateCompanionChatResponse` async; falls back to `fallbackResponse()` (replaces old `simulateResponse`) only on error.
+- Old `RESPONSE_POOLS` constant (~40 lines of canned strings) removed entirely.
+
+**2. Timeline tab added to tab nav (`src/components/dashboard/BookDashboard.jsx`)**
+- `ProgressTab.jsx` was a fully-built 498-line tab component that was never added to the TABS array.
+- Added `import ProgressTab from '../../tabs/ProgressTab.jsx'`
+- Added `{ id: 'progress', label: 'Timeline' }` to TABS array
+- Added `{tab === 'progress' && <ProgressTab book={book} onUpdateBook={onUpdateBook} />}` to tab render block
+- Tab is now visible as the 6th tab: Notes · Characters · Plot · Questions · Themes · **Timeline**
+
+**3. Settings form elements — dark mode fix (`src/pages/SettingsPage.jsx`)**
+- Multiple `bg-white` instances on `<select>` elements, API key `<input>`, and form buttons → `bg-cream-200`
+- `bg-cream-200` maps to `#e8e3d9` in light mode, `#221e1a` in dark mode — correct elevated surface in both modes
+- Previously the inputs and selects showed blinding white in dark mode
+
+**4. Shadow Mode removed from Settings (`src/pages/SettingsPage.jsx`)**
+- The Shadow Mode toggle was non-functional: state was `useState(false)` with no persistence, no effect on behavior
+- Removed: `shadowMode` state, `PlaceholderBadge` component, the entire Shadow Mode `SettingsRow`
+- Settings page is now cleaner with no dead/misleading UI
+
+### Dead code identified (not yet removed — separate decision)
+- `CompanionPanel.jsx` and `CompanionInsights.jsx` — fully implemented components, never imported anywhere. Safe to delete.
+- `DirectionsDemoPage.jsx` — no route in `App.jsx`. Dead page.
+
+### Copy observations (not yet implemented)
+- "New Companion" in TopNav is confusing for new users. Could be "Add a book" or "Start a book".
+- "Log session" in ChapterUpdateModal reads as productivity-app language. Possible: "Mark your place" or "Update progress".
+
+### Files changed
+- `src/utils/companionThread.js` — `generateCompanionChatResponse()` added (real AI chat)
+- `src/components/dashboard/CompanionBand.jsx` — real AI wired, fallbackResponse replaces simulateResponse
+- `src/components/dashboard/BookDashboard.jsx` — ProgressTab imported and added as Timeline tab
+- `src/pages/SettingsPage.jsx` — bg-white → bg-cream-200 on all form elements, Shadow Mode removed
+
+### Build
+clean ✓ | 85 modules | 652.34 kB | No localStorage key changes | No schema changes | Commit `579359e`
 
 ---
 
