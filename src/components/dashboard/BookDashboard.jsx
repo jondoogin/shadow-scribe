@@ -30,21 +30,7 @@ export default function BookDashboard({ bookId }) {
   const [tabFlash,      setTabFlash]     = useState(null)
   const [flashItemId,   setFlashItemId]  = useState(null)
   const [showUpdate,    setShowUpdate]   = useState(false)
-  const [headerVisible, setHeaderVisible] = useState(true)
-  const tabRefs   = useRef({})
-  const headerRef = useRef(null)
-
-  // Show sticky continue bar only after the header CTA scrolls out of view
-  useEffect(() => {
-    const el = headerRef.current
-    if (!el) return
-    const io = new IntersectionObserver(
-      ([entry]) => setHeaderVisible(entry.isIntersecting),
-      { threshold: 0 }
-    )
-    io.observe(el)
-    return () => io.disconnect()
-  }, [])
+  const tabRefs = useRef({})
 
   const handleTabChange = (tabId, itemId) => {
     setTab(tabId)
@@ -84,9 +70,7 @@ export default function BookDashboard({ bookId }) {
     <div className="book-enter">
 
       {/* ── Full-width book header ── */}
-      <div ref={headerRef}>
-        <CompanionHeader book={book} onOpenUpdate={() => setShowUpdate(true)} onUpdateBook={onUpdateBook} />
-      </div>
+      <CompanionHeader book={book} onOpenUpdate={() => setShowUpdate(true)} onUpdateBook={onUpdateBook} />
 
       {/* ── Companion Band — full-width presence above the fold ── */}
       <CompanionBand book={book} onUpdateBook={onUpdateBook} onTabChange={handleTabChange} />
@@ -111,7 +95,7 @@ export default function BookDashboard({ bookId }) {
 
       {/* ── Tab content — single full-width column ── */}
       <div
-        className="mx-auto px-5 sm:px-10 pt-9 pb-safe"
+        className="mx-auto px-5 sm:px-10 pt-12 pb-safe"
         style={{ maxWidth: 1000 }}
       >
         <div key={tab} className="animate-tab-in min-w-0">
@@ -122,18 +106,6 @@ export default function BookDashboard({ bookId }) {
           {tab === 'themes'     && <DiscussionTab book={book} onUpdateBook={onUpdateBook} />}
         </div>
       </div>
-
-      {/* ── Mobile: sticky action bar — only visible once header scrolls away ── */}
-      {!headerVisible && (book.status === 'reading' || book.status === 'paused') && !book.archived && (
-        <div className="sm:hidden sticky-bottom-bar">
-          <button
-            onClick={() => setShowUpdate(true)}
-            className="w-full py-3 rounded-xl font-semibold text-sm btn-accent flex items-center justify-center gap-2"
-          >
-            <Ico.Refresh /> {book.currentChapter > 0 ? `Continue from chapter ${book.currentChapter}` : 'Log your first session'}
-          </button>
-        </div>
-      )}
 
       {showUpdate && (
         <ChapterUpdateModal book={book} onClose={() => setShowUpdate(false)} onUpdateBook={onUpdateBook} />

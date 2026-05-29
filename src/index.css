@@ -7,22 +7,22 @@
   --font-mono:  "JetBrains Mono", "Fira Mono", monospace;
 
   /* ── Vellum parchment surfaces ── */
-  --color-cream-50:  #f8f4ec;   /* card base */
-  --color-cream:     #f1ede5;   /* page background */
-  --color-cream-200: #e8e3d8;   /* card deep */
-  --color-cream-300: #e0d8cc;   /* card hover */
+  --color-cream-50:  #f6f3f0;   /* card base */
+  --color-cream:     #eeeae6;   /* page background */
+  --color-cream-200: #e4e0db;   /* card deep */
+  --color-cream-300: #dddad4;   /* card hover */
 
   /* ── Vellum ink — warm fg scale ── */
-  --color-ink:       #3d382f;
-  --color-ink-900:   #3d382f;   /* text primary */
-  --color-ink-800:   #4a4238;
-  --color-ink-700:   #6e6553;   /* text secondary */
-  --color-ink-600:   #807565;
-  --color-ink-500:   #9c9385;   /* text dim */
-  --color-ink-400:   #b5aa9c;
-  --color-ink-300:   #ccc0b0;
-  --color-ink-200:   #ded5c8;   /* separator */
-  --color-ink-100:   #ece5d8;   /* subtle separator */
+  --color-ink:       #3b3835;
+  --color-ink-900:   #3b3835;   /* text primary */
+  --color-ink-800:   #48423e;
+  --color-ink-700:   #6a6460;   /* text secondary */
+  --color-ink-600:   #7e7870;
+  --color-ink-500:   #999590;   /* text dim */
+  --color-ink-400:   #b3afa9;
+  --color-ink-300:   #c8c4be;
+  --color-ink-200:   #dad6d0;   /* separator */
+  --color-ink-100:   #e8e5df;   /* subtle separator */
 
   /* ── Lantern amber (warm gold) ── */
   --color-gold:          #b07010;
@@ -73,16 +73,16 @@
 /* ── Vellum semantic tokens — light mode default ── */
 :root {
   /* Surface */
-  --color-bg:                #f1ede5;
-  --color-card-base:         #f8f4ec;
-  --color-card-deep:         #ede8de;
-  --color-card-hover:        #e4ddd0;
-  --color-card-archival:     #f4f0e6;
+  --color-bg:                #eeeae6;
+  --color-card-base:         #f6f3f0;
+  --color-card-deep:         #eae6e2;
+  --color-card-hover:        #e2ddd8;
+  --color-card-archival:     #f2eeea;
 
   /* Text */
-  --color-text-primary:      #3d382f;
-  --color-text-secondary:    #6e6553;
-  --color-text-dim:          #9c9385;
+  --color-text-primary:      #3b3835;
+  --color-text-secondary:    #6a6460;
+  --color-text-dim:          #999590;
 
   /* Accent — lantern amber-orange */
   --color-accent:            #a85e10;
@@ -102,8 +102,8 @@
   --color-hairline:          rgba(61, 56, 47, 0.14);
 
   /* Companion */
-  --color-companion-bg:      #e8e1d4;
-  --color-companion-hover:   #ddd5c6;
+  --color-companion-bg:      #e5dfd8;
+  --color-companion-hover:   #dbd5ce;
 
   /* Gold foil + shadow */
   --gradient-gold-foil:      linear-gradient(135deg, #A07A40 0%, #D8C490 40%, #F0E4B8 60%, #B89060 100%);
@@ -189,8 +189,8 @@
     color: var(--color-text-primary);
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
-    font-size: 15px;
-    line-height: 1.6;
+    font-size: 16px;
+    line-height: 1.65;
   }
 
   #root { min-height: 100svh; }
@@ -217,8 +217,8 @@
 /* ── Tab bar — manuscript section navigation — Vellum ── */
 .tab-btn {
   display: flex; align-items: center;
-  padding: 0 14px; height: 40px;
-  font-size: 11px; font-weight: 400;
+  padding: 0 16px; height: 44px;
+  font-size: 12px; font-weight: 400;
   letter-spacing: 0.01em;
   border-bottom: 1.5px solid transparent;
   color: var(--color-text-dim);
@@ -232,7 +232,7 @@
   border-bottom-color: var(--color-accent);
   font-style: italic;
   font-family: var(--font-serif);
-  font-size: 12px;
+  font-size: 13px;
   letter-spacing: 0;
   opacity: 0.9;
 }
@@ -507,7 +507,7 @@ html.dark .companion-echo { color: var(--color-ink-400); }
 
 /* ── Dissolved note card — borderless, shadow-only containment ── */
 .note-card {
-  border-radius: 10px;
+  border-radius: 12px;
   border: none;
   box-shadow: 0 1px 3px rgba(28,20,16,.04);
   transition: box-shadow .2s ease;
@@ -571,9 +571,9 @@ html.dark .companion-echo { color: var(--color-ink-400); }
 
 /* ── Topographic section rhythm — gravity-weighted spacing ── */
 /* Active zone breathes generously. Dormant zones contract. Archive nearly disappears. */
-.topo-gap-active  { margin-bottom: 5.5rem;  }  /* reading-now → set aside: generous gravity field */
-.topo-gap-dormant { margin-bottom: 3.25rem; } /* set aside → finished: distinct compositional gap */
-.topo-gap-archive { margin-bottom: 1.5rem;  } /* archive: tightest, most receded */
+.topo-gap-active  { margin-bottom: 6.5rem;  }  /* reading-now → set aside: generous gravity field */
+.topo-gap-dormant { margin-bottom: 4rem;    } /* set aside → finished: distinct compositional gap */
+.topo-gap-archive { margin-bottom: 2rem;    } /* archive: tightest, most receded */
 
 /* ── Inhabited depth — annotation-dense books carry more atmospheric weight ── */
 /* Surface warmth is barely perceptible — felt as a quality, not seen as a tint */
@@ -625,11 +625,11 @@ html.dark .companion-echo { color: var(--color-ink-400); }
 .btn-accent {
   background: var(--lantern-gradient, var(--ca, var(--color-accent)));
   color: white;
-  transition: opacity 700ms cubic-bezier(0.2,0.9,0.2,1), box-shadow 700ms cubic-bezier(0.2,0.9,0.2,1);
+  transition: opacity 600ms cubic-bezier(0.2,0.9,0.2,1), box-shadow 600ms cubic-bezier(0.2,0.9,0.2,1);
 }
 .btn-accent:hover {
-  opacity: 0.88;
-  box-shadow: 0 0 28px 4px var(--color-glow);
+  opacity: 0.93;
+  box-shadow: 0 0 0 2px rgba(196, 118, 28, 0.55), 0 0 16px rgba(168, 94, 16, 0.14);
 }
 
 /* ── Tag pills — unified brand amber ── */
@@ -1030,9 +1030,9 @@ html.dark .tag-quote    { background: rgba(200,112,32,0.12); color: var(--ca, #c
 .momentum-dot { animation: pulse-soft 2s ease-in-out infinite; }
 
 /* ── CompanionBand — responsive padding (mobile-first) ── */
-.companion-band-body { padding: 18px 16px 20px; }
+.companion-band-body { padding: 20px 18px 22px; }
 @media (min-width: 640px) {
-  .companion-band-body { padding: 28px 32px 24px; }
+  .companion-band-body { padding: 32px 36px 28px; }
 }
 
 /* ── reading-now zone — prevent negative-margin overflow on mobile ── */
@@ -1049,7 +1049,7 @@ html.dark .tag-quote    { background: rgba(200,112,32,0.12); color: var(--ca, #c
 
 /* ── Mobile — atmosphere + touch targets ── */
 @media (max-width: 640px) {
-  .tab-btn { height: 44px; padding: 0 12px; }
+  .tab-btn { height: 44px; padding: 0 14px; }
   .chapter-row { min-height: 52px; }
   .modal-sheet { border-radius: 20px 20px 0 0; }
   .sticky-bar { -webkit-overflow-scrolling: touch; }

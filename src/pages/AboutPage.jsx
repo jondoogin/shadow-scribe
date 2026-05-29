@@ -439,11 +439,11 @@ export default function AboutPage() {
           background: var(--lantern-gradient);
           color: white;
           border: none; cursor: pointer;
-          transition: opacity 0.4s ease, box-shadow 0.4s ease, transform 0.2s ease;
+          transition: opacity 0.5s ease, box-shadow 0.5s ease, transform 0.2s ease;
         }
         .lp-hero-cta:hover {
-          opacity: 0.88;
-          box-shadow: 0 0 40px rgba(168,94,16,0.30), 0 4px 16px rgba(0,0,0,0.10);
+          opacity: 0.93;
+          box-shadow: 0 0 0 2px rgba(196, 118, 28, 0.58), 0 0 28px rgba(168, 94, 16, 0.16), 0 2px 10px rgba(0,0,0,0.08);
           transform: translateY(-1px);
         }
         .lp-hero-cta:active { transform: scale(0.98); }
