@@ -1,6 +1,6 @@
 # Lantern — Handoff Document
-**Last updated:** 2026-05-28 · Session 127 (Full mobile optimization pass)
-**Stack:** React 19 · Vite 8 · Tailwind CSS v4 · React Router v7 · localStorage + Vercel Serverless Functions (companion API — planned)
+**Last updated:** 2026-05-28 · Session 128 (About page, import screen, scroll, Continue button, shared API proxy)
+**Stack:** React 19 · Vite 8 · Tailwind CSS v4 · React Router v7 · localStorage + Vercel Serverless Functions (`/api/companion` — live)
 **localStorage keys (FROZEN):** `shadowscribe_books` · `shadowscribe_settings` · `lantern_welcomed` — must NEVER be renamed
 **Build command:** `node node_modules/vite/bin/vite.js build`
 **Status: V2 COMPANION-FIRST REDESIGN — Phase 1 + Atmospheric pass + Playground translation complete, Phase 2–5 pending**
@@ -12,6 +12,85 @@
 A **living literary companion**. Not a reading tracker. Not a productivity tool. Not an AI chatbot. A personal, atmospheric space built around a companion that sits with the reader — surfacing thoughts, asking questions, and quietly building a record of the reading experience as it unfolds.
 
 The companion is the star. Book data — characters, questions, themes, plot notes — is what the companion accumulates over time. The interface is built around access to the companion first; structured data second. The companion's accumulated record becomes the texture of the reading experience.
+
+---
+
+## SESSION 128 — 2026-05-28 — About page, import screen, scroll, Continue button, shared API proxy
+
+### What shipped
+
+**1. About page CTA → library (`src/pages/AboutPage.jsx`)**
+- Both CTA buttons ("Open the room ✦" and "Open the room ↘") now navigate to `/library` instead of `/new`.
+
+**2. About page Exhibit redesign (`src/pages/AboutPage.jsx`)**
+- The hero companion demo card was redesigned to show all five key features:
+  1. Book header (title, author, progress dot + bar)
+  2. Companion ambient observation (tinted, always visible)
+  3. Characters section with initial-avatar pills (5 characters from The Master and Margarita)
+  4. Open questions (2, with haunted ✦ indicator)
+  5. Note snippet (left-border quote block)
+  6. Conversation typing area (click to activate, same animation)
+
+**3. Import screen: Companion Mood removed (`src/components/library/CreateCompanion.jsx`)**
+- Entire "Companion mood" section (color picker, description) removed from Step 1.
+- `mood: 'gold'` default preserved in form state — `coverBg` generation still uses it silently.
+- `MOOD_CONFIG` import removed; `MOOD_COLORS` local const retained for `coverBg`.
+- Mood color dot + label removed from Step 3 summary card.
+
+**4. Import screen: dark mode input fix (`src/components/library/CreateCompanion.jsx`, `src/components/library/EpubImportReview.jsx`)**
+- All `bg-white` on inputs and form buttons replaced with `bg-cream-200`.
+- Light mode: `#e8e3d9` (warm light grey, subtle).
+- Dark mode: `#221e1a` (elevated card surface, no longer blinding white).
+
+**5. Book cards scroll to top (`src/App.jsx`)**
+- Added `ScrollToTop` component that calls `window.scrollTo(0, 0)` on every `pathname` change.
+- Rendered inside `AppShell`, wraps all routes.
+
+**6. Continue button — gradient background (`src/index.css`)**
+- `.sticky-bottom-bar` changed from opaque `rgba(241,237,229,.96)` + backdrop-filter to:
+  `background: linear-gradient(to bottom, transparent 0%, var(--color-bg) 52%)`
+- Removed `border-top` and `backdrop-filter`. Padding increased at top (`2.5rem`) to create the fade zone.
+
+**7. Continue button — visibility via IntersectionObserver (`src/components/dashboard/BookDashboard.jsx`)**
+- `headerRef` wraps `<CompanionHeader>`. `IntersectionObserver` sets `headerVisible`.
+- Sticky bar only renders when `!headerVisible` (header has scrolled off screen).
+- Eliminates the competing-buttons problem when the primary CTA is still visible.
+
+**8. Shared API proxy (`api/companion.js`, `src/utils/aiRequest.js`, multiple AI callers)**
+- New Vercel serverless function at `/api/companion` proxies requests to Anthropic using `process.env.ANTHROPIC_API_KEY`.
+- `buildAiCall(apiKey, body)` helper added to `aiRequest.js` — returns `{ url, headers, bodyStr }` routing to the proxy when no user key is present.
+- All three AI call sites updated: `companionThread.js`, `aiExtractor.js` (the `callClaude` helper).
+- All early `throw new Error('No API key')` guards removed from `aiExtractNarrative`, `generateDiscussionQuestions`, `generateCompanionReflections`.
+- UI guards updated: `hasAiKey = true` in `CompanionHeader`, `DiscussionTab`, `EpubImportReview`, `WelcomeBanner` in Library.
+- Reflection guards updated in `CompanionBand`, `CompanionPanel`, `PresenceStrip`, `CompanionInsights` — now fire when `ctx.noteCount >= 5` regardless of key.
+- Note thread in `NotesTab` now always fires (proxy used when no personal key).
+
+### Action required from John
+- **Set `ANTHROPIC_API_KEY` in Vercel project environment variables** (Project Settings → Environment Variables).
+- Without this env var, the proxy returns HTTP 503 with a user-friendly error message directing users to Settings.
+
+### Files changed
+- `src/App.jsx` — ScrollToTop component
+- `src/components/dashboard/BookDashboard.jsx` — headerRef, IntersectionObserver, headerVisible gate
+- `src/components/dashboard/CompanionBand.jsx` — reflection guard, proxy key pass-through
+- `src/components/dashboard/CompanionHeader.jsx` — hasAiKey = true, apiKey || '' pass-through
+- `src/components/dashboard/CompanionInsights.jsx` — reflection guard
+- `src/components/dashboard/CompanionPanel.jsx` — reflection guard
+- `src/components/dashboard/PresenceStrip.jsx` — reflection guard
+- `src/components/library/CreateCompanion.jsx` — mood section removed, bg-white → bg-cream-200
+- `src/components/library/EpubImportReview.jsx` — hasAiKey = true, bg-white → bg-cream-200, apiKey || ''
+- `src/components/library/Library.jsx` — WelcomeBanner hasKey={true}
+- `src/index.css` — sticky-bottom-bar gradient
+- `src/pages/AboutPage.jsx` — CTA fixes, Exhibit redesign
+- `src/tabs/DiscussionTab.jsx` — hasAiKey = true
+- `src/tabs/NotesTab.jsx` — note thread always fires
+- `src/utils/aiExtractor.js` — buildAiCall integration, API key guards removed
+- `src/utils/aiRequest.js` — buildAiCall() helper added
+- `src/utils/companionThread.js` — buildAiCall integration, API key guard removed
+- `api/companion.js` — NEW: Vercel serverless proxy function
+
+### Build
+clean ✓ | No localStorage key changes | No schema changes | Commit `831ca14`
 
 ---
 
