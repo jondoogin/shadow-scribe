@@ -15,6 +15,11 @@ import { uid } from '../utils/uid.js'
 import { track } from '../utils/analytics.js'
 
 const today = () => new Date().toISOString().split('T')[0]
+const nowIso = () => new Date().toISOString()
+
+// Stamp updatedAt on a note for field-level sync merge. Used in every
+// onUpdateBook map that modifies a note.
+const touch = (note, extra = {}) => ({ ...note, ...extra, updatedAt: nowIso() })
 
 // ── Literary CTA labels — tag-specific, not "Keep" ───────────────────────────
 const CTA_LABELS = {
@@ -279,11 +284,13 @@ export default function NotesTab({ book, onUpdateBook }) {
   const addNote = () => {
     if (!newNote.trim()) return
     const isFirstNote = book.notes.length === 0 && !book.companionIntroResponded
+    const nowIso = new Date().toISOString()
     const note = {
       id: uid('n_'),
       text: newNote.trim(),
       tag: newTag,
       date: today(),
+      updatedAt: nowIso,        // for field-level sync merge
       rereadEra: book.rereadCount || 0,
       // Chapter stamped at creation so echoes and archaeology can be chapter-aware
       ...(book.currentChapter > 0 ? { chapter: book.currentChapter } : {}),
@@ -339,7 +346,7 @@ export default function NotesTab({ book, onUpdateBook }) {
     const persistThread = (noteId, text) => {
       onUpdateBook({
         notes: bookNotesRef.current.map(n =>
-          n.id === noteId ? { ...n, thread: [{ role: 'companion', text, date: today() }] } : n
+          n.id === noteId ? touch(n, { thread: [{ role: 'companion', text, date: today() }] }) : n
         ),
       })
     }
@@ -387,10 +394,10 @@ export default function NotesTab({ book, onUpdateBook }) {
     if (!newText) return
     const changed = newText !== note.text || editTag !== note.tag
     onUpdateBook({
-      notes: book.notes.map(n => n.id === note.id ? {
-        ...n, text: newText, tag: editTag,
+      notes: book.notes.map(n => n.id === note.id ? touch(n, {
+        text: newText, tag: editTag,
         revisedAt: changed ? today() : n.revisedAt,
-      } : n),
+      }) : n),
     })
     setEditingId(null)
   }
@@ -408,11 +415,10 @@ export default function NotesTab({ book, onUpdateBook }) {
   const saveReflection = (note) => {
     const text = reflectText.trim()
     onUpdateBook({
-      notes: book.notes.map(n => n.id === note.id ? {
-        ...n,
+      notes: book.notes.map(n => n.id === note.id ? touch(n, {
         reflection:     text || undefined,
         reflectionDate: text ? today() : undefined,
-      } : n),
+      }) : n),
     })
     setReflectingId(null); setReflectText('')
   }
@@ -420,7 +426,8 @@ export default function NotesTab({ book, onUpdateBook }) {
   const removeReflection = (noteId) => {
     onUpdateBook({
       notes: book.notes.map(n => n.id === noteId
-        ? { ...n, reflection: undefined, reflectionDate: undefined } : n
+        ? touch(n, { reflection: undefined, reflectionDate: undefined })
+        : n
       ),
     })
     setRemovingReflId(null)
@@ -437,7 +444,7 @@ export default function NotesTab({ book, onUpdateBook }) {
     const newThread  = [...(note.thread || []), userMsg]
 
     // 1. Persist user message immediately
-    onUpdateBook({ notes: bookNotesRef.current.map(n => n.id === note.id ? { ...n, thread: newThread } : n) })
+    onUpdateBook({ notes: bookNotesRef.current.map(n => n.id === note.id ? touch(n, { thread: newThread }) : n) })
     setReplyText('')
     setReplyNoteId(null)
 
@@ -454,7 +461,7 @@ export default function NotesTab({ book, onUpdateBook }) {
         const latestNote = bookNotesRef.current.find(n => n.id === note.id)
         onUpdateBook({
           notes: bookNotesRef.current.map(n =>
-            n.id === note.id ? { ...n, thread: [...(latestNote?.thread || newThread), companionMsg] } : n
+            n.id === note.id ? touch(n, { thread: [...(latestNote?.thread || newThread), companionMsg] }) : n
           ),
         })
       })
@@ -464,7 +471,7 @@ export default function NotesTab({ book, onUpdateBook }) {
         const latestNote = bookNotesRef.current.find(n => n.id === note.id)
         onUpdateBook({
           notes: bookNotesRef.current.map(n =>
-            n.id === note.id ? { ...n, thread: [...(latestNote?.thread || newThread), companionMsg] } : n
+            n.id === note.id ? touch(n, { thread: [...(latestNote?.thread || newThread), companionMsg] }) : n
           ),
         })
       })
@@ -479,7 +486,7 @@ export default function NotesTab({ book, onUpdateBook }) {
         setCompactingNoteId(null)
         onUpdateBook({
           notes: bookNotesRef.current.map(n =>
-            n.id === note.id ? { ...n, threadSummary: summary, threadCollapsed: true } : n
+            n.id === note.id ? touch(n, { threadSummary: summary, threadCollapsed: true }) : n
           ),
         })
       })
@@ -488,7 +495,7 @@ export default function NotesTab({ book, onUpdateBook }) {
         setCompactingNoteId(null)
         onUpdateBook({
           notes: bookNotesRef.current.map(n =>
-            n.id === note.id ? { ...n, threadCollapsed: true } : n
+            n.id === note.id ? touch(n, { threadCollapsed: true }) : n
           ),
         })
       })
@@ -813,7 +820,7 @@ export default function NotesTab({ book, onUpdateBook }) {
                               </p>
                             </div>
                             <button
-                              onClick={() => onUpdateBook({ notes: book.notes.map(n => n.id === note.id ? { ...n, threadCollapsed: false } : n) })}
+                              onClick={() => onUpdateBook({ notes: book.notes.map(n => n.id === note.id ? touch(n, { threadCollapsed: false }) : n) })}
                               style={{ fontSize: 10, color: 'var(--color-ink-200)', fontStyle: 'italic', marginTop: 5, marginLeft: 16 }}
                               className="transition-colors hover:text-ink-400"
                             >
@@ -907,7 +914,7 @@ export default function NotesTab({ book, onUpdateBook }) {
                             {/* RE-COLLAPSE — for threads that were settled and re-opened */}
                             {note.threadSummary && !note.threadCollapsed && (
                               <button
-                                onClick={() => onUpdateBook({ notes: book.notes.map(n => n.id === note.id ? { ...n, threadCollapsed: true } : n) })}
+                                onClick={() => onUpdateBook({ notes: book.notes.map(n => n.id === note.id ? touch(n, { threadCollapsed: true }) : n) })}
                                 style={{ fontSize: 10, color: 'var(--color-ink-200)', fontStyle: 'italic', marginTop: 6, paddingLeft: 16 }}
                                 className="transition-colors hover:text-ink-400"
                               >

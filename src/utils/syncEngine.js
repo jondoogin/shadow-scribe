@@ -92,14 +92,88 @@ async function pullSettings(userId) {
   return data?.data || null
 }
 
-// ── Merge: last-write-wins per book ──────────────────────────────────────────
-// `lastUpdated` is a date string (YYYY-MM-DD or ISO). Compare as Date.
+// ── Merge: field-level for id-keyed arrays, last-write-wins for scalars ──────
 
 function timeOf(book) {
   const t = book?.lastUpdated
   if (!t) return 0
   const d = new Date(t)
   return isNaN(d.getTime()) ? 0 : d.getTime()
+}
+
+/**
+ * Effective timestamp for a single item in an id-keyed array.
+ * Falls back through updatedAt → revisedAt → date so existing items without
+ * an explicit updatedAt still merge correctly using their original creation
+ * or revision date.
+ */
+function itemTime(item) {
+  if (!item) return 0
+  const t = item.updatedAt || item.revisedAt || item.date
+  if (!t) return 0
+  const d = new Date(t)
+  return isNaN(d.getTime()) ? 0 : d.getTime()
+}
+
+/**
+ * Union two arrays of items keyed by `id`. Items present in both: pick
+ * whichever has the later itemTime(). Items in only one side: kept.
+ *
+ * NOTE: this preserves any item that exists in EITHER side. A user who
+ * deletes an item on one device and then syncs from a device that still
+ * has it will see the item return. Tombstone-based deletion is a planned
+ * follow-up; for now keep this in mind when reasoning about removal.
+ */
+function unionById(a, b) {
+  const aa = Array.isArray(a) ? a : []
+  const bb = Array.isArray(b) ? b : []
+  if (!aa.length) return bb
+  if (!bb.length) return aa
+  const byId = new Map()
+  for (const item of aa) if (item?.id != null) byId.set(item.id, item)
+  for (const item of bb) {
+    if (item?.id == null) continue
+    const existing = byId.get(item.id)
+    if (!existing || itemTime(item) > itemTime(existing)) {
+      byId.set(item.id, item)
+    }
+  }
+  return Array.from(byId.values())
+}
+
+// Array fields on a book where items carry stable `id` values and should
+// be merged field-by-field rather than replaced wholesale.
+const ID_KEYED_ARRAYS = [
+  'notes',
+  'mysteries',
+  'readingLog',
+  'discussionQuestions',
+  'userDiscussionQuestions',
+]
+
+/**
+ * Merge two versions of the same book:
+ *   - Scalar fields: whichever side's book.lastUpdated is later wins.
+ *   - Id-keyed arrays (see ID_KEYED_ARRAYS): union by id, item-time wins per row.
+ *   - book.lastUpdated on the merged result is the max of both sides.
+ *
+ * The result is structurally identical to a normal book — callers can write
+ * it back to state and to the cloud without special handling.
+ */
+export function mergeBook(local, cloud) {
+  if (!local) return cloud
+  if (!cloud) return local
+  const localNewer = timeOf(local) >= timeOf(cloud)
+  const base       = { ...(localNewer ? local : cloud) }
+  // Always adopt the later top-level lastUpdated
+  const localT = timeOf(local), cloudT = timeOf(cloud)
+  if (cloudT > localT && cloud.lastUpdated) base.lastUpdated = cloud.lastUpdated
+  if (localT > cloudT && local.lastUpdated) base.lastUpdated = local.lastUpdated
+  // Field-merge the id-keyed arrays
+  for (const key of ID_KEYED_ARRAYS) {
+    base[key] = unionById(local[key], cloud[key])
+  }
+  return base
 }
 
 export function mergeBooks(localBooks, cloudBooks) {
@@ -112,8 +186,7 @@ export function mergeBooks(localBooks, cloudBooks) {
   }
   const merged = []
   for (const { local, cloud } of byId.values()) {
-    if (local && cloud) merged.push(timeOf(local) >= timeOf(cloud) ? local : cloud)
-    else merged.push(local || cloud)
+    merged.push(mergeBook(local, cloud))
   }
   return merged
 }

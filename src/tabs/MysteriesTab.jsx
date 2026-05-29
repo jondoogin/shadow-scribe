@@ -99,16 +99,18 @@ export default function MysteriesTab({ book, onUpdateBook, flashItemId }) {
   const [refineText,     setRefineText]     = useState('')
   const [deletingId,     setDeletingId]     = useState(null)
 
+  const touchMyst = (m, extra = {}) => ({ ...m, ...extra, updatedAt: new Date().toISOString() })
+
   const toggle = id => onUpdateBook({
     mysteries: book.mysteries.map(m =>
-      m.id === id ? { ...m, resolved: !m.resolved, status: m.resolved ? 'open' : 'resolved' } : m
+      m.id === id ? touchMyst(m, { resolved: !m.resolved, status: m.resolved ? 'open' : 'resolved' }) : m
     ),
   })
 
   const changeStatus = (id, newStatus) => {
     onUpdateBook({
       mysteries: book.mysteries.map(m =>
-        m.id === id ? { ...m, status: newStatus } : m
+        m.id === id ? touchMyst(m, { status: newStatus }) : m
       ),
     })
     setStatusPickerId(null)
@@ -124,11 +126,10 @@ export default function MysteriesTab({ book, onUpdateBook, flashItemId }) {
   const saveObservation = (m) => {
     const text = observeText.trim()
     onUpdateBook({
-      mysteries: book.mysteries.map(my => my.id === m.id ? {
-        ...my,
+      mysteries: book.mysteries.map(my => my.id === m.id ? touchMyst(my, {
         observation:     text || undefined,
         observationDate: text ? today() : undefined,
-      } : my),
+      }) : my),
     })
     setObservingId(null)
     setObserveText('')
@@ -145,11 +146,10 @@ export default function MysteriesTab({ book, onUpdateBook, flashItemId }) {
     const text = refineText.trim()
     if (!text || text === m.text) { setRefiningId(null); return }
     onUpdateBook({
-      mysteries: book.mysteries.map(my => my.id === m.id ? {
-        ...my,
+      mysteries: book.mysteries.map(my => my.id === m.id ? touchMyst(my, {
         text,
         originalText: my.originalText ?? my.text,
-      } : my),
+      }) : my),
     })
     setRefiningId(null)
   }
@@ -172,6 +172,7 @@ export default function MysteriesTab({ book, onUpdateBook, flashItemId }) {
         chapter: book.currentChapter || 1,
         resolved: false,
         rereadEra: book.rereadCount || 0,
+        updatedAt: new Date().toISOString(),
       }],
     })
     setNewQ('')
