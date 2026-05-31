@@ -341,6 +341,9 @@ function AppShell() {
     document.documentElement.classList.toggle('dark', isDark)
     // Scholar's Study II: also wire data-mode for tokens.css compatibility
     document.documentElement.setAttribute('data-mode', isDark ? 'dark' : 'light')
+    // Keep browser chrome (mobile status bar, tab bar) in sync with the theme
+    const metaTheme = document.querySelector('meta[name="theme-color"]')
+    if (metaTheme) metaTheme.setAttribute('content', isDark ? '#1a1714' : '#eeeae6')
   }, [settings.darkMode])
 
   // Dynamic page titles — book pages set their own title in BookPage.jsx
