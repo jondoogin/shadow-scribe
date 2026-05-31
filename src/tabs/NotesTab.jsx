@@ -1,4 +1,6 @@
 import { useState, useMemo, useRef, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { useAuth } from '../context/AuthContext.jsx'
 import { Ico } from '../components/shared/icons.jsx'
 import NoteTag from '../components/shared/NoteTag.jsx'
 import { TAG_CONFIG } from '../data/config.js'
@@ -172,6 +174,8 @@ function generateNoteCompanionResponse(note, isFirst) {
 
 export default function NotesTab({ book, onUpdateBook }) {
   const { settings } = useSettings()
+  const { status, isCloudEnabled } = useAuth()
+  const navigate = useNavigate()
   const depth = bookDepth(book, settings)
 
   // ── Filter + search state ─────────────────────────────────────────────────
@@ -183,7 +187,8 @@ export default function NotesTab({ book, onUpdateBook }) {
   const [newNote,       setNewNote]       = useState('')
   const [newTag,        setNewTag]        = useState('theme')
   const [noteExpanded,  setNoteExpanded]  = useState(false)
-  const [recentNoteId,  setRecentNoteId]  = useState(null)
+  const [recentNoteId,      setRecentNoteId]      = useState(null)
+  const [showFirstNoteNudge, setShowFirstNoteNudge] = useState(false)
   const textareaRef = useRef()
 
   // ── Companion thread state ────────────────────────────────────────────────
@@ -335,6 +340,10 @@ export default function NotesTab({ book, onUpdateBook }) {
     }
 
     onUpdateBook(updates)
+    // ── First-note sign-up nudge — only for signed-out users ────────────
+    if (liveNotes.length === 0 && isCloudEnabled && status === 'signed-out') {
+      setShowFirstNoteNudge(true)
+    }
     setNewNote('')
     setNoteExpanded(false)
     setRecentNoteId(note.id)
@@ -568,6 +577,39 @@ export default function NotesTab({ book, onUpdateBook }) {
           </div>
         )}
       </div>
+
+      {/* ── First-note sign-up nudge — signed-out users, one-time per session ── */}
+      {showFirstNoteNudge && isCloudEnabled && (
+        <div className="mb-6 animate-fade-in">
+          <div
+            className="px-4 py-3 rounded-xl"
+            style={{
+              background: 'color-mix(in srgb, var(--color-gold-bg, #FDF8EC) 40%, transparent)',
+              border: '1px solid color-mix(in srgb, var(--ca) 12%, transparent)',
+            }}
+          >
+            <p className="italic mb-2" style={{ fontSize: 12, color: 'var(--color-ink-500)', lineHeight: 1.55 }}>
+              That note lives only on this device. Sign in to sync your library automatically.
+            </p>
+            <div className="flex items-center gap-4">
+              <button
+                onClick={() => setShowFirstNoteNudge(false)}
+                className="italic transition-colors hover:text-ink-500"
+                style={{ fontSize: 11, color: 'var(--color-ink-300)' }}
+              >
+                later
+              </button>
+              <button
+                onClick={() => navigate('/signin')}
+                className="font-medium transition-opacity hover:opacity-75"
+                style={{ fontSize: 12, color: 'var(--ca, #B8860B)' }}
+              >
+                Sign in →
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Notes presence — companion intimacy (quiet: silent) ─────────── */}
       {notesPresence && depth !== 'quiet' && (

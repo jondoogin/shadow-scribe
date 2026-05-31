@@ -5,6 +5,7 @@ import EmptyState from '../shared/EmptyState.jsx'
 import BookCard from './BookCard.jsx'
 import LibraryCompanion from './LibraryCompanion.jsx'
 import FirstBookInvitation from './FirstBookInvitation.jsx'
+import { useAuth } from '../../context/AuthContext.jsx'
 import { useBooks } from '../../context/BooksContext.jsx'
 import { useSettings } from '../../context/SettingsContext.jsx'
 import { getProgress } from '../../utils/progress.js'
@@ -138,6 +139,94 @@ function SnapshotReminder({ books, onSave, onDismiss }) {
   )
 }
 
+// ── Post-snapshot sign-up nudge — appears briefly after "later" (signed-out) ──
+function PostSnapshotNudge({ onDismiss }) {
+  const navigate = useNavigate()
+  return (
+    <div className="mb-8 animate-fade-in" role="region" aria-label="Sign in nudge">
+      <div
+        className="px-5 py-4 rounded-xl flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4"
+        style={{
+          background: 'color-mix(in srgb, var(--color-gold-bg, #FDF8EC) 24%, var(--color-cream, #FAF6EE))',
+          border: '1px solid color-mix(in srgb, var(--ca) 8%, transparent)',
+        }}
+      >
+        <p className="italic flex-1" style={{ fontSize: 12, color: 'var(--color-ink-500)', lineHeight: 1.55 }}>
+          A snapshot keeps a local copy. A free account keeps your library safe everywhere.
+        </p>
+        <div className="flex items-center gap-4 flex-shrink-0">
+          <button
+            onClick={onDismiss}
+            className="italic transition-colors hover:text-ink-500"
+            style={{ fontSize: 11, color: 'var(--color-ink-300)' }}
+          >
+            later
+          </button>
+          <button
+            onClick={() => navigate('/signin')}
+            className="font-medium transition-opacity hover:opacity-75"
+            style={{ fontSize: 12, color: 'var(--ca, #B8860B)' }}
+          >
+            Sign in →
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── 10+ notes sign-up nudge ───────────────────────────────────────────────────
+// Logic:
+//   • Only when signed out and cloud is configured
+//   • Only when ≥ 10 total notes across all books
+//   • Suppressed for 14 days after dismissal
+//   • Does not stack with snapshot reminder or post-snapshot nudge
+function shouldShowSignUpNudge(books, settings, status) {
+  if (status !== 'signed-out') return false
+  const dismissedAt = settings.signUpNudgeDismissedAt
+  if (dismissedAt) {
+    const daysSince = (Date.now() - new Date(dismissedAt)) / 86400000
+    if (daysSince < 14) return false
+  }
+  const totalNotes = books.reduce((sum, b) => sum + (b.notes?.length || 0), 0)
+  return totalNotes >= 10
+}
+
+function SignUpNudge({ totalNotes, onDismiss }) {
+  const navigate = useNavigate()
+  return (
+    <div className="mb-8 animate-fade-in" role="region" aria-label="Sign in nudge">
+      <div
+        className="px-5 py-4 rounded-xl flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4"
+        style={{
+          background: 'color-mix(in srgb, var(--color-gold-bg, #FDF8EC) 32%, var(--color-cream, #FAF6EE))',
+          border: '1px solid color-mix(in srgb, var(--ca) 10%, transparent)',
+        }}
+      >
+        <p className="italic flex-1" style={{ fontSize: 12, color: 'var(--color-ink-600)', lineHeight: 1.55 }}>
+          <span style={{ fontStyle: 'normal' }}>{totalNotes}</span> note{totalNotes !== 1 ? 's' : ''} kept here, only on this device. Sign in to sync your library automatically.
+        </p>
+        <div className="flex items-center gap-4 flex-shrink-0">
+          <button
+            onClick={onDismiss}
+            className="italic transition-colors hover:text-ink-500"
+            style={{ fontSize: 11, color: 'var(--color-ink-300)' }}
+          >
+            later
+          </button>
+          <button
+            onClick={() => navigate('/signin')}
+            className="font-medium transition-opacity hover:opacity-75"
+            style={{ fontSize: 12, color: 'var(--ca, #B8860B)' }}
+          >
+            Sign in →
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // Annotation density → inhabited presence level ('' | 'inhabited' | 'deep')
 // Presence is felt through annotation — sparse readers have no presence score
 // regardless of how many sessions they've logged. Reading without annotation
@@ -174,11 +263,13 @@ function bookDrift(book) {
 export default function Library() {
   const { books, updateBook } = useBooks()
   const { settings, updateSetting } = useSettings()
+  const { status, isCloudEnabled } = useAuth()
   const navigate  = useNavigate()
-  const [q,        setQ]        = useState('')
-  const [filter,   setFilter]   = useState('all')
-  const [sort,     setSort]     = useState('recent')
-  const [welcomed, setWelcomed] = useState(() => !!localStorage.getItem(WELCOMED_KEY))
+  const [q,                 setQ]                = useState('')
+  const [filter,            setFilter]           = useState('all')
+  const [sort,              setSort]             = useState('recent')
+  const [welcomed,          setWelcomed]         = useState(() => !!localStorage.getItem(WELCOMED_KEY))
+  const [postSnapshotNudge, setPostSnapshotNudge] = useState(false)
 
   const dismissWelcome = () => {
     localStorage.setItem(WELCOMED_KEY, '1')
@@ -213,7 +304,14 @@ export default function Library() {
   }
   const deferSnapshot = () => {
     updateSetting('snapshotReminderDismissedAt', new Date().toISOString())
+    if (isCloudEnabled && status === 'signed-out') setPostSnapshotNudge(true)
   }
+
+  // ── Sign-up nudge ────────────────────────────────────────────────────────
+  const totalLiveNotes = books.reduce((sum, b) => sum + liveItems(b.notes).length, 0)
+  const showSignUpNudge = isCloudEnabled && welcomed
+    && shouldShowSignUpNudge(books, settings, status)
+    && !showSnapshotReminder && !postSnapshotNudge
 
   // ── First-book invitation ────────────────────────────────────────────────
   // Detect whether the user has added their own book (vs only seeded demos).
@@ -421,6 +519,19 @@ export default function Library() {
                 books={books}
                 onSave={saveSnapshot}
                 onDismiss={deferSnapshot}
+              />
+            )}
+
+            {/* Post-snapshot sign-up nudge — appears briefly after "later" while signed out */}
+            {welcomed && postSnapshotNudge && !showSnapshotReminder && (
+              <PostSnapshotNudge onDismiss={() => setPostSnapshotNudge(false)} />
+            )}
+
+            {/* Sign-up nudge — 10+ notes accumulated while signed out */}
+            {showSignUpNudge && (
+              <SignUpNudge
+                totalNotes={totalLiveNotes}
+                onDismiss={() => updateSetting('signUpNudgeDismissedAt', new Date().toISOString())}
               />
             )}
 
