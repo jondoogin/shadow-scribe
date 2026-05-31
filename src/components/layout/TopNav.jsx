@@ -20,6 +20,7 @@ export default function TopNav() {
   const isLibrary  = location.pathname === '/library' || location.pathname === '/'
   const isSettings = location.pathname === '/settings'
   const isAbout    = location.pathname === '/about'
+  const isAccount  = location.pathname === '/account'
 
   useEffect(() => {
     if (!open) return
@@ -109,7 +110,7 @@ export default function TopNav() {
           {/* ── Auth chip ── small, quiet; only renders when cloud is configured ── */}
           {isCloudEnabled && status === 'signed-in' && (
             <button
-              onClick={() => navigate('/settings')}
+              onClick={() => navigate('/account')}
               title={user?.email || 'Signed in'}
               aria-label={`Signed in as ${user?.email || ''}`}
               className="w-9 h-9 flex items-center justify-center rounded-lg transition-all"
@@ -180,9 +181,10 @@ export default function TopNav() {
               <nav className="p-1.5">
                 {[
                   { label: 'Library',       icon: <Ico.Library />,  path: '/library',  active: isLibrary  },
-                  { label: 'Add a book', icon: <Ico.Plus />,     path: '/new',      active: false      },
+                  { label: 'Add a book',    icon: <Ico.Plus />,     path: '/new',      active: false      },
                   { label: 'About Lantern', icon: <span style={{ fontSize: 12, opacity: 0.7 }}>✦</span>, path: '/about', active: isAbout },
                   { label: 'Settings',      icon: <Ico.Settings />, path: '/settings', active: isSettings },
+                  ...(status === 'signed-in' ? [{ label: 'Account', icon: <Ico.User />, path: '/account', active: isAccount }] : []),
                 ].map(({ label, icon, path, active }) => (
                   <button
                     key={path}

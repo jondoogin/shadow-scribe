@@ -10,6 +10,7 @@ import NewCompanionPage from './pages/NewCompanionPage.jsx'
 import SettingsPage from './pages/SettingsPage.jsx'
 import AboutPage from './pages/AboutPage.jsx'
 import SignInPage from './pages/SignInPage.jsx'
+import AccountPage from './pages/AccountPage.jsx'
 import DebugPage from './pages/DebugPage.jsx'
 import { logError } from './utils/logger.js'
 
@@ -213,21 +214,104 @@ function ScrollToTop() {
   return null
 }
 
-// ── Auth callback — handles Google OAuth + magic-link redirects ───────────────
-// supabase's detectSessionInUrl picks up the tokens; we just need this route to
-// exist so the browser doesn't 404. Redirect once status resolves.
+// ── Auth callback — handles Google OAuth, magic-link, and password-reset redirects ──
+// Supabase's detectSessionInUrl picks up the tokens automatically. We redirect
+// once status resolves, or show a password-update form in PASSWORD_RECOVERY mode.
 function AuthCallback() {
   const navigate   = useNavigate()
-  const { status } = useAuth()
+  const { status, passwordRecoveryMode, updatePassword } = useAuth()
+  const [pw,    setPw]    = useState('')
+  const [pwOk,  setPwOk]  = useState(null) // null | { ok, text }
+  const [busy,  setBusy]  = useState(false)
+  const [showPw, setShowPw] = useState(false)
 
   useEffect(() => {
+    if (passwordRecoveryMode) return // stay on this page to show the form
     if (status === 'signed-in')  navigate('/library', { replace: true })
     if (status === 'signed-out') navigate('/signin',  { replace: true })
-  }, [status, navigate])
+  }, [status, passwordRecoveryMode, navigate])
+
+  // Password-recovery mode: show an update-password form
+  if (passwordRecoveryMode) {
+    const handleSubmit = async (e) => {
+      e.preventDefault()
+      if (pw.length < 8) { setPwOk({ ok: false, text: 'Password must be at least 8 characters.' }); return }
+      setBusy(true)
+      const res = await updatePassword(pw)
+      setBusy(false)
+      if (res.ok) {
+        setPwOk({ ok: true, text: 'Password updated — taking you to your library.' })
+        setTimeout(() => navigate('/library', { replace: true }), 1500)
+      } else {
+        setPwOk({ ok: false, text: res.error || 'Could not update password.' })
+      }
+    }
+    return (
+      <div className="max-w-[1000px] mx-auto px-5 sm:px-10 py-14">
+        <div style={{ maxWidth: 400, margin: '0 auto' }}>
+          <h1 className="font-serif mb-1" style={{ fontSize: 22, color: 'var(--color-ink-700)', fontWeight: 600 }}>
+            Set a new password.
+          </h1>
+          <p className="italic mb-7" style={{ fontSize: 13, color: 'var(--color-ink-400)' }}>
+            Choose something you'll remember.
+          </p>
+          <form onSubmit={handleSubmit} className="flex flex-col gap-3">
+            <div style={{ position: 'relative' }}>
+              <input
+                type={showPw ? 'text' : 'password'}
+                value={pw}
+                onChange={e => setPw(e.target.value)}
+                placeholder="New password (8+ characters)"
+                autoComplete="new-password"
+                required
+                disabled={busy}
+                style={{
+                  width: '100%', fontSize: 13, background: 'transparent',
+                  color: 'var(--color-ink-700)', border: '1px solid var(--color-hairline)',
+                  borderRadius: 8, padding: '8px 44px 8px 12px', outline: 'none',
+                  fontFamily: 'var(--font-sans)', boxSizing: 'border-box',
+                }}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPw(v => !v)}
+                className="italic"
+                style={{
+                  position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)',
+                  fontSize: 10, color: 'var(--color-ink-400)', background: 'none',
+                  border: 'none', cursor: 'pointer', fontFamily: 'var(--font-sans)',
+                }}
+              >
+                {showPw ? 'hide' : 'show'}
+              </button>
+            </div>
+            {pwOk && (
+              <p className="italic" style={{ fontSize: 11, color: pwOk.ok ? 'var(--color-ink-500)' : 'var(--color-ember, #9B2335)' }}>
+                {pwOk.text}
+              </p>
+            )}
+            <button
+              type="submit"
+              disabled={busy || !pw}
+              style={{
+                fontSize: 12, fontWeight: 500, fontFamily: 'var(--font-serif)',
+                color: 'var(--ca, #B8860B)', background: 'transparent',
+                border: '1px solid var(--color-hairline)', borderRadius: 8,
+                padding: '8px 14px', cursor: busy ? 'wait' : 'pointer',
+                opacity: !pw ? 0.5 : 1, textAlign: 'center',
+              }}
+            >
+              {busy ? 'Saving…' : 'Set password →'}
+            </button>
+          </form>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div
-      className="max-w-[1000px] mx-auto px-5 sm:px-10 py-16 text-center"
+      className="max-w-[1000px] mx-auto px-5 sm:px-10"
       style={{ minHeight: '40vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
     >
       <p className="italic" style={{ fontSize: 13, color: 'var(--color-ink-400)' }}>
@@ -244,6 +328,7 @@ const PAGE_TITLES = {
   '/settings':      'Lantern — Settings',
   '/about':         'Lantern — About',
   '/signin':        'Lantern — Sign in',
+  '/account':       'Lantern — Account',
   '/auth/callback': 'Lantern',
 }
 
@@ -286,6 +371,7 @@ function AppShell() {
           <Route path="/settings" element={<SettingsPage />} />
           <Route path="/about" element={<AboutPage />} />
           <Route path="/signin" element={<SignInPage />} />
+          <Route path="/account" element={<AccountPage />} />
           <Route path="/auth/callback" element={<AuthCallback />} />
           {import.meta.env.DEV && <Route path="/debug" element={<DebugPage />} />}
           <Route path="*" element={<Navigate to="/library" replace />} />

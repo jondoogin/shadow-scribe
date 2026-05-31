@@ -22,8 +22,9 @@ import { supabase, isCloudEnabled } from '../lib/supabase.js'
 const AuthContext = createContext(null)
 
 export function AuthProvider({ children }) {
-  const [session, setSession] = useState(null)
-  const [status,  setStatus]  = useState(isCloudEnabled ? 'loading' : 'disabled')
+  const [session,              setSession]              = useState(null)
+  const [status,               setStatus]               = useState(isCloudEnabled ? 'loading' : 'disabled')
+  const [passwordRecoveryMode, setPasswordRecoveryMode] = useState(false)
 
   useEffect(() => {
     if (!isCloudEnabled) return
@@ -42,6 +43,10 @@ export function AuthProvider({ children }) {
       if (!active) return
       setSession(newSession)
       setStatus(newSession ? 'signed-in' : 'signed-out')
+      // PASSWORD_RECOVERY fires when user clicks a reset link — flag it so
+      // AuthCallback can render the update-password form instead of redirecting.
+      if (event === 'PASSWORD_RECOVERY') setPasswordRecoveryMode(true)
+      if (event === 'USER_UPDATED')       setPasswordRecoveryMode(false)
     })
 
     return () => {
@@ -142,6 +147,7 @@ export function AuthProvider({ children }) {
       user: session?.user ?? null,
       status,
       isCloudEnabled,
+      passwordRecoveryMode,
       sendMagicLink,
       signUp,
       signInWithPassword,
