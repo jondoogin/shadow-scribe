@@ -265,15 +265,15 @@ export default function CompanionBand({ book, onUpdateBook, onTabChange }) {
     }
   }
 
-  // ── Derived display values ─────────────────────────────────────────────────
-  const chapterGreeting = buildChapterGreeting(book, depth)
-  const pct             = getProgress(book)
-  const hasConversation = messages.length > 0
-
   // Depth Level gates ambient + chat visibility
   const depth          = bookDepth(book, settings)
   const showAmbient    = depth !== 'quiet'
   const showChat       = depth !== 'quiet'
+
+  // ── Derived display values ─────────────────────────────────────────────────
+  const chapterGreeting = buildChapterGreeting(book, depth)
+  const pct             = getProgress(book)
+  const hasConversation = messages.length > 0
 
   // First arrival — brand-new book: reading, no sessions, no notes yet
   // The companion greets this specific reading before any content has accumulated.
