@@ -85,9 +85,14 @@ export default function DiscussionTab({ book, onUpdateBook }) {
   return (
     <div className="max-w-2xl">
 
-      {/* Ambient companion line — forward-facing, present-tense */}
+      {/* Ambient companion line — forward-facing during reading; settled register after finishing */}
       {/* Quiet mode: the companion doesn't observe; this surface is user-owned. */}
-      {discussionLine && depth !== 'quiet' && liveItems(book.notes).length >= 3 && (
+      {depth !== 'quiet' && book.status === 'finished' && (questionViews.length > 0 || userQuestions.length > 0) && (
+        <p className="text-[12px] text-ink-500 italic mb-6 leading-relaxed">
+          Questions the reading opened. Some take longer to settle than the story did.
+        </p>
+      )}
+      {discussionLine && depth !== 'quiet' && book.status !== 'finished' && liveItems(book.notes).length >= 3 && (
         <p className="text-[12px] text-ink-500 italic mb-6 leading-relaxed">{discussionLine}</p>
       )}
 
@@ -105,12 +110,16 @@ export default function DiscussionTab({ book, onUpdateBook }) {
       )}
       {genError && <p className="text-[11px] text-ember mb-4">{genError}</p>}
 
-      {/* Empty state — was guarded by !hasAiKey (always false); now shows correctly */}
+      {/* Empty state */}
       {questionViews.length === 0 && !userQuestions.length && !generating && (
         <p className="text-[13px] text-ink-400 italic mb-6 leading-relaxed">
-          {aiEnabled(book, settings)
-            ? 'The reading generates its own questions as it deepens. When the companion has enough to work with, it can draw them out.'
-            : 'Questions the story opens and doesn\'t close. Write what you\'re still carrying.'}
+          {book.status === 'finished'
+            ? aiEnabled(book, settings)
+              ? 'The reading is complete. The companion can draw out questions worth sitting with.'
+              : 'Questions the reading left open. Write what you\'re still carrying.'
+            : aiEnabled(book, settings)
+              ? 'The reading generates its own questions as it deepens. When the companion has enough to work with, it can draw them out.'
+              : 'Questions the story opens and doesn\'t close. Write what you\'re still carrying.'}
         </p>
       )}
 
@@ -128,7 +137,7 @@ export default function DiscussionTab({ book, onUpdateBook }) {
         </div>
       )}
 
-      {veiledQCount > 0 && (
+      {veiledQCount > 0 && book.status !== 'finished' && (
         <p className="font-serif italic mb-6" style={{ fontSize: 12, color: 'var(--color-ink-400)' }}>
           {veiledQCount} more question{veiledQCount !== 1 ? 's' : ''} waiting ahead — {veiledQCount !== 1 ? 'they\'ll' : 'it\'ll'} surface as you reach those chapters.
         </p>
@@ -187,9 +196,11 @@ export default function DiscussionTab({ book, onUpdateBook }) {
       {/* Question input — written into the page, not mounted onto it */}
       <div className="border-t border-ink-100 pt-5 mt-2">
         <textarea value={input} onChange={e => setInput(e.target.value)} rows={2}
-          placeholder={depth === 'quiet'
-            ? 'A question or pattern worth holding…'
-            : 'A question you\'re carrying into the next chapter…'}
+          placeholder={book.status === 'finished'
+            ? 'A question the reading left with you…'
+            : depth === 'quiet'
+              ? 'A question or pattern worth holding…'
+              : 'A question you\'re carrying into the next chapter…'}
           className="w-full border border-ink-100 rounded-xl px-3.5 py-2.5 text-sm placeholder-ink-400 resize-none transition-all mb-2"
           style={{ background: 'var(--color-card-base)' }} />
         <button onClick={addQ} disabled={!input.trim()}

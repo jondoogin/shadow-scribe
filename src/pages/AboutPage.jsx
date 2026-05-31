@@ -72,11 +72,23 @@ function SLabel({ children }) {
 // ── Gold rule ─────────────────────────────────────────────────────────────────
 function GoldRule() {
   return (
-    <div style={{
-      height: 1,
-      background: 'linear-gradient(to right, transparent, rgba(168,94,16,0.3), transparent)',
-      margin: '0 auto',
-    }} />
+    <div style={{ textAlign: 'center' }}>
+      <div style={{
+        height: 1,
+        background: 'linear-gradient(to right, transparent, rgba(168,94,16,0.3), transparent)',
+        margin: '0 auto',
+      }} />
+      <span style={{
+        display: 'inline-block',
+        fontFamily: 'var(--font-serif)',
+        fontSize: 9,
+        color: 'var(--color-accent)',
+        opacity: 0.4,
+        marginTop: 7,
+        letterSpacing: '0.1em',
+        userSelect: 'none',
+      }}>✦</span>
+    </div>
   )
 }
 
@@ -84,17 +96,19 @@ function GoldRule() {
 function ResidueCard({ when, thought, from, gold = false }) {
   return (
     <div className="lp-residue-card" data-gold={gold}>
-      <div style={{
-        fontFamily: 'var(--font-sans)',
-        fontSize: 9,
-        fontWeight: 600,
-        letterSpacing: '0.12em',
-        textTransform: 'uppercase',
-        color: gold ? 'var(--color-accent)' : 'var(--color-text-dim)',
-        marginBottom: 10,
-        opacity: gold ? 0.8 : 0.6,
-      }}>
-        {when}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
+        <div style={{
+          fontFamily: 'var(--font-sans)',
+          fontSize: 9,
+          fontWeight: 600,
+          letterSpacing: '0.12em',
+          textTransform: 'uppercase',
+          color: gold ? 'var(--color-accent)' : 'var(--color-text-dim)',
+          opacity: gold ? 0.8 : 0.6,
+        }}>
+          {when}
+        </div>
+        {gold && <span style={{ fontSize: 8, color: 'var(--color-accent)', opacity: 0.45, flexShrink: 0, marginLeft: 8, userSelect: 'none' }}>✦</span>}
       </div>
       <p style={{
         fontFamily: 'var(--font-serif)',
@@ -123,6 +137,16 @@ function ResidueCard({ when, thought, from, gold = false }) {
 function VoiceCard({ quote, name, role, delay = 0 }) {
   return (
     <div className="lp-reveal lp-voice" style={{ transitionDelay: `${delay}ms` }}>
+      <div style={{
+        fontFamily: 'var(--font-serif)',
+        fontSize: 52,
+        lineHeight: 1,
+        color: 'var(--color-accent)',
+        opacity: 0.14,
+        marginBottom: -6,
+        userSelect: 'none',
+        letterSpacing: '-0.02em',
+      }}>"</div>
       <p style={{
         fontFamily: 'var(--font-serif)',
         fontStyle: 'italic',
@@ -131,7 +155,7 @@ function VoiceCard({ quote, name, role, delay = 0 }) {
         color: 'var(--color-text-primary)',
         marginBottom: 18,
       }}>
-        "{quote}"
+        {quote}
       </p>
       <div>
         <span style={{
@@ -244,7 +268,7 @@ function Exhibit() {
       {/* ── Open questions ── */}
       <div style={{ padding: '11px 20px', borderBottom: '1px solid var(--color-separator-soft)' }}>
         <p style={{ fontFamily: 'var(--font-sans)', fontSize: 9, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: 'var(--color-text-dim)', opacity: 0.55, marginBottom: 8 }}>
-          Open questions · 2
+          Threads · 2
         </p>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
           {[
@@ -656,12 +680,13 @@ export default function AboutPage() {
           color: var(--color-text-secondary);
         }
         .lp-verse .lp-num {
-          font-family: var(--font-sans);
-          font-size: 9px; font-weight: 700;
-          letter-spacing: 0.1em;
-          color: var(--color-text-dim); opacity: 0.5;
+          font-family: var(--font-serif);
+          font-style: italic;
+          font-size: 13px; font-weight: 400;
+          letter-spacing: 0;
+          color: var(--color-accent); opacity: 0.45;
           display: block;
-          margin-bottom: 8px;
+          margin-bottom: 10px;
         }
 
         /* ── Exhibit section wrapper ── */
@@ -913,7 +938,7 @@ export default function AboutPage() {
               <SLabel>Reader voices</SLabel>
               <h2 style={{
                 fontFamily: 'var(--font-serif)',
-                fontWeight: 600,
+                fontWeight: 400,
                 fontSize: 'clamp(26px, 3.5vw, 36px)',
                 lineHeight: 1.15,
                 letterSpacing: '-0.02em',
@@ -921,7 +946,7 @@ export default function AboutPage() {
                 maxWidth: '20ch',
               }}>
                 Quiet notes from{' '}
-                <em style={{ fontStyle: 'italic', color: 'var(--color-text-secondary)', fontWeight: 400 }}>
+                <em style={{ fontStyle: 'italic', color: 'var(--color-text-secondary)' }}>
                   slow readers
                 </em>.
               </h2>
@@ -973,7 +998,7 @@ export default function AboutPage() {
         <section className="lp-section">
           <div className="lp-col" style={{ textAlign: 'center' }}>
             <div className="lp-reveal">
-              <div className="lp-privacy-badge">🔒 Stays on your device</div>
+              <div className="lp-privacy-badge">🔒 Local first</div>
             </div>
             <h2 className="lp-reveal" style={{
               transitionDelay: '80ms',
@@ -985,7 +1010,7 @@ export default function AboutPage() {
               color: 'var(--color-text-primary)',
               marginBottom: 20,
             }}>
-              No account. No server.<br />No one reading your notes but you.
+              Private by default.<br />Yours entirely.
             </h2>
             <p className="lp-reveal" style={{
               transitionDelay: '160ms',
@@ -997,9 +1022,9 @@ export default function AboutPage() {
               maxWidth: '48ch',
               margin: '0 auto',
             }}>
-              Everything in Lantern lives in your browser. Your notes, your theories,
-              your reading history — none of it is transmitted anywhere.
-              There is no cloud. There is no account.
+              Everything in Lantern lives in your browser by default. Your notes, your theories,
+              your reading history — stored locally, not transmitted. Cloud sync is available
+              as an optional, private backup across your own devices. No account required to begin.
               It's yours, the way a notebook is yours.
             </p>
           </div>

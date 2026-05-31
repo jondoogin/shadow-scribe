@@ -2,6 +2,7 @@ import BookCover from '../shared/BookCover.jsx'
 import ProgressBar from '../shared/ProgressBar.jsx'
 import { getProgress } from '../../utils/progress.js'
 import { fmtDate } from '../../utils/date.js'
+import { liveItems } from '../../utils/live.js'
 
 function ordinal(n) {
   if (n === 11 || n === 12 || n === 13) return n + 'th'
@@ -77,11 +78,6 @@ export default function BookCard({ book, onClick, hero = false, primary = false,
     ? 'var(--color-ink-300)'   // cooling — the numbers recede with the book
     : 'var(--color-ink-400)'   // default
 
-  // Percentage opacity — dormant books' progress numbers fade with absence
-  const pctOpacity = daysSince > 90 ? 0.45
-    : daysSince > 45             ? 0.65
-    :                              1
-
   // Progress bar height — heavier for inhabited active reads, thinner for dormant
   const progressHeight = ((presence === 'deep' || presence === 'inhabited') && book.status === 'reading')
     ? 'h-[3px]'      // inhabited active — visible weight
@@ -94,8 +90,11 @@ export default function BookCard({ book, onClick, hero = false, primary = false,
     : daysSince > 45             ? 'mb-1'
     :                              'mb-1.5'
 
-  // Date margin — recent dates get more space; old ones compress as they recede
-  const dateMt = daysSince > 45 ? 'mt-1' : 'mt-2'
+  // Finished book reading record — echoes the CompletionBand at card scale
+  const noteCount = book.status === 'finished' ? liveItems(book.notes).length : 0
+  const daySpan   = book.status === 'finished' && book.firstOpenedAt && book.completedAt
+    ? Math.max(1, Math.floor((new Date(book.completedAt) - new Date(book.firstOpenedAt)) / 86400000))
+    : null
 
   return (
     <button
@@ -140,9 +139,9 @@ export default function BookCard({ book, onClick, hero = false, primary = false,
           <div className="min-w-0">
             {/* Title — inhabited books carry more typographic weight */}
             <h3
-              className="font-serif leading-snug line-clamp-2 group-hover:text-gold transition-colors"
+              className={`font-serif line-clamp-2 group-hover:text-gold transition-colors ${hero ? 'leading-normal' : 'leading-snug'}`}
               style={{
-                fontSize: (hero || primary) ? 16 : 15,
+                fontSize: hero ? 17 : primary ? 16 : 15,
                 fontWeight: 400,
                 color: 'var(--color-text-primary)',
                 letterSpacing: '-0.01em',
@@ -154,7 +153,7 @@ export default function BookCard({ book, onClick, hero = false, primary = false,
             {/* Author — recedes with temporal distance; breathes more under deep presence */}
             <p
               className={`font-serif italic ${authorMt} truncate transition-colors`}
-              style={{ fontSize: 13, color: authorColor }}
+              style={{ fontSize: (hero || primary) ? 13 : 12, color: authorColor }}
             >
               {book.author}
             </p>
@@ -183,46 +182,45 @@ export default function BookCard({ book, onClick, hero = false, primary = false,
           {/* Footer — presence and status shape the footer register */}
           <div className={footerMt}>
             {book.status === 'finished' ? (
-              /* Finished — editorial: completion date in serif, no chapter count, no bar */
-              <p
-                className="italic"
-                style={{ fontSize: 12, fontFamily: 'var(--font-serif)', color: 'var(--color-ink-400)', marginTop: 4 }}
-              >
-                {fmtDate(book.completedAt || book.lastUpdated)}
+              /* Finished — archival footer with reading record echo */
+              <div style={{ marginTop: 4 }}>
+                <p className="italic" style={{ fontSize: 12, fontFamily: 'var(--font-serif)', color: 'var(--color-ink-400)' }}>
+                  closed {fmtDate(book.completedAt || book.lastUpdated)}
+                </p>
+                {(noteCount > 0 || (daySpan && daySpan > 1)) && (
+                  <div className="flex items-center gap-3 mt-1">
+                    {noteCount > 0 && (
+                      <span style={{ fontSize: 10, fontFamily: 'var(--font-sans)', color: 'var(--color-ink-300)' }}>
+                        {noteCount} {noteCount === 1 ? 'note' : 'notes'}
+                      </span>
+                    )}
+                    {daySpan && daySpan > 1 && (
+                      <span style={{ fontSize: 10, fontFamily: 'var(--font-sans)', color: 'var(--color-ink-300)' }}>
+                        {daySpan} days
+                      </span>
+                    )}
+                  </div>
+                )}
+              </div>
+            ) : book.status === 'want' ? (
+              /* Want — no chapter yet; just the date quietly */
+              <p className="transition-colors" style={{ fontSize: 10, fontFamily: 'var(--font-sans)', color: dateColor }}>
+                {fmtDate(book.lastUpdated)}
               </p>
             ) : (
               <>
-                {/* Chapter position — reading and paused only; want books have no chapter yet */}
-                {book.status !== 'want' && (
-                  <div className={`flex items-center gap-2 ${progressMb}`}>
-                    <span style={{ fontSize: 11, fontFamily: 'var(--font-sans)', color: chapterColor }}>
-                      {book.format === 'audiobook' ? 'pt.' : 'ch.'} {book.currentChapter} of {book.totalChapters}
-                    </span>
-                    <span
-                      className="ml-auto tabular-nums"
-                      style={{
-                        fontSize: 11,
-                        fontFamily: 'var(--font-sans)',
-                        fontWeight: 500,
-                        color: 'var(--color-accent)',
-                        opacity: pct > 0 ? pctOpacity : 0,
-                      }}
-                    >
-                      {pct}%
-                    </span>
-                  </div>
-                )}
+                {/* Chapter + date — merged into one quiet line; no percentage text */}
+                <div className={`flex items-center justify-between ${progressMb}`}>
+                  <span style={{ fontSize: 11, fontFamily: 'var(--font-sans)', color: chapterColor }}>
+                    {book.format === 'audiobook' ? 'pt.' : 'ch.'} {book.currentChapter} of {book.totalChapters}
+                  </span>
+                  <span className="transition-colors" style={{ fontSize: 10, fontFamily: 'var(--font-sans)', color: dateColor }}>
+                    {fmtDate(book.lastUpdated)}
+                  </span>
+                </div>
 
                 {/* Progress bar — weight varies by inhabited depth and temporal state */}
                 <ProgressBar value={pct} height={progressHeight} accentVar />
-
-                {/* Last updated — fades with temporal distance; compresses as it recedes */}
-                <p
-                  className={`${dateMt} transition-colors`}
-                  style={{ fontSize: 10, fontFamily: 'var(--font-sans)', color: dateColor }}
-                >
-                  {fmtDate(book.lastUpdated)}
-                </p>
               </>
             )}
           </div>

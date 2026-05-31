@@ -325,6 +325,68 @@ Return ONLY a JSON array of strings — no markdown, no explanation:
   })
 }
 
+// ── Chapter summary generation (post-import) ─────────────────────────────────
+
+/**
+ * Generate brief summaries for completed chapters that are missing them.
+ *
+ * Called from PlotTab when a book has no AI-extracted summaries (e.g. the
+ * original import ran the rule-based fallback). Uses Claude's general
+ * knowledge of the book — not the raw chapter text — so accuracy varies.
+ * The prompt instructs Claude to write an honest placeholder rather than
+ * fabricate events for books it doesn't know well.
+ *
+ * @param {Object} book    Full book object
+ * @param {string} apiKey  Anthropic API key (may be empty — proxied in prod)
+ * @returns {Object}       { [chapterNum]: summaryString } — numbers as keys
+ */
+export function generateChapterSummaries(book, apiKey) {
+  return dedupRequest(`summaries:${book.id}`, async () => {
+    const toGenerate = (book.chapters || [])
+      .filter(c => c.completed && !c.summary)
+      .slice(0, 40) // cap — avoid enormous prompts for very long books
+
+    if (!toGenerate.length) return {}
+
+    const chapterList = toGenerate
+      .map(c => `  Chapter ${c.num}${c.title ? ': ' + c.title : ''}`)
+      .join('\n')
+
+    const prompt = `You are writing brief chapter summaries for a reading companion. The book is "${book.title}" by ${book.author}.
+
+Write a 1–2 sentence summary for each of the following completed chapters:
+${chapterList}
+
+Return ONLY valid JSON — no markdown, no explanation:
+{"summaries": {"1": "summary text", "2": "summary text"}}
+
+Guidelines:
+- Past tense, literary tone, under 50 words per summary
+- Only cover what happens in that chapter — no references to later events
+- If you don't have confident knowledge of a chapter's specific events, write a neutral placeholder such as "A significant chapter in the narrative." rather than inventing details
+- The JSON keys must be the chapter numbers shown above`
+
+    const raw      = await callClaude(apiKey, prompt, 2000, AI_OP.SUMMARIES)
+    const jsonText = extractJSON(raw)
+    let parsed
+    try {
+      parsed = JSON.parse(jsonText)
+    } catch {
+      throw new Error('AI returned an unexpected format — try again')
+    }
+
+    const rawMap = parsed.summaries || parsed
+    const result = {}
+    for (const [k, v] of Object.entries(rawMap)) {
+      const num = parseInt(k, 10)
+      if (!isNaN(num) && typeof v === 'string' && v.trim()) {
+        result[num] = v.trim()
+      }
+    }
+    return result
+  })
+}
+
 // ── AI reflection context assembly ───────────────────────────────────────────
 
 /**

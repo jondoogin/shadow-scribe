@@ -474,7 +474,7 @@ export default function ChapterUpdateModal({ book, onClose, onUpdateBook }) {
                   className="rounded-xl p-4 card-surface"
                   style={{
                     background: 'var(--color-card-base)',
-                    border: '1px solid rgba(28,20,16,.06)',
+                    border: '1px solid var(--color-separator-soft)',
                     animationDelay: '40ms',
                   }}
                 >
@@ -500,7 +500,7 @@ export default function ChapterUpdateModal({ book, onClose, onUpdateBook }) {
                   className="rounded-xl p-4 card-surface"
                   style={{
                     background: 'var(--color-card-base)',
-                    border: '1px solid rgba(28,20,16,.06)',
+                    border: '1px solid var(--color-separator-soft)',
                     animationDelay: '40ms',
                   }}
                 >
@@ -525,7 +525,7 @@ export default function ChapterUpdateModal({ book, onClose, onUpdateBook }) {
                   className="rounded-xl p-4 card-surface"
                   style={{
                     background: 'var(--color-card-base)',
-                    border: '1px solid rgba(28,20,16,.06)',
+                    border: '1px solid var(--color-separator-soft)',
                     animationDelay: '40ms',
                   }}
                 >

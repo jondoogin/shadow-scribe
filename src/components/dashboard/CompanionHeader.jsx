@@ -337,8 +337,8 @@ export default function CompanionHeader({ book, onOpenUpdate, onUpdateBook }) {
             style={{
               marginTop: 12,
               padding: '10px 12px',
-              background: 'rgba(184, 134, 11, 0.04)',
-              borderLeft: '2px solid rgba(184, 134, 11, 0.22)',
+              background: 'color-mix(in srgb, var(--ca) 5%, transparent)',
+              borderLeft: '2px solid color-mix(in srgb, var(--ca) 22%, transparent)',
               borderRadius: '0 6px 6px 0',
             }}
           >
@@ -361,7 +361,7 @@ export default function CompanionHeader({ book, onOpenUpdate, onUpdateBook }) {
                 className="italic leading-relaxed"
                 style={{ fontSize: 12, color: 'var(--color-ink-400)' }}
               >
-                <span style={{ fontSize: 9, color: 'rgba(184,134,11,0.75)', marginRight: 5 }}>✦</span>
+                <span style={{ fontSize: 9, color: 'var(--ca, #B8860B)', opacity: 0.75, marginRight: 5 }}>✦</span>
                 {hauntedMystery.text.length > 85
                   ? hauntedMystery.text.slice(0, 85) + '…'
                   : hauntedMystery.text}
@@ -392,8 +392,8 @@ export default function CompanionHeader({ book, onOpenUpdate, onUpdateBook }) {
             style={{
               marginTop: 12,
               padding: '10px 12px',
-              background: 'rgba(184, 134, 11, 0.04)',
-              borderLeft: '2px solid rgba(184, 134, 11, 0.18)',
+              background: 'color-mix(in srgb, var(--ca) 5%, transparent)',
+              borderLeft: '2px solid color-mix(in srgb, var(--ca) 18%, transparent)',
               borderRadius: '0 6px 6px 0',
             }}
           >
@@ -420,7 +420,7 @@ export default function CompanionHeader({ book, onOpenUpdate, onUpdateBook }) {
                 className="italic leading-relaxed"
                 style={{ fontSize: 12, color: 'var(--color-ink-400)', marginBottom: openCount > 1 ? 4 : 0 }}
               >
-                <span style={{ fontSize: 9, color: 'rgba(184,134,11,0.75)', marginRight: 5 }}>✦</span>
+                <span style={{ fontSize: 9, color: 'var(--ca, #B8860B)', opacity: 0.75, marginRight: 5 }}>✦</span>
                 {topMystery.text.length > 90 ? topMystery.text.slice(0, 90) + '…' : topMystery.text}
               </p>
             )}
@@ -585,7 +585,7 @@ export default function CompanionHeader({ book, onOpenUpdate, onUpdateBook }) {
   )
 
   return (
-    <div style={{ borderBottom: '1px solid rgba(28,20,16,.04)' }}>
+    <div style={{ borderBottom: '1px solid var(--color-separator-soft)' }}>
       {/* Hidden EPUB file input for re-extraction */}
       <input ref={epubRef} type="file" accept=".epub" className="hidden" onChange={handleEpubFile} />
 

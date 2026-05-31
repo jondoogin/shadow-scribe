@@ -696,7 +696,13 @@ export default function CharactersTab({ book, onUpdateBook, flashItemId }) {
         <EmptyState
           icon={<Ico.User />}
           title="The cast hasn't assembled yet."
-          body="Name the figures as they arrive. They'll gather here — described, connected, their weight accumulating."
+          body={
+            depth === 'quiet'
+              ? 'Name the figures as they arrive — a record of who is present.'
+              : depth === 'saturated'
+              ? 'Name the figures as they arrive. At full depth, the companion will note their connections as the reading deepens.'
+              : 'Name the figures as they arrive. They\'ll gather here — described, connected, their weight accumulating.'
+          }
           action={
             <button onClick={() => setAdding(true)}
               className="text-[13px] italic hover:opacity-75 transition-opacity"

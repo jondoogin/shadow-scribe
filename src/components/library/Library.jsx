@@ -28,7 +28,7 @@ function WelcomeBanner({ hasKey, onDismiss }) {
         className="p-6 rounded-2xl"
         style={{
           background: 'color-mix(in srgb, var(--color-gold-bg, #FDF8EC) 45%, var(--color-cream, #FAF6EE))',
-          border: '1px solid rgba(184,134,11,.14)',
+          border: '1px solid color-mix(in srgb, var(--ca) 14%, transparent)',
         }}
       >
         <p className="font-serif italic text-[13px] mb-3" style={{ color: 'var(--color-ink-400)', opacity: 0.85 }}>
@@ -108,10 +108,10 @@ function SnapshotReminder({ books, onSave, onDismiss }) {
   return (
     <div className="mb-8 animate-fade-in" role="region" aria-label="Backup reminder">
       <div
-        className="px-5 py-4 rounded-xl flex items-center justify-between gap-4"
+        className="px-5 py-4 rounded-xl flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4"
         style={{
           background: 'color-mix(in srgb, var(--color-gold-bg, #FDF8EC) 32%, var(--color-cream, #FAF6EE))',
-          border: '1px solid rgba(184,134,11,.10)',
+          border: '1px solid color-mix(in srgb, var(--ca) 10%, transparent)',
         }}
       >
         <p className="italic flex-1" style={{ fontSize: 12, color: 'var(--color-ink-600)', lineHeight: 1.55 }}>
@@ -331,7 +331,7 @@ export default function Library() {
               type="text" value={q} onChange={e => setQ(e.target.value)}
               placeholder="Search titles or authors…"
               className="w-full pl-8 pr-4 py-2 rounded-xl bg-cream-50/80 text-sm text-ink-800 placeholder-ink-300 transition-all"
-              style={{ border: '1px solid rgba(28,20,16,.06)' }}
+              style={{ border: '1px solid var(--color-separator-soft)' }}
             />
           </div>
           <div className="flex items-center gap-4">

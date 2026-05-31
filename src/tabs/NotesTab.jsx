@@ -653,6 +653,8 @@ export default function NotesTab({ book, onUpdateBook }) {
         <p className="italic" style={{ fontSize: 13, color: 'var(--color-ink-300)', marginTop: 4 }}>
           {depth === 'quiet'
             ? 'A record of the reading, without interpretation.'
+            : depth === 'saturated'
+            ? 'Write what the story gives you — the companion will carry the thread.'
             : 'Write what the story gives you.'}
         </p>
       ) : visible.length === 0 ? (
@@ -814,7 +816,7 @@ export default function NotesTab({ book, onUpdateBook }) {
 
                     {/* ── Companion thread ────────────────────────────────── */}
                     {(thinkingNoteId === note.id || note.thread?.length > 0) && (
-                      <div style={{ marginTop: 10, marginLeft: 2, paddingLeft: 12, borderLeft: '1px solid rgba(184,134,11,.15)' }}>
+                      <div style={{ marginTop: 10, marginLeft: 2, paddingLeft: 12, borderLeft: '1px solid color-mix(in srgb, var(--ca) 15%, transparent)' }}>
 
                         {/* COLLAPSED: show summary + expand */}
                         {note.threadCollapsed ? (
@@ -947,7 +949,7 @@ export default function NotesTab({ book, onUpdateBook }) {
                           // Era echoes carry a subtly different border — a different era's ink
                           borderLeft: noteEchoes[note.id].__echoType === 'era'
                             ? '1px solid rgba(184,134,11,.12)'
-                            : '1px solid rgba(28,20,16,.07)',
+                            : '1px solid var(--color-separator)',
                         }}
                       >
                         <p style={{ fontSize: 10, color: 'var(--color-ink-300)', fontStyle: 'italic', marginBottom: 3 }}>

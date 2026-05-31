@@ -185,8 +185,8 @@ export default function MysteriesTab({ book, onUpdateBook, flashItemId }) {
     setNewQ('')
     setAdding(false)
 
-    // ── Companion thread — quiet depth suppresses replies entirely ──────────
-    if (depth === 'quiet') return
+    // ── Companion thread — quiet depth and finished books suppress replies ──
+    if (depth === 'quiet' || book.status === 'finished') return
 
     // First mystery earns a distinct response; later ones are hash-stable
     const response  = isFirst
@@ -240,27 +240,33 @@ export default function MysteriesTab({ book, onUpdateBook, flashItemId }) {
   // the visible surface as empty — the "waiting ahead" note carries the message.
   const fullyVeiled = currentMysteries.length > 0 && viewedMysteries.length === 0 && veiledCount > 0
 
+  const finished = book.status === 'finished'
+
   const emptyTitle = noneAtAll && !fullyVeiled
-    ? depth === 'quiet'
-      ? 'Questions accumulate here, without interpretation.'
-      : 'Questions tend to appear once the story begins moving.'
+    ? finished
+      ? 'No threads were opened during this reading.'
+      : depth === 'quiet'
+        ? 'Questions accumulate here, without interpretation.'
+        : 'Questions tend to appear once the story begins moving.'
     : showing === 'resolved'
-      ? 'Nothing has found its answer yet.'
+      ? finished ? 'None of the threads found an answer.' : 'Nothing has found its answer yet.'
       : fullyVeiled
         ? null  // handled by veiledCount note below
-        : 'No open threads.'
+        : finished ? 'Every thread found its answer.' : 'No open threads.'
 
   const emptyBody = noneAtAll && !fullyVeiled
-    ? depth === 'quiet'
-      ? 'Open a thread whenever the story holds something worth tracing.'
-      : depth === 'saturated'
-        ? 'Open the first thread — write what the story is withholding.'
-        : "Open a thread whenever the story raises a question it isn't ready to answer."
+    ? finished
+      ? 'Questions from after the last page can still be recorded here.'
+      : depth === 'quiet'
+        ? 'Open a thread whenever the story holds something worth tracing.'
+        : depth === 'saturated'
+          ? 'Open the first thread — write what the story is withholding.'
+          : "Open a thread whenever the story raises a question it isn't ready to answer."
     : showing === 'resolved'
-      ? "When a question finally gets its answer, it will rest here."
+      ? finished ? 'The reading ended with questions still open.' : "When a question finally gets its answer, it will rest here."
       : fullyVeiled
         ? null
-        : "Every open thread in this reading has been resolved."
+        : finished ? 'Every open thread in this reading was resolved before the last page.' : "Every open thread in this reading has been resolved."
 
   return (
     <div className="max-w-2xl">
@@ -283,7 +289,7 @@ export default function MysteriesTab({ book, onUpdateBook, flashItemId }) {
         <button onClick={() => setAdding(true)}
           className="text-[12px] italic hover:opacity-75 transition-opacity"
           style={{ color: 'var(--ca, #B8860B)' }}>
-          raise a question →
+          {finished ? 'add a reflection →' : 'raise a question →'}
         </button>
       </div>
 
@@ -297,14 +303,14 @@ export default function MysteriesTab({ book, onUpdateBook, flashItemId }) {
       {adding && (
         <div className="bg-cream-50 border rounded-2xl p-4 mb-5 animate-slide-up" style={{ borderColor:'var(--ca-border, #E8D090)' }}>
           {/* First-mystery framing — a different ceremony than the second or fifth */}
-          {liveMysteries.length === 0 && (
+          {liveMysteries.length === 0 && !finished && (
             <p className="italic mb-3 leading-relaxed" style={{ fontSize: 12, color: 'var(--color-ink-400)' }}>
               The first question opens the reading to something larger. Name what the story hasn't resolved yet.
             </p>
           )}
           <textarea value={newQ} onChange={e => setNewQ(e.target.value)} rows={2}
             onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); addMystery() } }}
-            placeholder="What question is this story carrying?"
+            placeholder={finished ? 'A question this story left open…' : 'What question is this story carrying?'}
             autoFocus
             className="w-full border border-ink-200 rounded-xl px-3.5 py-2.5 text-sm text-ink-800 placeholder-ink-400 resize-none transition-all mb-3"
             style={{ background: 'var(--color-card-base)' }} />
@@ -316,7 +322,7 @@ export default function MysteriesTab({ book, onUpdateBook, flashItemId }) {
             <button onClick={addMystery}
               className="text-[12px] italic hover:opacity-75 transition-opacity"
               style={{ color: 'var(--ca, #B8860B)', fontWeight: 500 }}>
-              {depth === 'quiet' ? 'Record this →' : 'Open thread →'}
+              {depth === 'quiet' || finished ? 'Record this →' : 'Open thread →'}
             </button>
           </div>
         </div>
@@ -436,14 +442,14 @@ export default function MysteriesTab({ book, onUpdateBook, flashItemId }) {
                             {notesByChapter[m.chapter] >= 2 && (
                               <span className="companion-echo" style={{ fontSize: 10 }}> · {notesByChapter[m.chapter]} thoughts then</span>
                             )}
-                            {!m.resolved && (book.currentChapter - m.chapter) >= 8 && (
+                            {!m.resolved && !finished && (book.currentChapter - m.chapter) >= 8 && (
                               <span className="text-ink-300 italic"> · {book.currentChapter - m.chapter} ch. open</span>
                             )}
                           </span>
                         )}
 
-                        {/* Status badge — clickable for unresolved non-veiled */}
-                        {!m._veiled && !m.resolved ? (
+                        {/* Status badge — clickable for unresolved non-veiled active books */}
+                        {!m._veiled && !m.resolved && !finished ? (
                           <button
                             onClick={() => setStatusPickerId(s => s === m.id ? null : m.id)}
                             className={`text-[10px] font-medium px-2 py-[2px] rounded-full border transition-opacity hover:opacity-75 ${
@@ -480,9 +486,8 @@ export default function MysteriesTab({ book, onUpdateBook, flashItemId }) {
                       </div>
                     )}
 
-                    {/* Companion gravity — age/status/haunt-aware weight signal */}
-                    {/* Haunted mysteries: warmer color + ✦ prefix; cooling: quieter ink-300 */}
-                    {mysteryGravity && !isRefining && !isObserving && !isDeleting && (
+                    {/* Companion gravity — suppressed for finished books (story references don't hold) */}
+                    {mysteryGravity && !isRefining && !isObserving && !isDeleting && !finished && (
                       <p className={`text-[11px] italic mt-2 leading-relaxed ${
                         mHauntLevel === 'haunted'    ? 'text-ink-500'
                         : mHauntLevel === 'persistent' ? 'text-ink-400'
@@ -547,7 +552,7 @@ export default function MysteriesTab({ book, onUpdateBook, flashItemId }) {
                         marginTop: 10,
                         marginLeft: 2,
                         paddingLeft: 12,
-                        borderLeft: '1px solid rgba(184,134,11,.15)',
+                        borderLeft: '1px solid color-mix(in srgb, var(--ca) 15%, transparent)',
                       }}>
                         {thinkingMystId === m.id ? (
                           <div style={{ display: 'flex', gap: 5, paddingTop: 3, paddingBottom: 3 }}>
@@ -606,7 +611,7 @@ export default function MysteriesTab({ book, onUpdateBook, flashItemId }) {
         </div>
       )}
 
-      {anyVeiled && mode !== 'full' && (
+      {anyVeiled && mode !== 'full' && !finished && (
         <p className="font-serif italic mt-6" style={{ fontSize: 12, color: 'var(--color-ink-400)', paddingLeft: 2 }}>
           {veiledCount} thread{veiledCount !== 1 ? 's' : ''} waiting ahead — {veiledCount !== 1 ? 'they\'ll' : 'it\'ll'} surface as you reach {veiledCount !== 1 ? 'them' : 'it'}.
         </p>

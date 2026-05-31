@@ -22,6 +22,7 @@ export const AI_OP = {
   REFLECTIONS: 'reflections',  // generateCompanionReflections
   DISCUSSION:  'discussion',   // generateDiscussionQuestions
   EXTRACTION:  'extraction',   // aiExtractNarrative (EPUB → characters/summaries/mysteries)
+  SUMMARIES:   'summaries',    // generateChapterSummaries (post-import, knowledge-based)
   EPUB_PARSE:  'epub_parse',   // parseEpub (in-browser ZIP decompression)
   PRESENCE:    'presence',     // generatePresence (synchronous; listed for completeness)
 }

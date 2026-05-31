@@ -1,9 +1,9 @@
 # Lantern — Handoff Document
-**Last updated:** 2026-05-30 · Session 147 (LibraryCompanion atmosphere pass)
+**Last updated:** 2026-05-31 · Session 158 (Mobile audit + Plot discoverability + Library card redesign)
 **Stack:** React 19 · Vite 8 · Tailwind CSS v4 · React Router v7 · localStorage + Supabase (optional cloud sync) · Vercel Serverless Functions (`/api/companion` — live)
 **localStorage keys (FROZEN):** `shadowscribe_books` · `shadowscribe_settings` · `lantern_welcomed` — must NEVER be renamed
 **Build command:** `node node_modules/vite/bin/vite.js build`
-**Status: V2 COMPANION-FIRST REDESIGN — Complete. Cloud sync live. Depth Level wired + exposed + consistent across all surfaces. Typography pass complete (S145). LibraryCompanion atmosphere pass complete (S147): cross-book observation now 13px ink-600, ◦ glyph 9px ink-400, no opacity suppressor, multi-reader detection added.**
+**Status: V2 COMPANION-FIRST REDESIGN — Complete. Four design sessions complete: Typography (S145), LibraryCompanion atmosphere (S147), Tab architecture (S148), Plot summaries + CompletionBand + Focus rings (S149–S151). S152: Finished-book experience pass + About page accuracy. S153: Threads + Themes for finished books. S154: About page visual improvements + RelationshipMap redesign. S155: Completion moment + PlotTab parse fix. S156: Finished-book library card. S157: Depth Level UX + Dark mode audit + Empty states pass. S158: Mobile audit + Plot discoverability + Library card redesign.**
 
 ---
 
@@ -24,6 +24,255 @@ The companion is the star. Book data — characters, questions, themes, plot not
 ---
 
 ## RECENT SESSIONS
+
+### Session 158 — 2026-05-31 — Mobile audit + Plot discoverability + Library card redesign
+
+**What shipped:**
+
+**Mobile audit (no code changes needed except Library.jsx):**
+- Verified tab bar, CompletionBand, ChapterUpdateModal, CompanionHeader, Chronicle/ProgressTab reading arc stats all clean at 375px.
+- `src/components/library/Library.jsx` — Snapshot reminder banner: `flex items-center justify-between gap-4` → `flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4`. Was squishing the text into a narrow column on mobile.
+
+**Chapter update flow audit (no changes):**
+- Confirmed ChapterUpdateModal is discoverable as the sole path for marking chapters done. The "Continue from chapter N →" CTA in CompanionHeader is prominent, contextually labeled, and the modal is complete. No additional entry points needed.
+
+**Plot tab discoverability (`src/tabs/PlotTab.jsx`, two changes):**
+- Generate-summaries prompt promoted from 11px right-aligned micro-link to an amber-tinted banner card: `color-mix(in srgb, var(--ca) 5%, transparent)` background + 1px accent border, descriptive text on left, `gather them →` action on right.
+- "No summary yet." dead-end suppressed for `depth === 'quiet'` — AI is intentionally off in quiet mode, so this message was implying something was missing when it wasn't.
+
+**Library card redesign (`src/components/library/BookCard.jsx`):**
+- Footer redesign (main change): `ch. X of Y`, `31%`, and date were three separate lines creating a dashboard-tracker feel. Now: chapter + date merged into one line (`ch. X of Y` left, date right), progress bar below, no percentage text. Let the bar be the visual indicator.
+- Want books: removed the 0% empty progress bar + date. Want books now show only the date (quiet, no progress widget).
+- Finished books: "Finished [date]" → "closed [date]" — more tactile, evokes the physical act of closing a book.
+- Hero title: 17px (was 16px) — more presence in the full-width reading-now slot.
+- Non-hero/non-primary author line: 12px (was 13px) — keeps secondary register.
+- Removed unused `pctOpacity` and `dateMt` variables.
+
+**Build:** HMR clean ✓ | no errors
+
+---
+
+### Session 157 — 2026-05-31 — Depth Level UX + Dark mode audit + Empty states pass
+
+**What shipped:**
+
+`src/components/dashboard/CompanionBand.jsx`:
+- Added depth picker: small ambient button (icon + label, 9px) in bottom-right of the CompanionBand showing current depth (`○ Quiet` / `◐ Resonant` / `● Saturated`).
+- Clicking opens a floating picker panel (absolute, `menuDrop` animation, 232px wide) with three options — icon, label, 10px italic description — dismisses on click-outside.
+- Active option gets accent color + 7% accent background tint.
+- Clicking an option calls `onUpdateBook({ depthLevel: opt.k })` then closes.
+- This surfaces depth as a one-click, always-visible control (previously buried in the metadata edit form).
+
+`src/components/dashboard/CompanionHeader.jsx` — **Dark mode fixes:**
+- Replaced hardcoded `rgba(184, 134, 11, ...)` accent bg/border/ornament colors with `color-mix(in srgb, var(--ca) N%, transparent)` and `var(--ca, #B8860B)` — these now track the dark mode accent correctly.
+- Replaced `rgba(28,20,16,.04)` wrapper border with `var(--color-separator-soft)` — was dark-on-dark invisible in dark mode.
+
+`src/components/library/Library.jsx` — **Dark mode fixes:**
+- Two accent-tinted card borders (`rgba(184,134,11,.14)` and `.10`) → `color-mix(in srgb, var(--ca) N%, transparent)`.
+- Search input border (`rgba(28,20,16,.06)`) → `var(--color-separator-soft)`.
+
+`src/components/modals/ChapterUpdateModal.jsx` — **Dark mode fix:**
+- Three card borders using `rgba(28,20,16,.06)` → `var(--color-separator-soft)` (dark-on-dark invisible issue).
+
+`src/tabs/NotesTab.jsx` + `MysteriesTab.jsx` — **Dark mode fixes:**
+- Companion thread border (`rgba(184,134,11,.15)`) → `color-mix(in srgb, var(--ca) 15%, transparent)` in both files.
+- Era echo "earlier note" border (`rgba(28,20,16,.07)`) → `var(--color-separator)`.
+
+`src/tabs/PlotTab.jsx` — **Additional parse error fix:**
+- Second nested ternary inside a template literal found and fixed: `` `...${isJustRead ? 'py-4' : isRecent ? 'py-3.5' : 'py-2.5'}` `` → hoisted to `const rowPy`.
+- Also: added `bookDepth` to import for depth-aware empty state.
+
+**Empty states pass — depth differentiation added across all four tabs:**
+- `PlotTab`: body copy now branches on `quiet` / `saturated` / `resonant`.
+- `CharactersTab`: body copy now branches on `quiet` / `saturated` / `resonant`.
+- `NotesTab`: added `saturated` variant ("the companion will carry the thread").
+- `ProgressTab`: added `saturated` variant ("the companion traces the shape of the reading as it forms").
+- `MysteriesTab` already had strong depth differentiation — no change needed.
+
+**Build:** HMR clean ✓ | no errors across all files
+
+---
+
+### Session 156 — 2026-05-31 — Finished-book library card
+
+**What shipped:**
+
+`src/components/library/BookCard.jsx`:
+- Added `liveItems` import from `../../utils/live.js`.
+- Added `noteCount` and `daySpan` computed values (gated on `book.status === 'finished'` to avoid unnecessary work for active books).
+- Finished-book footer redesigned:
+  - Date line now reads "Finished [date]" instead of bare date — makes the context explicit.
+  - Second line added when meaningful: shows note count ("N notes") and/or reading span ("N days"), separated by a gap, in 10px sans dim. Only shown when `noteCount > 0` or `daySpan > 1`.
+  - This echoes the CompletionBand's reading arc stats at library card scale — the reading record now visible without entering the book.
+
+**Build:** HMR clean ✓ | no errors
+
+---
+
+### Session 155 — 2026-05-31 — Completion moment + PlotTab parse fix
+
+**What shipped:**
+
+`src/index.css`:
+- Added `@keyframes completionVeilIn` (fade in, hold, fade out — 2.6s) and `@keyframes completionWordIn` (rises in, holds, settles out — 2.6s).
+- Added `.completion-veil` — `position: fixed; inset: 0; z-index: 60; background: var(--color-card-base); pointer-events: none` — full-screen overlay with animation.
+- Added `.completion-veil-text` — carries the word animation.
+
+`src/components/dashboard/BookDashboard.jsx`:
+- Added `justFinished` state and `prevStatus` ref.
+- Replaced the old `useEffect(() => { if (book?.status === 'finished') setTab('progress') })` with a transition-detecting version: fires only when status changes FROM non-finished TO finished (not on mount for already-finished books).
+- On transition: sets `justFinished = true`, switches tab to 'progress', clears after 2.6s with cleanup.
+- Added completion veil JSX — cream full-screen overlay with serif italic "The last page." and `✦` below it, both animated. Renders only during `justFinished` window.
+
+**Note:** Veil is `pointer-events: none` and self-dismisses after 2.6s. No user action required. Does NOT fire when opening an already-finished book — only on the moment of completion.
+
+`src/tabs/PlotTab.jsx` — **pre-existing parse error fixed:**
+- oxc JSX parser was failing with "Unexpected token" at the function's closing `}` due to a nested ternary inside a template literal inside a JSX expression: `` `fill in ${n} ${n === 1 ? 'summary' : 'summaries'} →` ``. The brace-counting in JSX mode was confused by the `${...? ... : ...}` nesting.
+- Fix: extracted `const summaryWord = missingSummaries === 1 ? 'summary' : 'summaries'` as a pre-render variable; template literal simplified to `` `fill in ${missingSummaries} ${summaryWord} →` ``.
+- HMR confirmed clean (no errors in logs after edit).
+
+**Build:** HMR clean ✓ | no new errors
+
+---
+
+### Session 154 — 2026-05-30 — About page visual improvements
+
+**What shipped:**
+
+`src/pages/AboutPage.jsx`:
+- **GoldRule component**: Added centered `✦` ornament below the rule line — the section separator now reads as a bookish divider (used 4× on the page).
+- **VoiceCard component**: Added large 52px serif open-quote `"` (amber, opacity 0.14) above each testimonial quote — the reader voices section now reads as proper editorial content, not plain list items.
+- **Verse numerals (`.lp-num` CSS)**: Changed from `9px bold sans dim` to `13px italic serif accent(0.45)` — the "i. / ii. / iii. / iv." labels now have visual weight and feel bookish instead of like metadata tags.
+- **Reader voices h2**: Fixed `font-weight: 600` → `400` — inconsistent with all other section headers on the page (all use 400); also removed redundant `fontWeight: 400` override from the `<em>` child since it inherits correctly now.
+- **Gold ResidueCard corner mark**: Added small `✦` (amber, opacity 0.45) aligned to top-right of the "when" row on gold-highlighted cards — visually distinguishes the two gold cards from the four regular ones.
+
+**Build:** confirmed rendering ✓ (DOM-verified via preview_eval)
+
+Also shipped in S154:
+
+`src/components/dashboard/RelationshipMap.jsx`:
+- **Grouped by relationship type** — was a single flat list sorted by type; now rendered as discrete groups (love / ally / tension / hierarchy / neutral / unfolding) each with its own colored dot header and labeled section. Veiled relationships go into a separate `__veiled` → "unfolding" group at the bottom, with dimmed treatment.
+- **Type dot header**: each group gets a 5px colored dot + uppercase 9px label in the type's accent color — immediately communicates group identity.
+- **Left border grouping**: each group's relationships indent behind a `2px solid ${typeColor}22` left border (hex color with transparency suffix), providing visual structure without heaviness.
+- **Label on its own line**: the relationship label moved from inline `— label` append to a second line in 11px italic serif below the names. More readable, more bookish.
+- **`—` connector** between names (replacing `↔`) — quieter and less mechanical.
+- Removed the tiny 2px color stripe that preceded each name pair — replaced by the group-level dot header.
+- `anyVeiled` note ("Some connections are still unfolding.") retained, shown below the veiled group when relevant.
+
+---
+
+### Session 153 — 2026-05-30 — Threads + Themes for finished books
+
+**What shipped:**
+
+`src/tabs/MysteriesTab.jsx`:
+- `finished` const (`book.status === 'finished'`) used as a gate throughout.
+- Companion thread response suppressed for finished books — "The story will return to this." is wrong when the story is done. Added `|| book.status === 'finished'` to the early-return guard alongside `depth === 'quiet'`.
+- `getMysteryGravity()` lines suppressed — all reference ongoing story ("The resolution may be closer", "The story hasn't closed it"). Added `&& !finished` to the render condition.
+- "N ch. open" sub-label hidden for finished books — meaningless when reading is done.
+- Status badge: for finished books, rendered as non-interactive `<span>` not clickable `<button>` — mid-reading status changes don't apply post-book.
+- Veil count note ("N threads waiting ahead") hidden for finished books — no "ahead" when done.
+- "raise a question →" → "add a reflection →" for finished books.
+- Form placeholder: "What question is this story carrying?" → "A question this story left open…" for finished books.
+- First-mystery ceremony framing suppressed for finished books.
+- Submit button copy: "Record this →" for finished books (same as quiet depth).
+- Empty state copy updated: five variants updated with finished-book alternatives ("No threads were opened during this reading.", "None of the threads found an answer.", "Every thread found its answer.").
+
+`src/tabs/DiscussionTab.jsx`:
+- Forward-facing `discussionLine` suppressed for finished books — "accumulating together" and "carrying into the next chapter" are wrong register post-reading.
+- Finished-book header replaces it when questions exist: "Questions the reading opened. Some take longer to settle than the story did."
+- Empty state copy: finished books get "The reading is complete. The companion can draw out questions worth sitting with." (vs the active-reading "as it deepens" language).
+- Input placeholder: "A question the reading left with you…" for finished books (was "A question you're carrying into the next chapter…").
+- Veil count note ("waiting ahead") hidden for finished books.
+
+**Build:** clean ✓ | 135 modules
+
+---
+
+### Session 152 — 2026-05-30 — Finished-book experience + About page
+
+**What shipped:**
+
+`src/components/dashboard/BookDashboard.jsx`:
+- `useState` initial tab: lazy initializer `() => book?.status === 'finished' ? 'progress' : 'notes'` — finished books land on Chronicle, not Notes.
+- Added `useEffect` watching `book?.status` — switches to Chronicle whenever a book is marked finished mid-session (idempotent if already there).
+
+`src/tabs/ProgressTab.jsx`:
+- Progress % block (52px serif number + WeightedProgressBar + near-end echo) gated on `book.status !== 'finished'` — completed books don't need a progress readout.
+- `CompanionOrientation` gated on `book.status !== 'finished'` in addition to the existing `depth !== 'quiet'` guard — "you are here" orientation is wrong after the last page.
+- Added "Completed" stat to reading arc: `book.status === 'finished' && book.completedAt` → shows `fmtDate(book.completedAt)` between "First opened" and "Sessions".
+- "Over" label → "Span" (label + value was "Over / 12 days" — grammatically incomplete; "Span / 12 days" works as a label).
+
+`src/components/dashboard/CompletionBand.jsx`:
+- "Over" label → "Span" (same fix, parallel surface).
+
+`src/pages/AboutPage.jsx`:
+- Privacy badge: "🔒 Stays on your device" → "🔒 Local first".
+- Privacy H2: "No account. No server. No one reading your notes but you." → "Private by default. Yours entirely." (cloud sync is now live — previous copy was factually wrong).
+- Privacy body: rewritten to accurately describe local-first + optional cloud sync. Removes "There is no cloud. There is no account."
+- Exhibit label: "Open questions · 2" → "Threads · 2" (matches S148 tab rename).
+
+**Build:** clean ✓ | 135 modules
+
+---
+
+### Session 151 — 2026-05-30 — Focus rings + micro-chrome (Session D)
+
+**What shipped:**
+`src/index.css`:
+- `input:focus, textarea:focus, select:focus` — replaced near-invisible dark shadow (`rgba(61,56,47,0.07)`) with amber glow (`color-mix 16%`) and amber border (`color-mix 42%`). Now consistent with button focus treatment.
+- Added `input, textarea, select { caret-color: var(--color-accent) }` globally — amber cursor everywhere, not just the companion band input.
+- Added `::selection { background: color-mix(in srgb, var(--color-accent) 20%, transparent) }` — warm amber text selection.
+- Added `.tab-btn:focus-visible` — amber underline matching the active-tab visual language.
+- Added `.filter-link:focus-visible` + dark mode variant.
+- Added `a:focus-visible` — amber 2px outline with border-radius, matching button treatment.
+
+`src/components/layout/TopNav.jsx`:
+- Removed `outline-none` from the logo button — now covered by the global `button:focus-visible` rule.
+
+**Build:** clean ✓ | 134 modules
+
+---
+
+### Session 150 — 2026-05-30 — Completion view (Session C)
+
+**What shipped:**
+- `src/components/dashboard/CompletionBand.jsx` (new) — shown in place of CompanionBand when `book.status === 'finished'`. Rule-based completion reflection (no AI dependency), reading arc stats (sessions, notes, span in days), open-threads count if any remain. Archival visual treatment — no input, no carousel. The companion in its resolved state.
+- `src/components/dashboard/BookDashboard.jsx` — imported `CompletionBand`; swapped CompanionBand for CompletionBand when `book.status === 'finished'`.
+
+**Reflection logic (rule-based):** 8 branches keyed on note count, theory/confusing note ratio, open threads, session count, and day span. Falls back to "The last page. What the whole thing was is just beginning to settle."
+
+**Build:** clean ✓ | 134 modules
+
+---
+
+### Session 149 — 2026-05-30 — Plot tab summaries
+
+**What shipped:**
+- `src/utils/aiRequest.js` — added `AI_OP.SUMMARIES = 'summaries'`.
+- `src/utils/aiExtractor.js` — added `generateChapterSummaries(book, apiKey)`. Post-import, knowledge-based: generates 1–2 sentence summaries for completed chapters missing `ch.summary`. Caps at 40 chapters. Instructs Claude to write honest placeholders for books it doesn't know well rather than fabricating events. Uses `dedupRequest` to prevent duplicate calls.
+- `src/tabs/PlotTab.jsx` — added generate button: "fill in N summary/summaries →" shown when `aiEnabled` and `missingSummaries > 0`. Handler merges returned summaries into `book.chapters` objects. Error display matching DiscussionTab pattern.
+
+**Build:** clean ✓ | 134 modules
+
+---
+
+### Session 148 — 2026-05-30 — Tab architecture (Threads, Chronicle)
+
+**What shipped:**
+Resolved two structural naming and purpose problems in the book tab bar.
+
+- `src/components/dashboard/BookDashboard.jsx` — TABS array: `Questions` → `Threads`, `Timeline` → `Chronicle`
+- `src/tabs/ProgressTab.jsx` — full rewrite. Removed: chapter list, chapter completion toggle, all chapter-related state (`celebrating`, `editingChNum`, `editingTitle`), all chapter-related useMemo (`notesByChapter`, `destabMap`, `emotionalPeakChapters`, `resonanceWeights`, `motifs`, `gravityMap`, `singularities`, `chapterPatinaMap`), and all associated imports (9 utility imports removed). Kept: progress %, WeightedProgressBar, CompanionOrientation, extraction warning, sessions log. Added: reading arc summary — "First opened" date (`book.firstOpenedAt`), session count, "Over X days" span (shown only if > 1 day).
+
+**Rationale:**
+- "Questions" tab contained mystery-thread tracking (Suspected/Evolving/Dormant statuses) — semantically "Threads" not "Questions"
+- "Timeline" (ProgressTab) contained a chapter list duplicating PlotTab's visual structure; chapter completion toggle was a fossil predating CompanionBand/ChapterUpdateModal as primary progress interface
+- Chronicle is now unambiguously about the reading journey (how this book was read) rather than story content (what happened)
+
+**Build:** clean ✓ | 134 modules
+
+---
 
 ### Session 147 — 2026-05-30 — LibraryCompanion atmosphere pass (Session B)
 
@@ -608,11 +857,15 @@ These systems are easy to accidentally flatten. Each has been calibrated careful
 
 ## 6 — NEXT WORK QUEUE
 
-**Decided and ready to implement:**
-1. **Tombstone deletion** — data integrity issue with sync; add `{ deleted: true, updatedAt }` flags to id-keyed arrays
-2. **Library editorial card redesign** — book cards still feel product-UI vs the sophisticated atmospheric library system they live in
-3. **Depth Level UX exposure** — Quiet/Resonant/Saturated should feel like a meaningful ritual choice, not a settings option; improve copy and onboarding moment in CreateCompanion
-4. **Return experience polish** — reading gap archaeology is implemented but missable; the product's most emotionally resonant feature deserves more prominence
+**Priority order for next session:**
+1. **Return experience polish** — Reading gap archaeology is implemented in CompanionHeader (pull-quote from last note, literary gap label, warm amber container) but can be easy to miss. The re-entry moment when a reader returns after days away deserves more prominence and atmospheric weight.
+2. **Dark mode thorough audit** — CompletionBand and any newer surfaces may have hardcoded rgba values that go invisible in dark mode. Pattern: replace `rgba(184,134,11,...)` → `color-mix(in srgb, var(--ca) N%, transparent)`, `rgba(28,20,16,...)` separator borders → `var(--color-separator-soft)`.
+3. **Companion voice calibration pass** — As more surfaces have been added (depth picker, empty state copy, chapter update flow), the companion voice register may have drifted. Worth an audit against the CALIBRATION_LOG.md principles.
+
+**Deliberately not building yet:**
+- Mobile bottom nav Companion tab (routing without book context is unresolved — decide routing first)
+- Rate limiting for companion proxy (important before scale, not for current alpha)
+- Any new AI call sites until existing 7+ paths are calibrated against real reader response
 
 **Deliberately not building yet:**
 - Mobile bottom nav Companion tab (routing without book context is unresolved — decide routing first)

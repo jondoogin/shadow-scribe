@@ -4,7 +4,8 @@ import { useSettings } from '../../context/SettingsContext.jsx'
 import { liveItems }   from '../../utils/live.js'
 import { Ico }         from '../shared/icons.jsx'
 import CompanionHeader from './CompanionHeader.jsx'
-import CompanionBand   from './CompanionBand.jsx'
+import CompanionBand    from './CompanionBand.jsx'
+import CompletionBand  from './CompletionBand.jsx'
 import ChapterUpdateModal from '../modals/ChapterUpdateModal.jsx'
 import CharactersTab   from '../../tabs/CharactersTab.jsx'
 import PlotTab         from '../../tabs/PlotTab.jsx'
@@ -17,9 +18,9 @@ const TABS = [
   { id: 'notes',      label: 'Notes'      },
   { id: 'characters', label: 'Characters' },
   { id: 'plot',       label: 'Plot'       },
-  { id: 'questions',  label: 'Questions'  },
+  { id: 'questions',  label: 'Threads'    },
   { id: 'themes',     label: 'Themes'     },
-  { id: 'progress',   label: 'Timeline'   },
+  { id: 'progress',   label: 'Chronicle'  },
 ]
 
 export default function BookDashboard({ bookId }) {
@@ -27,11 +28,13 @@ export default function BookDashboard({ bookId }) {
   const { settings } = useSettings()
   const book = books.find(b => b.id === bookId)
 
-  const [tab,           setTab]          = useState('notes')
+  const [tab,           setTab]          = useState(() => book?.status === 'finished' ? 'progress' : 'notes')
   const [tabFlash,      setTabFlash]     = useState(null)
   const [flashItemId,   setFlashItemId]  = useState(null)
   const [showUpdate,    setShowUpdate]   = useState(false)
-  const tabRefs = useRef({})
+  const [justFinished,  setJustFinished] = useState(false)
+  const tabRefs     = useRef({})
+  const prevStatus  = useRef(book?.status)
 
   const handleTabChange = (tabId, itemId) => {
     setTab(tabId)
@@ -43,6 +46,18 @@ export default function BookDashboard({ bookId }) {
     setTimeout(() => setTabFlash(null), 1400)
     setTimeout(() => setFlashItemId(null), 4200)
   }
+
+  // Completion moment — detect the transition to finished, not just the finished state on mount
+  useEffect(() => {
+    if (prevStatus.current !== 'finished' && book?.status === 'finished') {
+      setJustFinished(true)
+      setTab('progress')
+      const t = setTimeout(() => setJustFinished(false), 2600)
+      return () => clearTimeout(t)
+    }
+    prevStatus.current = book?.status
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [book?.status])
 
   // Dynamic document title
   useEffect(() => {
@@ -88,9 +103,13 @@ export default function BookDashboard({ bookId }) {
       {/* ── Full-width book header ── */}
       <CompanionHeader book={book} onOpenUpdate={() => setShowUpdate(true)} onUpdateBook={onUpdateBook} />
 
-      {/* ── Companion Band — full-width presence above the fold ── */}
-      {/* keyed on book.id so it cleanly remounts when switching books */}
-      <CompanionBand key={book.id} book={book} onUpdateBook={onUpdateBook} onTabChange={handleTabChange} />
+      {/* ── Companion Band / Completion Band ── */}
+      {/* Finished books show the settled reading record; active books show the companion. */}
+      {/* Both keyed on book.id so they cleanly remount when switching books. */}
+      {book.status === 'finished'
+        ? <CompletionBand key={book.id} book={book} />
+        : <CompanionBand  key={book.id} book={book} onUpdateBook={onUpdateBook} onTabChange={handleTabChange} />
+      }
 
       {/* ── Tab bar — sticky below the band ── */}
       <div className="sticky-bar top-14 mt-5 mb-0">
@@ -138,6 +157,32 @@ export default function BookDashboard({ bookId }) {
 
       {showUpdate && (
         <ChapterUpdateModal book={book} onClose={() => setShowUpdate(false)} onUpdateBook={onUpdateBook} />
+      )}
+
+      {/* ── Completion arrival veil — appears once when a book is marked finished ── */}
+      {justFinished && (
+        <div className="completion-veil">
+          <div className="completion-veil-text">
+            <p style={{
+              fontFamily:    'var(--font-serif)',
+              fontStyle:     'italic',
+              fontSize:      'clamp(20px, 3vw, 28px)',
+              color:         'var(--color-ink-600)',
+              letterSpacing: '-0.01em',
+              lineHeight:    1.4,
+              marginBottom:  20,
+            }}>
+              The last page.
+            </p>
+            <span style={{
+              display:       'block',
+              fontSize:      11,
+              color:         'var(--color-accent)',
+              opacity:       0.5,
+              letterSpacing: '0.3em',
+            }}>✦</span>
+          </div>
+        </div>
       )}
     </div>
   )

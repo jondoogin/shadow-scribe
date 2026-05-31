@@ -270,6 +270,23 @@ export default function CompanionBand({ book, onUpdateBook, onTabChange }) {
   const showAmbient    = depth !== 'quiet'
   const showChat       = depth !== 'quiet'
 
+  // ── Depth picker ───────────────────────────────────────────────────────────
+  const [depthOpen, setDepthOpen] = useState(false)
+  const depthRef = useRef(null)
+  useEffect(() => {
+    if (!depthOpen) return
+    const handler = e => { if (!depthRef.current?.contains(e.target)) setDepthOpen(false) }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [depthOpen])
+
+  const DEPTH_OPTS = [
+    { k: 'quiet',     icon: '○', label: 'Quiet',     desc: 'The companion watches in silence.' },
+    { k: 'resonant',  icon: '◐', label: 'Resonant',  desc: 'Present and responsive. The default.' },
+    { k: 'saturated', icon: '●', label: 'Saturated', desc: 'Fully engaged. More observations, higher density.' },
+  ]
+  const depthOpt = DEPTH_OPTS.find(o => o.k === depth) || DEPTH_OPTS[1]
+
   // ── Derived display values ─────────────────────────────────────────────────
   const chapterGreeting = buildChapterGreeting(book, depth)
   const pct             = getProgress(book)
@@ -656,6 +673,77 @@ export default function CompanionBand({ book, onUpdateBook, onTabChange }) {
             </div>
           </>)}
 
+        </div>
+
+        {/* ── Depth indicator — ambient footer, always visible ── */}
+        <div ref={depthRef} style={{ position: 'relative', display: 'flex', justifyContent: 'flex-end', marginTop: 20 }}>
+          <button
+            onClick={() => setDepthOpen(v => !v)}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 5,
+              fontFamily: 'var(--font-sans)',
+              fontSize: 9, letterSpacing: '0.10em', textTransform: 'uppercase',
+              color: depthOpen ? 'var(--color-accent)' : 'var(--color-text-dim)',
+              opacity: depthOpen ? 1 : 0.55,
+              transition: 'opacity 0.2s ease, color 0.2s ease',
+              cursor: 'pointer',
+              padding: '2px 0',
+            }}
+            aria-label="Change companion depth"
+          >
+            <span style={{ fontSize: 11 }}>{depthOpt.icon}</span>
+            {depthOpt.label}
+          </button>
+
+          {depthOpen && (
+            <div style={{
+              position: 'absolute', bottom: 'calc(100% + 8px)', right: 0,
+              background: 'var(--color-card-base)',
+              border: '1px solid var(--color-separator-soft)',
+              borderRadius: 12,
+              overflow: 'hidden',
+              boxShadow: '0 4px 20px rgba(0,0,0,0.12), 0 1px 4px rgba(0,0,0,0.06)',
+              zIndex: 20,
+              width: 232,
+              animation: 'menuDrop 0.18s ease',
+            }}>
+              {DEPTH_OPTS.map((opt, i) => {
+                const active = depth === opt.k
+                return (
+                  <button
+                    key={opt.k}
+                    onClick={() => { onUpdateBook({ depthLevel: opt.k }); setDepthOpen(false) }}
+                    style={{
+                      display: 'flex', alignItems: 'flex-start', gap: 10,
+                      width: '100%', textAlign: 'left',
+                      padding: '10px 14px',
+                      background: active ? 'color-mix(in srgb, var(--color-accent) 7%, transparent)' : 'transparent',
+                      borderBottom: i < DEPTH_OPTS.length - 1 ? '1px solid var(--color-separator-soft)' : 'none',
+                      transition: 'background 0.15s ease',
+                    }}
+                  >
+                    <span style={{
+                      fontSize: 13, flexShrink: 0, marginTop: 1,
+                      color: active ? 'var(--color-accent)' : 'var(--color-text-dim)',
+                      opacity: active ? 1 : 0.5,
+                    }}>{opt.icon}</span>
+                    <div>
+                      <p style={{
+                        fontFamily: 'var(--font-sans)', fontSize: 11, fontWeight: 600,
+                        color: active ? 'var(--color-accent)' : 'var(--color-text-primary)',
+                        marginBottom: 2,
+                      }}>{opt.label}</p>
+                      <p style={{
+                        fontFamily: 'var(--font-serif)', fontStyle: 'italic',
+                        fontSize: 10, lineHeight: 1.45,
+                        color: 'var(--color-text-dim)',
+                      }}>{opt.desc}</p>
+                    </div>
+                  </button>
+                )
+              })}
+            </div>
+          )}
         </div>
 
       </div>

@@ -44,7 +44,7 @@ export default function TopNav() {
       <div className="h-full max-w-[1000px] mx-auto px-5 sm:px-10 flex items-center justify-between">
 
         {/* Logo */}
-        <button onClick={() => navigate('/library')} className="flex items-center gap-1 group outline-none">
+        <button onClick={() => navigate('/library')} className="flex items-center gap-1 group">
           <span
             className="font-bold text-[14px] group-hover:scale-110 transition-transform origin-center ember-drift"
             style={{

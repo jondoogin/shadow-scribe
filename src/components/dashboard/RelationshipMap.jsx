@@ -42,102 +42,93 @@ export default function RelationshipMap({ book }) {
   const visible = relationships.filter(r => charById[r.from] && charById[r.to])
   if (!visible.length) return null
 
-  // Sort: non-veiled first, then by type (love → ally → tension → hierarchy → neutral)
+  // Group by type — veiled relationships go into a separate '__veiled' bucket
   const TYPE_ORDER = { love: 0, ally: 1, tension: 2, hierarchy: 3, neutral: 4 }
-  const sorted = [...visible].sort((a, b) => {
-    const aVeiled = charById[a.from]._veiled || charById[a.to]._veiled
-    const bVeiled = charById[b.from]._veiled || charById[b.to]._veiled
-    if (aVeiled !== bVeiled) return aVeiled ? 1 : -1
-    return (TYPE_ORDER[a.type] ?? 9) - (TYPE_ORDER[b.type] ?? 9)
+  const groups = {}
+  visible.forEach(rel => {
+    const isVeiled = charById[rel.from]._veiled || charById[rel.to]._veiled
+    const key = isVeiled ? '__veiled' : (rel.type || 'neutral')
+    if (!groups[key]) groups[key] = []
+    groups[key].push(rel)
   })
 
-  const anyVeiled = sorted.some(r => charById[r.from]._veiled || charById[r.to]._veiled)
+  const groupKeys = Object.keys(groups).sort((a, b) => {
+    if (a === '__veiled') return 1
+    if (b === '__veiled') return -1
+    return (TYPE_ORDER[a] ?? 9) - (TYPE_ORDER[b] ?? 9)
+  })
+
+  const anyVeiled = '__veiled' in groups
 
   return (
     <div className="mt-2">
       <SectionHeading>Relationships</SectionHeading>
 
-      <div className="space-y-1 mb-4">
-        {sorted.map((rel, i) => {
-          const fromChar = charById[rel.from]
-          const toChar   = charById[rel.to]
-          const isVeiled = fromChar._veiled || toChar._veiled
-          const color    = isVeiled ? TYPE_COLOR.neutral : (TYPE_COLOR[rel.type] || TYPE_COLOR.neutral)
-          const typeLbl  = TYPE_LABEL[rel.type] || 'connection'
-
-          const fromName = isVeiled && fromChar._veiled ? '···' : firstName(fromChar.name)
-          const toName   = isVeiled && toChar._veiled   ? '···' : firstName(toChar.name)
+      <div className="space-y-5 mb-4">
+        {groupKeys.map(groupKey => {
+          const group = groups[groupKey]
+          const isVeiledGroup = groupKey === '__veiled'
+          const color = isVeiledGroup ? TYPE_COLOR.neutral : (TYPE_COLOR[groupKey] || TYPE_COLOR.neutral)
+          const label = isVeiledGroup ? 'unfolding' : (TYPE_LABEL[groupKey] || 'connection')
 
           return (
-            <div
-              key={i}
-              className="py-2.5 transition-opacity"
-              style={{
-                borderBottom: i < sorted.length - 1 ? '1px solid var(--color-hairline)' : 'none',
-                opacity:      isVeiled ? 0.55 : 1,
-              }}
-            >
-              <div className="flex items-baseline justify-between gap-3 flex-wrap">
-                <div className="flex items-baseline gap-2 min-w-0 flex-1">
-                  {/* Type color stripe — small, never dominant */}
-                  <span
-                    aria-hidden
-                    style={{
-                      display:      'inline-block',
-                      width:        2,
-                      height:       12,
-                      background:   color,
-                      borderRadius: 1,
-                      flexShrink:   0,
-                      opacity:      0.75,
-                      transform:    'translateY(1px)',
-                    }}
-                  />
-                  <span
-                    className="font-medium"
-                    style={{
-                      fontSize:   13,
-                      color:      'var(--color-ink-700)',
-                      fontFamily: 'var(--font-sans)',
-                    }}
-                  >
-                    {fromName}
-                  </span>
-                  <span style={{ fontSize: 11, color: 'var(--color-ink-300)', margin: '0 2px' }}>↔</span>
-                  <span
-                    className="font-medium"
-                    style={{
-                      fontSize:   13,
-                      color:      'var(--color-ink-700)',
-                      fontFamily: 'var(--font-sans)',
-                    }}
-                  >
-                    {toName}
-                  </span>
-                  <span
-                    className="italic"
-                    style={{
-                      fontSize: 13,
-                      color:    'var(--color-ink-500)',
-                      marginLeft: 6,
-                    }}
-                  >
-                    — {isVeiled ? 'something still unfolding' : rel.label}
-                  </span>
-                </div>
-                {!isVeiled && (
-                  <span
-                    className="italic flex-shrink-0"
-                    style={{
-                      fontSize: 10,
-                      color:    color,
-                      opacity:  0.75,
-                      letterSpacing: '0.02em',
-                    }}
-                  >
-                    {typeLbl}
-                  </span>
-                )}
+            <div key={groupKey}>
+              {/* Group header */}
+              <div className="flex items-center gap-2 mb-2.5">
+                <span aria-hidden style={{
+                  width: 5, height: 5, borderRadius: '50%',
+                  background: color, flexShrink: 0, opacity: isVeiledGroup ? 0.4 : 0.8,
+                }} />
+                <span style={{
+                  fontFamily: 'var(--font-sans)',
+                  fontSize: 9, fontWeight: 700,
+                  letterSpacing: '0.13em', textTransform: 'uppercase',
+                  color, opacity: isVeiledGroup ? 0.55 : 0.75,
+                }}>
+                  {label}
+                </span>
+              </div>
+
+              {/* Relationships in this group */}
+              <div
+                className="space-y-3 pl-3"
+                style={{ borderLeft: `2px solid ${color}22` }}
+              >
+                {group.map((rel, i) => {
+                  const fromChar = charById[rel.from]
+                  const toChar   = charById[rel.to]
+                  const fromName = fromChar._veiled ? '···' : firstName(fromChar.name)
+                  const toName   = toChar._veiled   ? '···' : firstName(toChar.name)
+
+                  return (
+                    <div key={i} style={{ opacity: isVeiledGroup ? 0.55 : 1 }}>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span style={{
+                          fontSize: 13, fontWeight: 500,
+                          color: 'var(--color-ink-700)',
+                          fontFamily: 'var(--font-sans)',
+                        }}>
+                          {fromName}
+                        </span>
+                        <span aria-hidden style={{ fontSize: 10, color: 'var(--color-ink-300)' }}>—</span>
+                        <span style={{
+                          fontSize: 13, fontWeight: 500,
+                          color: 'var(--color-ink-700)',
+                          fontFamily: 'var(--font-sans)',
+                        }}>
+                          {toName}
+                        </span>
+                      </div>
+                      <p className="italic" style={{
+                        fontSize: 11, lineHeight: 1.45, marginTop: 2,
+                        fontFamily: 'var(--font-serif)',
+                        color: isVeiledGroup ? 'var(--color-ink-300)' : 'var(--color-ink-400)',
+                      }}>
+                        {isVeiledGroup ? 'something still unfolding' : rel.label}
+                      </p>
+                    </div>
+                  )
+                })}
               </div>
             </div>
           )
@@ -147,7 +138,7 @@ export default function RelationshipMap({ book }) {
       {anyVeiled && mode !== 'full' && (
         <p
           className="italic"
-          style={{ fontSize: 11, color: 'var(--color-ink-300)', marginTop: 4, marginBottom: 16 }}
+          style={{ fontSize: 11, color: 'var(--color-ink-300)', marginTop: -8, marginBottom: 16 }}
         >
           Some connections are still unfolding.
         </p>
