@@ -61,9 +61,12 @@ export default function DiscussionTab({ book, onUpdateBook }) {
     }
   }
 
-  const questionViews = (book.discussionQuestions || [])
+  const allQuestionViews = (book.discussionQuestions || [])
     .map(q => getDiscussionQuestionView(book, q, mode))
     .filter(Boolean)
+
+  const questionViews     = allQuestionViews.filter(q => !q._veiled)
+  const veiledQCount      = allQuestionViews.filter(q =>  q._veiled).length
 
   const addQ = () => {
     if (!input.trim()) return
@@ -111,18 +114,24 @@ export default function DiscussionTab({ book, onUpdateBook }) {
         </p>
       )}
 
-      {/* Companion-generated questions */}
+      {/* Companion-generated questions — veiled ones are filtered out and counted below */}
       {questionViews.length > 0 && (
         <div className="space-y-3 mb-6">
           {questionViews.map((q, i) => (
-            <div key={i} className={`rounded-xl border p-4 ${q._veiled ? 'bg-ink-50 border-ink-100' : 'bg-cream-50 border-ink-100'}`}>
+            <div key={i} className="rounded-xl border border-ink-100 p-4 bg-cream-50">
               <div className="flex items-start gap-3">
-                <span className={`font-serif text-xl leading-none flex-shrink-0 mt-[-2px] ${q._veiled ? 'text-ink-300' : 'text-gold opacity-60'}`}>"</span>
-                <p className={`text-[13px] leading-relaxed ${q._veiled ? 'text-ink-400 italic' : 'text-ink-700'}`}>{q.text}</p>
+                <span className="font-serif text-xl leading-none flex-shrink-0 mt-[-2px] text-gold opacity-60">"</span>
+                <p className="text-[13px] leading-relaxed text-ink-700">{q.text}</p>
               </div>
             </div>
           ))}
         </div>
+      )}
+
+      {veiledQCount > 0 && (
+        <p className="font-serif italic mb-6" style={{ fontSize: 12, color: 'var(--color-ink-400)' }}>
+          {veiledQCount} more question{veiledQCount !== 1 ? 's' : ''} waiting ahead — {veiledQCount !== 1 ? 'they\'ll' : 'it\'ll'} surface as you reach those chapters.
+        </p>
       )}
 
       {/* Reader's own questions */}

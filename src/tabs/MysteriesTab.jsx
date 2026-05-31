@@ -219,26 +219,38 @@ export default function MysteriesTab({ book, onUpdateBook, flashItemId }) {
     [book.notes]
   )
 
-  const viewedMysteries = currentMysteries
+  // Spoiler gate — veiled mysteries (ahead of reader's chapter) are never shown
+  // individually. They surface naturally as the reader arrives. A single ambient
+  // note at the bottom tells the reader how many are waiting ahead.
+  const allViewed  = currentMysteries
     .map(m => getMysteryView(book, m, mode))
     .filter(Boolean)
+
+  const viewedMysteries = allViewed.filter(m => !m._veiled)
+  const veiledCount     = allViewed.filter(m =>  m._veiled).length
 
   const active   = viewedMysteries.filter(m => !m.resolved)
   const resolved = viewedMysteries.filter(m =>  m.resolved)
   const visible  = showing === 'active' ? active : showing === 'resolved' ? resolved : viewedMysteries
 
-  const anyVeiled = viewedMysteries.some(m => m._veiled)
-  const noneAtAll = currentMysteries.length === 0
+  const anyVeiled = veiledCount > 0
+  const noneAtAll = currentMysteries.length === 0 || (viewedMysteries.length === 0 && !adding)
 
-  const emptyTitle = noneAtAll
+  // If there are only veiled mysteries (none the reader can see), treat
+  // the visible surface as empty — the "waiting ahead" note carries the message.
+  const fullyVeiled = currentMysteries.length > 0 && viewedMysteries.length === 0 && veiledCount > 0
+
+  const emptyTitle = noneAtAll && !fullyVeiled
     ? depth === 'quiet'
       ? 'Questions accumulate here, without interpretation.'
       : 'Questions tend to appear once the story begins moving.'
     : showing === 'resolved'
       ? 'Nothing has found its answer yet.'
-      : 'No open threads.'
+      : fullyVeiled
+        ? null  // handled by veiledCount note below
+        : 'No open threads.'
 
-  const emptyBody = noneAtAll
+  const emptyBody = noneAtAll && !fullyVeiled
     ? depth === 'quiet'
       ? 'Open a thread whenever the story holds something worth tracing.'
       : depth === 'saturated'
@@ -246,7 +258,9 @@ export default function MysteriesTab({ book, onUpdateBook, flashItemId }) {
         : "Open a thread whenever the story raises a question it isn't ready to answer."
     : showing === 'resolved'
       ? "When a question finally gets its answer, it will rest here."
-      : "Every open thread in this reading has been resolved."
+      : fullyVeiled
+        ? null
+        : "Every open thread in this reading has been resolved."
 
   return (
     <div className="max-w-2xl">
@@ -308,11 +322,11 @@ export default function MysteriesTab({ book, onUpdateBook, flashItemId }) {
         </div>
       )}
 
-      {visible.length === 0 ? (
+      {visible.length === 0 && !fullyVeiled ? (
         <EmptyState
           icon={<Ico.Mystery />}
-          title={emptyTitle}
-          body={emptyBody}
+          title={emptyTitle ?? 'No open threads.'}
+          body={emptyBody ?? ''}
           action={noneAtAll && (
             <button onClick={() => setAdding(true)}
               className="text-[13px] italic hover:opacity-75 transition-opacity"
@@ -593,8 +607,8 @@ export default function MysteriesTab({ book, onUpdateBook, flashItemId }) {
       )}
 
       {anyVeiled && mode !== 'full' && (
-        <p className="text-[11px] text-ink-400 text-center italic mt-5">
-          Some threads are still gathering — they'll become clear as you read further.
+        <p className="font-serif italic mt-6" style={{ fontSize: 12, color: 'var(--color-ink-400)', paddingLeft: 2 }}>
+          {veiledCount} thread{veiledCount !== 1 ? 's' : ''} waiting ahead — {veiledCount !== 1 ? 'they\'ll' : 'it\'ll'} surface as you reach {veiledCount !== 1 ? 'them' : 'it'}.
         </p>
       )}
 

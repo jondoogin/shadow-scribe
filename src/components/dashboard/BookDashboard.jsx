@@ -1,6 +1,7 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { useBooks }    from '../../context/BooksContext.jsx'
 import { useSettings } from '../../context/SettingsContext.jsx'
+import { liveItems }   from '../../utils/live.js'
 import { Ico }         from '../shared/icons.jsx'
 import CompanionHeader from './CompanionHeader.jsx'
 import CompanionBand   from './CompanionBand.jsx'
@@ -62,6 +63,21 @@ export default function BookDashboard({ bookId }) {
     tabRefs.current[tab]?.scrollIntoView({ behavior: 'smooth', inline: 'nearest', block: 'nearest' })
   }, [tab])
 
+  // Tab content counts — surfaces when companion has populated a tab.
+  // Placed before the `if (!book)` guard to satisfy Rules of Hooks.
+  // Shows companion-extracted content (including veiled), so the reader
+  // knows what's waiting even before they reach those chapters.
+  const tabCounts = useMemo(() => {
+    if (!book) return {}
+    return {
+      notes:      liveItems(book.notes).length,
+      characters: (book.characters?.main?.length || 0) + (book.characters?.secondary?.length || 0),
+      questions:  liveItems(book.mysteries).length,
+      themes:     (book.discussionQuestions || []).length + (book.userDiscussionQuestions || []).length,
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [book?.notes, book?.mysteries, book?.characters?.main, book?.characters?.secondary, book?.discussionQuestions, book?.userDiscussionQuestions])
+
   if (!book) return null
 
   const onUpdateBook = changes => updateBook(bookId, changes)
@@ -88,6 +104,17 @@ export default function BookDashboard({ bookId }) {
                 className={`tab-btn ${tab === t.id ? 'active' : ''} ${tabFlash === t.id ? 'tab-flash' : ''}`}
               >
                 {t.label}
+                {(tabCounts[t.id] ?? 0) > 0 && (
+                  <span style={{
+                    fontSize: 9,
+                    marginLeft: 4,
+                    color: 'var(--color-ink-400)',
+                    opacity: tab === t.id ? 0.55 : 0.65,
+                    fontStyle: 'normal',
+                  }}>
+                    {tabCounts[t.id]}
+                  </span>
+                )}
               </button>
             ))}
           </div>
