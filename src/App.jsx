@@ -1,15 +1,15 @@
 import { useEffect, useState, useRef, Component } from 'react'
-import { useLocation, BrowserRouter, Routes, Route, Navigate, Link } from 'react-router-dom'
+import { useLocation, BrowserRouter, Routes, Route, Navigate, Link, useNavigate } from 'react-router-dom'
 import { BooksProvider, useBooks } from './context/BooksContext.jsx'
-import { SettingsProvider } from './context/SettingsContext.jsx'
-import { useSettings } from './context/SettingsContext.jsx'
-import { AuthProvider } from './context/AuthContext.jsx'
+import { SettingsProvider, useSettings } from './context/SettingsContext.jsx'
+import { AuthProvider, useAuth } from './context/AuthContext.jsx'
 import TopNav from './components/layout/TopNav.jsx'
 import LibraryPage from './pages/LibraryPage.jsx'
 import BookPage from './pages/BookPage.jsx'
 import NewCompanionPage from './pages/NewCompanionPage.jsx'
 import SettingsPage from './pages/SettingsPage.jsx'
 import AboutPage from './pages/AboutPage.jsx'
+import SignInPage from './pages/SignInPage.jsx'
 import DebugPage from './pages/DebugPage.jsx'
 import { logError } from './utils/logger.js'
 
@@ -213,12 +213,38 @@ function ScrollToTop() {
   return null
 }
 
+// ── Auth callback — handles Google OAuth + magic-link redirects ───────────────
+// supabase's detectSessionInUrl picks up the tokens; we just need this route to
+// exist so the browser doesn't 404. Redirect once status resolves.
+function AuthCallback() {
+  const navigate   = useNavigate()
+  const { status } = useAuth()
+
+  useEffect(() => {
+    if (status === 'signed-in')  navigate('/library', { replace: true })
+    if (status === 'signed-out') navigate('/signin',  { replace: true })
+  }, [status, navigate])
+
+  return (
+    <div
+      className="max-w-[1000px] mx-auto px-5 sm:px-10 py-16 text-center"
+      style={{ minHeight: '40vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+    >
+      <p className="italic" style={{ fontSize: 13, color: 'var(--color-ink-400)' }}>
+        Signing you in…
+      </p>
+    </div>
+  )
+}
+
 const PAGE_TITLES = {
-  '/library':  'Lantern — Library',
-  '/':         'Lantern — Library',
-  '/new':      'Lantern — New Companion',
-  '/settings': 'Lantern — Settings',
-  '/about':    'Lantern — About',
+  '/library':       'Lantern — Library',
+  '/':              'Lantern — Library',
+  '/new':           'Lantern — New Companion',
+  '/settings':      'Lantern — Settings',
+  '/about':         'Lantern — About',
+  '/signin':        'Lantern — Sign in',
+  '/auth/callback': 'Lantern',
 }
 
 function AppShell() {
@@ -259,6 +285,8 @@ function AppShell() {
           <Route path="/book/:bookId" element={<BookPage />} />
           <Route path="/settings" element={<SettingsPage />} />
           <Route path="/about" element={<AboutPage />} />
+          <Route path="/signin" element={<SignInPage />} />
+          <Route path="/auth/callback" element={<AuthCallback />} />
           {import.meta.env.DEV && <Route path="/debug" element={<DebugPage />} />}
           <Route path="*" element={<Navigate to="/library" replace />} />
         </Routes>

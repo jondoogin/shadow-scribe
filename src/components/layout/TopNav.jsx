@@ -129,20 +129,26 @@ export default function TopNav() {
           )}
           {isCloudEnabled && status === 'signed-out' && (
             <button
-              onClick={() => navigate('/settings')}
-              className="flex items-center gap-1 rounded-lg transition-all px-2.5 h-9"
+              onClick={() => navigate('/signin')}
+              className="flex items-center gap-1.5 rounded-lg transition-all px-3 h-9"
               style={{
-                border:     '1px solid var(--color-ink-200)',
-                background: 'transparent',
-                color:      'var(--color-ink-500)',
+                border:     '1px solid color-mix(in srgb, var(--color-accent) 35%, transparent)',
+                background: 'color-mix(in srgb, var(--color-accent) 6%, transparent)',
+                color:      'var(--color-accent)',
                 fontSize:   12,
-                fontStyle:  'italic',
-                fontFamily: 'var(--font-serif)',
+                fontWeight: 500,
+                fontFamily: 'var(--font-sans)',
               }}
-              onMouseEnter={e => { e.currentTarget.style.color = 'var(--color-ink-700)'; e.currentTarget.style.borderColor = 'var(--color-ink-300)' }}
-              onMouseLeave={e => { e.currentTarget.style.color = 'var(--color-ink-500)'; e.currentTarget.style.borderColor = 'var(--color-ink-200)' }}
+              onMouseEnter={e => {
+                e.currentTarget.style.background = 'color-mix(in srgb, var(--color-accent) 12%, transparent)'
+                e.currentTarget.style.borderColor = 'color-mix(in srgb, var(--color-accent) 55%, transparent)'
+              }}
+              onMouseLeave={e => {
+                e.currentTarget.style.background = 'color-mix(in srgb, var(--color-accent) 6%, transparent)'
+                e.currentTarget.style.borderColor = 'color-mix(in srgb, var(--color-accent) 35%, transparent)'
+              }}
             >
-              <span style={{ fontSize: 10, opacity: 0.7 }}>✦</span>
+              <span style={{ fontSize: 10, opacity: 0.8 }}>✦</span>
               <span className="hidden sm:inline">Sign in</span>
             </button>
           )}
