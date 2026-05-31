@@ -6,7 +6,7 @@ export default function EmptyState({ icon, title, body, action }) {
           {icon}
         </div>
         <div className="absolute inset-0 rounded-full"
-          style={{ background:'radial-gradient(circle at 50% 30%, rgba(184,134,11,.06), transparent 70%)' }} />
+          style={{ background:'radial-gradient(circle at 50% 30%, color-mix(in srgb, var(--ca) 6%, transparent), transparent 70%)' }} />
       </div>
       <p className="font-serif text-[15px] text-ink-700 font-semibold mb-2 leading-snug">{title}</p>
       <p className="text-[13px] text-ink-400 max-w-[280px] leading-relaxed mb-5">{body}</p>

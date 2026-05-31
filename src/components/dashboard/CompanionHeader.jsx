@@ -39,7 +39,7 @@ function fmtCompleted(iso) {
   return `The story ended here — ${d}.`
 }
 
-// Returns a literary label for a reading gap (used at 7+ days for active, always for paused).
+// Returns a literary label for a reading gap (used at 5+ days for active, always for paused).
 function formatGapLabel(days, paused = false) {
   if (paused) {
     if (days >= 60) return `Set aside ${Math.round(days / 30)} months ago.`
@@ -54,7 +54,8 @@ function formatGapLabel(days, paused = false) {
   if (days >= 21) return `${Math.round(days / 7)} weeks away from this story.`
   if (days >= 14) return 'Two weeks away from this story.'
   if (days >=  7) return 'A week away from this story.'
-  return `${days} days since you were last here.`
+  if (days >=  5) return 'Nearly a week since your last visit.'
+  return `${days} days since your last visit.`
 }
 
 const todayISO = () => new Date().toISOString().split('T')[0]
@@ -322,8 +323,33 @@ export default function CompanionHeader({ book, onOpenUpdate, onUpdateBook }) {
           ? Math.floor((Date.now() - new Date(book.lastUpdated).getTime()) / 86_400_000)
           : 0
         if (daysAway < 3) return null
+
+        const containerStyle = {
+          marginTop: 12,
+          padding: '10px 12px',
+          background: 'color-mix(in srgb, var(--ca) 5%, transparent)',
+          borderLeft: '2px solid color-mix(in srgb, var(--ca) 22%, transparent)',
+          borderRadius: '0 6px 6px 0',
+        }
+        const labelStyle = { fontSize: 11, color: 'var(--color-ink-400)', marginBottom: 6, letterSpacing: '0.01em' }
+
         const lastNote = liveItems(book.notes).slice(-1)[0]
-        if (!lastNote) return null
+
+        // No notes written: show gap label + chapter anchor for 7+ day gaps
+        if (!lastNote) {
+          if (daysAway < 7) return null
+          return (
+            <div className="animate-fade-in" style={containerStyle}>
+              <p className="italic" style={labelStyle}>{formatGapLabel(daysAway)}</p>
+              {book.currentChapter > 0 && (
+                <p className="italic" style={{ fontSize: 12, color: 'var(--color-ink-400)', marginTop: 2 }}>
+                  {book.format === 'audiobook' ? 'Part' : 'Chapter'} {book.currentChapter}.
+                </p>
+              )}
+            </div>
+          )
+        }
+
         const lastText = lastNote.text || ''
         const hauntedMystery = daysAway >= 7
           ? liveItems(book.mysteries)
@@ -332,23 +358,10 @@ export default function CompanionHeader({ book, onOpenUpdate, onUpdateBook }) {
               .find(m => mysteryHauntScore(m, book) >= 1.5)
           : null
         return (
-          <div
-            className="animate-fade-in"
-            style={{
-              marginTop: 12,
-              padding: '10px 12px',
-              background: 'color-mix(in srgb, var(--ca) 5%, transparent)',
-              borderLeft: '2px solid color-mix(in srgb, var(--ca) 22%, transparent)',
-              borderRadius: '0 6px 6px 0',
-            }}
-          >
-            {daysAway >= 7 && (
-              <p
-                className="italic"
-                style={{ fontSize: 11, color: 'var(--color-ink-400)', marginBottom: 6, letterSpacing: '0.01em' }}
-              >
-                {formatGapLabel(daysAway)}
-              </p>
+          <div className="animate-fade-in" style={containerStyle}>
+            {/* Gap label — shown at 5+ days (was 7+); short gaps let the quote speak alone */}
+            {daysAway >= 5 && (
+              <p className="italic" style={labelStyle}>{formatGapLabel(daysAway)}</p>
             )}
             <p
               className="italic leading-relaxed"
@@ -357,10 +370,7 @@ export default function CompanionHeader({ book, onOpenUpdate, onUpdateBook }) {
               "{lastText.length > 110 ? lastText.slice(0, 110) + '…' : lastText}"
             </p>
             {hauntedMystery && (
-              <p
-                className="italic leading-relaxed"
-                style={{ fontSize: 12, color: 'var(--color-ink-400)' }}
-              >
+              <p className="italic leading-relaxed" style={{ fontSize: 12, color: 'var(--color-ink-400)' }}>
                 <span style={{ fontSize: 9, color: 'var(--ca, #B8860B)', opacity: 0.75, marginRight: 5 }}>✦</span>
                 {hauntedMystery.text.length > 85
                   ? hauntedMystery.text.slice(0, 85) + '…'

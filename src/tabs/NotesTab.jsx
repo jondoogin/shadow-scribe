@@ -161,13 +161,13 @@ function generateNoteCompanionResponse(note, isFirst) {
   const hasQ      = /\?/.test(text)
   const isHeavy   = /\b(scary|terrifying|horrifying|heartbreaking|overwhelming|terrible|awful|sad|angry|furious|devastated|feel|felt|moved|devastating|haunting|grief|loss|afraid|dread)\b/i.test(text)
   if (tag === 'theory')    return hasQ ? "A theory still framed as a question." : "Held here until the text responds."
-  if (tag === 'confusing') return "Not yet resolved — keep it open."
+  if (tag === 'confusing') return "Still unresolved. The companion is holding it."
   if (tag === 'favorite')  return "Something here has caught and held."
-  if (tag === 'quote')     return "Worth carrying forward."
+  if (tag === 'quote')     return "Worth holding."
   if (hasQ)                return "That question is staying open."
   if (tag === 'character') return "This person is staying with you."
   if (isHeavy)             return "Something here has real weight."
-  return "Noted."
+  return "Received."
 }
 
 export default function NotesTab({ book, onUpdateBook }) {
@@ -948,7 +948,7 @@ export default function NotesTab({ book, onUpdateBook }) {
                           paddingLeft: 12,
                           // Era echoes carry a subtly different border — a different era's ink
                           borderLeft: noteEchoes[note.id].__echoType === 'era'
-                            ? '1px solid rgba(184,134,11,.12)'
+                            ? '1px solid color-mix(in srgb, var(--ca) 12%, transparent)'
                             : '1px solid var(--color-separator)',
                         }}
                       >

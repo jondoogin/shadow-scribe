@@ -153,11 +153,11 @@ export function detectNoteEcho(newNote, existingNotes, rereadCount = 0) {
 // ── Fallback pool ─────────────────────────────────────────────────────────────
 const FALLBACKS = {
   theory:    'Held here until the text responds.',
-  confusing: 'Not yet resolved — keep it open.',
+  confusing: 'Still unresolved. The companion is holding it.',
   favorite:  'Something here has caught and held.',
-  quote:     'Worth carrying forward.',
+  quote:     'Worth holding.',
   character: 'This person is staying with you.',
-  default:   'Noted.',
+  default:   'Received.',
 }
 
 export function threadFallback(tag) {

@@ -286,7 +286,7 @@ export default function CreateCompanion({ onCreate, onCancel }) {
                         background:  selected
                           ? 'color-mix(in srgb, var(--color-gold-bg, #FDF8EC) 55%, var(--color-cream, #FAF6EE))'
                           : 'var(--color-cream-200)',
-                        border:      selected ? '1px solid rgba(184,134,11,0.45)' : '1px solid var(--color-hairline)',
+                        border:      selected ? '1px solid color-mix(in srgb, var(--ca) 45%, transparent)' : '1px solid var(--color-hairline)',
                         boxShadow:   selected ? '0 0 0 2px color-mix(in srgb, var(--color-accent) 14%, transparent)' : 'none',
                       }}
                     >
