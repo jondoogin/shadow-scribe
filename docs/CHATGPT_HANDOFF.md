@@ -1,9 +1,9 @@
 # Lantern — Handoff Document
-**Last updated:** 2026-05-30 · Session 146 (Automatic cover lookup)
+**Last updated:** 2026-05-30 · Session 147 (LibraryCompanion atmosphere pass)
 **Stack:** React 19 · Vite 8 · Tailwind CSS v4 · React Router v7 · localStorage + Supabase (optional cloud sync) · Vercel Serverless Functions (`/api/companion` — live)
 **localStorage keys (FROZEN):** `shadowscribe_books` · `shadowscribe_settings` · `lantern_welcomed` — must NEVER be renamed
 **Build command:** `node node_modules/vite/bin/vite.js build`
-**Status: V2 COMPANION-FIRST REDESIGN — Complete. Cloud sync live. Depth Level wired + exposed + consistent across all surfaces. Typography pass complete: ink scale contrast corrected in both light and dark mode; primary reading text 14px throughout notes and companion threads.**
+**Status: V2 COMPANION-FIRST REDESIGN — Complete. Cloud sync live. Depth Level wired + exposed + consistent across all surfaces. Typography pass complete (S145). LibraryCompanion atmosphere pass complete (S147): cross-book observation now 13px ink-600, ◦ glyph 9px ink-400, no opacity suppressor, multi-reader detection added.**
 
 ---
 
@@ -24,6 +24,18 @@ The companion is the star. Book data — characters, questions, themes, plot not
 ---
 
 ## RECENT SESSIONS
+
+### Session 147 — 2026-05-30 — LibraryCompanion atmosphere pass (Session B)
+
+**What shipped:**
+Visual and language pass on the cross-book companion observation surface at the library entrance.
+
+- `src/components/library/LibraryCompanion.jsx` — removed outer `opacity: 0.75` wrapper. Text `12px ink-500` → `13px ink-600`. Glyph `◦` `7px ink-300` → `9px ink-400` (was nearly invisible; now warm and present). `marginBottom` 28 → 40. Explicit `lineHeight: 1.65`.
+- `src/utils/crossBookMemory.js` — impressionist observation: removed redundant second sentence, sharpened to "You mark what arrives — brief, immediate, before it settles into interpretation." Analyst: "Your notes reach toward interpretation. You build on what you notice rather than letting it rest." New `detectMultipleReadings()` — fires when 4+ annotated reading-now books exist: "You hold several stories open at once — each one waiting for when you return to it." Inserted at priority 2 (after behavioral, before annotation style).
+
+**Build:** clean ✓ | 134 modules
+
+---
 
 ### Session 146 — 2026-05-30 — Automatic cover lookup
 

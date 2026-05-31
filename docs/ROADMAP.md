@@ -1,9 +1,29 @@
 # Lantern — Roadmap
-**Last updated:** 2026-05-30 (Session 145)
+**Last updated:** 2026-05-30 (Session 147)
 
 ---
 
 ## Active Milestone Queue
+
+### Milestone: LibraryCompanion Atmosphere Pass — ✓ Session 147 — complete
+
+Visual and language pass on the cross-book companion surface at the library entrance.
+
+**`LibraryCompanion.jsx`**: Removed outer `opacity: 0.75` suppressor. Text `12px ink-500` → `13px ink-600` — receded but legible. Glyph `◦` `7px ink-300` → `9px ink-400` — warm and present (the old treatment made it nearly invisible). `marginBottom` 28 → 40 for breathing room into the reading-now zone.
+
+**`crossBookMemory.js`**: Impressionist observation text sharpened (redundant second sentence removed). Analyst observation moved to active voice. New `detectMultipleReadings()` detection added — readers holding 4+ annotated reading-now books get "You hold several stories open at once — each one waiting for when you return to it." Priority: behavioral → multi-reader → annotation style → mystery → collapse → theme.
+
+**Build:** clean ✓ | 134 modules
+
+---
+
+### Milestone: Automatic cover lookup — ✓ Session 146 — complete
+
+Google Books API cover resolution wired throughout the creation and library surfaces. `coverLookup.js` queries by ISBN first, title+author fallback. `BookCover` chain: `coverData → coverUrl → isbn → gradient`. Creation-time lookup fires async after `onCreate` in both `CreateCompanion` and `EpubImportReview`. Library background refresh fires for up to 5 uncovered books per session on mount, staggered 500ms. `book.coverUrl` stored as URL string (not base64). Module-level `_coverLookupAttempted` Set prevents duplicate requests within a session.
+
+**Build:** clean ✓
+
+---
 
 ### Milestone: Typographic Gravity Pass — ✓ Session 145 — complete
 

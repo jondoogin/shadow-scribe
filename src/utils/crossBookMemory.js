@@ -104,14 +104,14 @@ function detectAnnotationStyle(annotated) {
   if (avgWords < 22 && favRatio > 0.18 && totalNotes >= 12)
     return {
       style: 'impressionist',
-      obs: "You mark moments rather than analyze them. The impression matters more than the explanation.",
+      obs: "You mark what arrives — brief, immediate, before it settles into interpretation.",
     }
 
   // Analyst — extended, interpretive notes
   if (avgWords > 55 && totalNotes >= 8)
     return {
       style: 'analyst',
-      obs: "Your reading is interpretive — you tend to build rather than just notice.",
+      obs: "Your notes reach toward interpretation. You build on what you notice rather than letting it rest.",
     }
 
   return null
@@ -215,6 +215,22 @@ function detectMysteryTendency(books) {
   return null
 }
 
+// ── Multiple simultaneous readings ───────────────────────────────────────────
+// Readers holding 4+ annotated stories open at once have a distinct reading
+// rhythm. This is the most immediately observable fact about such a library —
+// it deserves to be named before annotation style.
+function detectMultipleReadings(books) {
+  const activeAnnotated = books.filter(b =>
+    b.status === 'reading' && liveItems(b.notes).length >= 2
+  )
+  if (activeAnnotated.length >= 4)
+    return {
+      pattern: 'multi-reader',
+      obs: "You hold several stories open at once — each one waiting for when you return to it.",
+    }
+  return null
+}
+
 // ── Theory collapse awareness ─────────────────────────────────────────────────
 // Readers whose theories keep collapsing are developing a different
 // relationship with certainty — they're being taught something by repetition.
@@ -236,7 +252,7 @@ function detectCollapsePattern(books) {
 }
 
 // ── Main: generate one cross-book observation ─────────────────────────────────
-// Priority: behavioral (most specific) > annotation style > mystery > collapse > theme
+// Priority: behavioral > multi-reader > annotation style > mystery > collapse > theme
 // Returns a single observation string, or null if nothing is specific enough.
 export function generateCrossBookObservation(books) {
   if (!books || books.length < 2) return null
@@ -244,9 +260,12 @@ export function generateCrossBookObservation(books) {
   const annotated = annotatedBooks(books)
   if (annotated.length < 2) return null
 
-  // Prioritized: most specific and earned observations first
+  // Prioritized: most specific and earned observations first.
+  // Multiple readings is checked before annotation style — it's the most
+  // immediately observable fact about a library with 4+ active annotated books.
   const detected = [
     detectBehavioralPattern(books),
+    detectMultipleReadings(books),
     detectAnnotationStyle(annotated),
     detectMysteryTendency(books),
     detectCollapsePattern(books),

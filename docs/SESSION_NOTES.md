@@ -3,6 +3,51 @@ Reverse-chronological log of what was built, fixed, and decided in each working 
 
 ---
 
+## Session 147 — 2026-05-30
+**Theme:** LibraryCompanion atmosphere pass (Session B)
+
+**FILES CHANGED**
+- `src/components/library/LibraryCompanion.jsx`
+- `src/utils/crossBookMemory.js`
+
+**CHANGES**
+
+### LibraryCompanion.jsx — visual treatment
+
+The previous rendering (12px, ink-500, outer `opacity: 0.75`) was more apologetic than atmospheric. After the S145 contrast work that lifted the dim tier to meaningful legibility, the observation deserved more presence — not prominence, but confidence.
+
+- Removed outer `opacity: 0.75` wrapper — the text color does the work
+- Text: `12px` → `13px`, `ink-500` → `ink-600` (receded but readable; warmer presence)
+- Glyph `◦`: `7px ink-300` → `9px ink-400` (more present; the previous 7px ink-300 was nearly invisible)
+- `marginBottom`: `28` → `40` (more breathing room into the reading-now zone)
+- Added explicit `lineHeight: 1.65` and `margin: 0` on the paragraph
+- Updated header comment to match new canonical values
+
+The visual register is now: settled, placed, ambient — not apologetic.
+
+### crossBookMemory.js — observation language + new detection
+
+**Observation language refinements:**
+
+- Impressionist: "You mark moments rather than analyze them. The impression matters more than the explanation." → "You mark what arrives — brief, immediate, before it settles into interpretation." (removed redundant second sentence, more direct register)
+- Analyst: "Your reading is interpretive — you tend to build rather than just notice." → "Your notes reach toward interpretation. You build on what you notice rather than letting it rest." (more specific, active voice)
+
+**New detection: `detectMultipleReadings(books)`**
+
+Readers holding 4+ annotated stories simultaneously have a distinct reading rhythm — the most immediately observable fact about such a library. Added as second priority (after behavioral patterns, before annotation style):
+
+```
+"You hold several stories open at once — each one waiting for when you return to it."
+```
+
+Detection: `books.filter(b => b.status === 'reading' && liveItems(b.notes).length >= 2).length >= 4`
+
+Priority order updated: `behavioral → multi-reader → annotation style → mystery → collapse → theme`
+
+**Build:** clean ✓ | 134 modules
+
+---
+
 ## Session 146 — 2026-05-30
 **Theme:** Automatic cover lookup — Google Books API
 

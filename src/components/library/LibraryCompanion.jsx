@@ -14,7 +14,7 @@ import { generateCrossBookObservation } from '../../utils/crossBookMemory.js'
 // - returns null when data is insufficient (< 2 annotated books)
 // - no cycling, no carousel — this is settled, not rotating
 // - no ✦ glyph — that belongs to the book companion. This uses ◦.
-// - text is 12px italic ink-500, very subdued
+// - text is 13px italic ink-600, receded but legible
 // - only visible in grouped library view (not filtered/search)
 
 export default function LibraryCompanion({ books }) {
@@ -28,23 +28,26 @@ export default function LibraryCompanion({ books }) {
   if (!observation) return null
 
   return (
-    <div
-      className="animate-fade-in"
-      style={{
-        marginBottom: 28,
-        display: 'flex',
-        alignItems: 'flex-start',
-        gap: 8,
-        opacity: 0.75,
-      }}
-    >
-      <span style={{ fontSize: 7, color: 'var(--color-ink-300)', marginTop: 5, flexShrink: 0 }}>◦</span>
-      <p
-        className="font-serif italic leading-relaxed"
-        style={{ fontSize: 12, color: 'var(--color-ink-500)' }}
-      >
-        {observation}
-      </p>
+    <div className="animate-fade-in" style={{ marginBottom: 40 }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+        <span style={{
+          fontSize: 9,
+          color: 'var(--color-ink-400)',
+          marginTop: 4,
+          flexShrink: 0,
+        }}>◦</span>
+        <p
+          className="font-serif italic"
+          style={{
+            fontSize: 13,
+            color: 'var(--color-ink-600)',
+            lineHeight: 1.65,
+            margin: 0,
+          }}
+        >
+          {observation}
+        </p>
+      </div>
     </div>
   )
 }
