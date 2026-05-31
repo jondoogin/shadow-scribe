@@ -290,20 +290,49 @@ export default function SettingsPage() {
             <option value="full">Full Spoilers</option>
           </select>
         </SettingsRow>
-        <SettingsRow
-          label="Default Companion Depth"
-          description="How present the companion is by default. Per-book override available."
-        >
-          <select
-            value={settings.defaultDepthLevel}
-            onChange={e => updateSetting('defaultDepthLevel', e.target.value)}
-            className="text-[12px] text-ink-700 border border-ink-200 rounded-lg px-2.5 py-1.5 bg-cream-200 cursor-pointer"
-          >
-            <option value="quiet">Quiet — mostly silent record</option>
-            <option value="resonant">Resonant — balanced presence</option>
-            <option value="saturated">Saturated — dense engagement</option>
-          </select>
-        </SettingsRow>
+        {/* Depth level — compact version of ritual card design */}
+        <div className="px-5 py-4">
+          <p className="text-[13px] font-medium text-ink-800 mb-0.5">Default Companion Depth</p>
+          <p className="text-[12px] text-ink-400 mt-0.5 mb-3 leading-relaxed">How present the companion is by default. Per-book override available.</p>
+          <div className="space-y-1.5">
+            {[
+              { k: 'quiet',     label: 'Quiet',     tagline: 'The companion witnesses without speaking.', detail: 'A silent record. Notes and chapters — no responses, no observations.' },
+              { k: 'resonant',  label: 'Resonant',  tagline: 'Present without performing.',               detail: 'Responds to your notes when something earns it. Patterns surface as they emerge.', recommended: true },
+              { k: 'saturated', label: 'Saturated', tagline: 'Fully awake to this reading.',              detail: 'Dense observations, frequent reflections. The companion speaks often.' },
+            ].map(opt => {
+              const sel = settings.defaultDepthLevel === opt.k
+              return (
+                <button
+                  key={opt.k}
+                  onClick={() => updateSetting('defaultDepthLevel', opt.k)}
+                  className="w-full text-left px-3.5 py-3 rounded-xl transition-all"
+                  style={{
+                    background: sel ? 'color-mix(in srgb, var(--color-gold-bg, #FDF8EC) 55%, var(--color-cream, #FAF6EE))' : 'var(--color-cream-200)',
+                    border:     sel ? '1px solid rgba(184,134,11,0.45)' : '1px solid var(--color-hairline)',
+                    boxShadow:  sel ? '0 0 0 2px color-mix(in srgb, var(--color-accent) 14%, transparent)' : 'none',
+                  }}
+                >
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="font-serif" style={{ fontSize: 13, fontWeight: 400, color: sel ? 'var(--color-accent)' : 'var(--color-ink-800)' }}>
+                      {opt.label}
+                    </span>
+                    {opt.recommended && (
+                      <span className="italic" style={{ fontSize: 10, color: 'var(--color-ink-400)' }}>· recommended</span>
+                    )}
+                  </div>
+                  <p className="italic" style={{ fontSize: 12, fontFamily: 'var(--font-serif)', color: 'var(--color-ink-600)', lineHeight: 1.45, marginBottom: sel ? 3 : 0 }}>
+                    {opt.tagline}
+                  </p>
+                  {sel && (
+                    <p style={{ fontSize: 11, fontFamily: 'var(--font-sans)', color: 'var(--color-ink-400)', lineHeight: 1.45 }}>
+                      {opt.detail}
+                    </p>
+                  )}
+                </button>
+              )
+            })}
+          </div>
+        </div>
       </SettingsSection>
 
       {/* ── Data ── */}

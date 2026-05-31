@@ -18,6 +18,8 @@
  *   - Everything ages gracefully; nothing disappears
  */
 
+import { liveItems } from './live.js'
+
 // ── Note age ──────────────────────────────────────────────────────────────────
 
 /**
@@ -183,8 +185,8 @@ export function chapterPatinaStyle(score, isCompleted) {
  * @returns {number} 0–1
  */
 export function computeReadingDepth(book) {
-  const notes     = book.notes        || []
-  const mysteries = book.mysteries    || []
+  const notes     = liveItems(book.notes)
+  const mysteries = liveItems(book.mysteries)
   const log       = book.readingLog   || []
 
   let depth = 0

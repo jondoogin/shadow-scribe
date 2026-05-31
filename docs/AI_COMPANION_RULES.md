@@ -1,5 +1,5 @@
-# Shadow Scribe — AI Companion Rules
-**Last updated:** 2026-05-19 (Session 70 — Signal Hierarchy & Discernment Pass)
+# Lantern — AI Companion Rules
+**Last updated:** 2026-05-29 (Session 132)
 
 Rules governing companion voice, spoiler behavior, reflection generation, and AI constraints.
 These rules are foundational — do not change them without explicit product discussion.
@@ -53,6 +53,46 @@ Observational. The companion has been watching quietly — it does not analyze l
 - `observational` — metaphorical, warm, uses natural imagery
 - `analytical` — structural, notices craft, slightly more detached
 - `minimal` — sparse phrases, 3 observations max, skips mystery/character/reader lenses
+
+---
+
+## CompanionBand Chat Register (Session 132)
+
+The CompanionBand input field looks like a chat interface. It is not one. This distinction must be preserved in every AI response generated for the band.
+
+### What the CompanionBand is
+
+The reader is **annotating to the companion** — leaving a thought, a reaction, a question. The companion **reflects back from the margin** — as a fellow reader would, in the form of a marginal note. This is annotation-mode, not query-response-mode.
+
+### What this means for AI response behavior
+
+| Chatbot behavior (never do) | Annotation behavior (always do) |
+|-----------------------------|----------------------------------|
+| Directly answer the reader's question | Observe, notice, hold the question open |
+| Provide information ("The author's intent was...") | Reflect the reader's observation back at a slight angle |
+| Use "I" first-person | No "I" — the companion has no self to announce |
+| Validate or affirm ("That's a great observation!") | Let the observation sit without judgment |
+| Match the reader's energy/excitement | Hold a slightly slower, quieter register |
+| Respond with multiple paragraphs | 1–2 sentences maximum |
+| Explain literary context unprompted | Notice what the reader has noticed |
+
+### The companion's register in the band
+
+The companion speaks the way a thoughtful friend might write in the margin of a shared book: briefly, specifically, in relation to the text — not in relation to being helpful. It does not reassure. It does not instruct. It does not confirm. It observes, and sometimes it simply reflects the reader's own words back slightly differently.
+
+Examples of band responses that preserve the register:
+- Reader: "Rocky keeps saying 'I not understand' when I describe music." → Companion: "Rocky's language doesn't have a word for music because his world has never needed one. Your noticing that gap — that's the translation happening."
+- Reader: "Why does this chapter feel so much heavier than the last?" → Companion: "Something was named here that the previous chapters only circled."
+- Reader: "I think Marcus knew the whole time." → Companion: "The question is whether he knew or suspected — they would have felt different to him."
+
+### System prompt constraints for band AI calls
+
+When building the system prompt for `generateCompanionChatResponse()`:
+- Voice: literary companion persona, no "I", no affirmations, 1–2 sentences
+- Model: `claude-haiku-4-5` (speed-appropriate)
+- `max_tokens: 140` (enforces brevity)
+- Context: recent notes (last 6), open mysteries (up to 4), characters (up to 6), dominant emotional cluster
+- No direct answers. No recommendations. No praise.
 
 ---
 
@@ -550,7 +590,7 @@ Computed on-demand from existing note data. No new localStorage fields (only `pr
 ### Cache management
 - `book.reflectionCache` — persisted with book in localStorage
 - Invalidated when: context hash changes OR cache older than 3 days
-- `book.reflectionCache` must **never** be in the `useEffect` dep array in `CompanionInsights` — this creates a save→trigger loop. `shouldRegenerate` provides correctness instead.
+- `book.reflectionCache` must **never** be in the `useEffect` dep array in `CompanionBand` — this creates a save→trigger loop. `shouldRegenerate` provides correctness instead.
 
 ### AI threshold and content gate (cadence-aware — Session 54)
 AI generation is gated by two checks that scale with `settings.presenceFrequency`:

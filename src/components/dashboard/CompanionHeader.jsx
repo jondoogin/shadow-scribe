@@ -12,6 +12,7 @@ import { parseEpub } from '../../utils/epubParser.js'
 import { track } from '../../utils/analytics.js'
 import { generateCompletionAfterimageLine } from '../../utils/crossBookMemory.js'
 import { mysteryHauntScore } from '../../utils/hauntScore.js'
+import { liveItems } from '../../utils/live.js'
 
 const TEMPERAMENT_CONFIG = [
   { k: 'curious',      l: 'Curious',      d: 'Notices and wonders'       },
@@ -38,13 +39,31 @@ function fmtCompleted(iso) {
   return `The story ended here — ${d}.`
 }
 
+// Returns a literary label for a reading gap (used at 7+ days for active, always for paused).
+function formatGapLabel(days, paused = false) {
+  if (paused) {
+    if (days >= 60) return `Set aside ${Math.round(days / 30)} months ago.`
+    if (days >= 35) return 'Set aside over a month ago.'
+    if (days >= 21) return `Set aside ${Math.round(days / 7)} weeks ago.`
+    if (days >= 14) return 'Set aside two weeks ago.'
+    return 'Set aside a week ago.'
+  }
+  // active reader returning
+  if (days >= 60) return `${Math.round(days / 30)} months away from this story.`
+  if (days >= 35) return 'Over a month since you last read.'
+  if (days >= 21) return `${Math.round(days / 7)} weeks away from this story.`
+  if (days >= 14) return 'Two weeks away from this story.'
+  if (days >=  7) return 'A week away from this story.'
+  return `${days} days since you were last here.`
+}
+
 const todayISO = () => new Date().toISOString().split('T')[0]
 
 const CONFIRM = {
   finish: {
-    body:   'Mark this companion as finished?',
+    body:   "The reading ends here. Everything you've written and noticed stays with this companion.",
     cancel: 'Not yet',
-    ok:     "Yes, it's done",
+    ok:     "It's done",
   },
   restart: {
     body:   'Begin this story again? Your notes, threads, and observations stay — they become the record of a first reading.',
@@ -267,16 +286,27 @@ export default function CompanionHeader({ book, onOpenUpdate, onUpdateBook }) {
     <>
       {/* ── Finished: post-completion afterimage / archival statement ── */}
       {isFinished && (() => {
-        const daysAgo    = book.completedAt
+        const daysAgo      = book.completedAt
           ? Math.floor((Date.now() - new Date(book.completedAt).getTime()) / 86_400_000)
           : 9999
         const recentFinish = daysAgo <= 30
+        const veryFresh    = daysAgo <= 2    // still in the immediate aftermath
         const afterimage   = recentFinish ? generateCompletionAfterimageLine(book) : null
         return (
-          <div className="mt-3">
-            <p className="italic" style={{ fontSize: 12, color: 'var(--color-ink-400)' }}>
-              {afterimage ?? (book.completedAt ? fmtCompleted(book.completedAt) : 'The story is complete.')}
-            </p>
+          <div className="mt-3 animate-fade-in">
+            {veryFresh && afterimage ? (
+              // Fresh completion — companion glyph + more presence
+              <div className="flex items-start gap-2">
+                <span style={{ fontSize: 9, color: 'var(--ca, #B8860B)', marginTop: 3, opacity: 0.55, flexShrink: 0 }}>✦</span>
+                <p className="italic leading-relaxed" style={{ fontSize: 13, color: 'var(--color-ink-500)', lineHeight: 1.6 }}>
+                  {afterimage}
+                </p>
+              </div>
+            ) : (
+              <p className="italic" style={{ fontSize: 12, color: 'var(--color-ink-400)' }}>
+                {afterimage ?? (book.completedAt ? fmtCompleted(book.completedAt) : 'The story is complete.')}
+              </p>
+            )}
             {recentFinish && daysAgo > 2 && book.completedAt && (
               <p className="italic" style={{ fontSize: 11, color: 'var(--color-ink-300)', marginTop: 3 }}>
                 {fmtCompleted(book.completedAt)}
@@ -286,17 +316,17 @@ export default function CompanionHeader({ book, onOpenUpdate, onUpdateBook }) {
         )
       })()}
 
-      {/* ── Reading gap archaeology — active book, unvisited for 7+ days ── */}
+      {/* ── Reading gap archaeology — active book, away for 3+ days ── */}
       {isReading && !atEnd && !editingMeta && !pendingAction && (() => {
         const daysAway = book.lastUpdated
           ? Math.floor((Date.now() - new Date(book.lastUpdated).getTime()) / 86_400_000)
           : 0
-        if (daysAway < 7) return null
-        const lastNote = (book.notes || []).slice(-1)[0]
+        if (daysAway < 3) return null
+        const lastNote = liveItems(book.notes).slice(-1)[0]
         if (!lastNote) return null
         const lastText = lastNote.text || ''
-        const hauntedMystery = daysAway >= 14
-          ? (book.mysteries || [])
+        const hauntedMystery = daysAway >= 7
+          ? liveItems(book.mysteries)
               .filter(m => !m.resolved)
               .sort((a, b) => mysteryHauntScore(b, book) - mysteryHauntScore(a, book))
               .find(m => mysteryHauntScore(m, book) >= 1.5)
@@ -304,20 +334,34 @@ export default function CompanionHeader({ book, onOpenUpdate, onUpdateBook }) {
         return (
           <div
             className="animate-fade-in"
-            style={{ marginTop: 12, paddingTop: 10, borderTop: '1px solid rgba(28,20,16,.04)' }}
+            style={{
+              marginTop: 12,
+              padding: '10px 12px',
+              background: 'rgba(184, 134, 11, 0.04)',
+              borderLeft: '2px solid rgba(184, 134, 11, 0.22)',
+              borderRadius: '0 6px 6px 0',
+            }}
           >
+            {daysAway >= 7 && (
+              <p
+                className="italic"
+                style={{ fontSize: 11, color: 'var(--color-ink-400)', marginBottom: 6, letterSpacing: '0.01em' }}
+              >
+                {formatGapLabel(daysAway)}
+              </p>
+            )}
             <p
               className="italic leading-relaxed"
-              style={{ fontSize: 11, color: 'var(--color-ink-300)', marginBottom: hauntedMystery ? 4 : 0 }}
+              style={{ fontSize: 13, color: 'var(--color-ink-500)', marginBottom: hauntedMystery ? 6 : 0 }}
             >
               "{lastText.length > 110 ? lastText.slice(0, 110) + '…' : lastText}"
             </p>
             {hauntedMystery && (
               <p
-                className="italic"
-                style={{ fontSize: 11, color: 'var(--color-ink-300)', opacity: 0.72 }}
+                className="italic leading-relaxed"
+                style={{ fontSize: 12, color: 'var(--color-ink-400)' }}
               >
-                <span style={{ fontSize: 8, color: 'var(--ca, #B8860B)', opacity: 0.5, marginRight: 5 }}>✦</span>
+                <span style={{ fontSize: 9, color: 'rgba(184,134,11,0.75)', marginRight: 5 }}>✦</span>
                 {hauntedMystery.text.length > 85
                   ? hauntedMystery.text.slice(0, 85) + '…'
                   : hauntedMystery.text}
@@ -327,20 +371,16 @@ export default function CompanionHeader({ book, onOpenUpdate, onUpdateBook }) {
         )
       })()}
 
-      {/* ── Abandoned archaeology — paused book, long silence ── */}
+      {/* ── Abandoned archaeology — paused book, set aside 7+ days ── */}
       {isPaused && !editingMeta && !pendingAction && (() => {
         const daysAway = book.lastUpdated
           ? Math.floor((Date.now() - new Date(book.lastUpdated).getTime()) / 86_400_000)
           : 0
-        if (daysAway < 14) return null
+        if (daysAway < 7) return null
 
-        const durationStr = daysAway >= 60
-          ? `${Math.round(daysAway / 30)} months`
-          : `${Math.round(daysAway / 7)} weeks`
-
-        const lastNote        = (book.notes || []).slice(-1)[0]
-        const lastNoteText    = lastNote?.text || ''
-        const openMysteriesArr = (book.mysteries || [])
+        const lastNote         = liveItems(book.notes).slice(-1)[0]
+        const lastNoteText     = lastNote?.text || ''
+        const openMysteriesArr = liveItems(book.mysteries)
           .filter(m => !m.resolved)
           .sort((a, b) => mysteryHauntScore(b, book) - mysteryHauntScore(a, book))
         const topMystery       = openMysteriesArr[0] ?? null
@@ -349,21 +389,27 @@ export default function CompanionHeader({ book, onOpenUpdate, onUpdateBook }) {
         return (
           <div
             className="animate-fade-in"
-            style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid rgba(28,20,16,.05)' }}
+            style={{
+              marginTop: 12,
+              padding: '10px 12px',
+              background: 'rgba(184, 134, 11, 0.04)',
+              borderLeft: '2px solid rgba(184, 134, 11, 0.18)',
+              borderRadius: '0 6px 6px 0',
+            }}
           >
             <p
               className="italic"
-              style={{ fontSize: 11, color: 'var(--color-ink-400)', marginBottom: lastNote || openCount > 0 ? 5 : 0 }}
+              style={{ fontSize: 11, color: 'var(--color-ink-400)', marginBottom: lastNote || openCount > 0 ? 6 : 0, letterSpacing: '0.01em' }}
             >
-              Set aside {durationStr} ago.
+              {formatGapLabel(daysAway, true)}
             </p>
             {lastNote && (
               <p
                 className="italic leading-relaxed"
                 style={{
-                  fontSize: 11,
-                  color: 'var(--color-ink-300)',
-                  marginBottom: openCount > 0 ? 4 : 0,
+                  fontSize: 13,
+                  color: 'var(--color-ink-500)',
+                  marginBottom: openCount > 0 ? 6 : 0,
                 }}
               >
                 "{lastNoteText.length > 110 ? lastNoteText.slice(0, 110) + '…' : lastNoteText}"
@@ -372,13 +418,14 @@ export default function CompanionHeader({ book, onOpenUpdate, onUpdateBook }) {
             {topMystery && (
               <p
                 className="italic leading-relaxed"
-                style={{ fontSize: 11, color: 'var(--color-ink-300)', marginBottom: openCount > 1 ? 3 : 0 }}
+                style={{ fontSize: 12, color: 'var(--color-ink-400)', marginBottom: openCount > 1 ? 4 : 0 }}
               >
-                "{topMystery.text.length > 90 ? topMystery.text.slice(0, 90) + '…' : topMystery.text}"
+                <span style={{ fontSize: 9, color: 'rgba(184,134,11,0.75)', marginRight: 5 }}>✦</span>
+                {topMystery.text.length > 90 ? topMystery.text.slice(0, 90) + '…' : topMystery.text}
               </p>
             )}
             {openCount > 1 && (
-              <p className="italic" style={{ fontSize: 11, color: 'var(--color-ink-300)' }}>
+              <p className="italic" style={{ fontSize: 11, color: 'var(--color-ink-400)', opacity: 0.85 }}>
                 {openCount - 1} other {openCount - 1 === 1 ? 'thread' : 'threads'} still open.
               </p>
             )}
@@ -482,14 +529,15 @@ export default function CompanionHeader({ book, onOpenUpdate, onUpdateBook }) {
           <p className="text-[12px] text-ink-600 italic mb-3 leading-relaxed">
             {CONFIRM[pendingAction].body}
           </p>
-          <div className="flex gap-2">
+          <div className="flex items-center gap-4">
             <button onClick={() => setPendingAction(null)}
-              className="text-[12px] text-ink-600 hover:text-ink-800 px-3 py-1.5 rounded-lg border border-ink-200 transition-colors">
+              className="text-[12px] italic text-ink-400 hover:text-ink-600 transition-colors">
               {CONFIRM[pendingAction].cancel}
             </button>
             <button ref={confirmBtnRef} onClick={() => { performAction(pendingAction); setPendingAction(null) }}
-              className="text-[12px] font-semibold px-3 py-1.5 rounded-lg btn-accent">
-              {CONFIRM[pendingAction].ok}
+              className="text-[12px] italic hover:opacity-75 transition-opacity"
+              style={{ color: 'var(--ca, #B8860B)', fontWeight: 500 }}>
+              {CONFIRM[pendingAction].ok} →
             </button>
           </div>
         </div>
@@ -670,9 +718,9 @@ export default function CompanionHeader({ book, onOpenUpdate, onUpdateBook }) {
                   </div>
                 </div>
 
-                <div className="flex gap-2">
-                  <button onClick={() => setEditingMeta(false)} className="text-[12px] text-ink-500 hover:text-ink-700 px-3 py-1.5 rounded-lg border border-ink-200 transition-colors">Cancel</button>
-                  <button onClick={saveMeta} disabled={!metaForm.title.trim()} className="text-[12px] font-semibold px-3 py-1.5 rounded-lg text-white transition-all disabled:opacity-40" style={{ background:'var(--ca, #B8860B)' }}>Save</button>
+                <div className="flex items-center gap-4">
+                  <button onClick={() => setEditingMeta(false)} className="text-[12px] italic text-ink-400 hover:text-ink-600 transition-colors">cancel</button>
+                  <button onClick={saveMeta} disabled={!metaForm.title.trim()} className="text-[12px] italic hover:opacity-75 transition-opacity disabled:opacity-40" style={{ color: 'var(--ca, #B8860B)', fontWeight: 500 }}>save →</button>
                 </div>
               </div>
             ) : (
@@ -722,10 +770,10 @@ export default function CompanionHeader({ book, onOpenUpdate, onUpdateBook }) {
                             <p className="text-[12px] text-ink-600 leading-relaxed mb-3">
                               This companion will be removed permanently — notes, threads, and all.
                             </p>
-                            <div className="flex gap-2">
+                            <div className="flex items-center gap-4">
                               <button onClick={() => setConfirmDelete(false)}
-                                className="text-[12px] text-ink-500 hover:text-ink-700 px-2.5 py-1.5 rounded-lg border border-ink-200 transition-colors">
-                                Keep it
+                                className="text-[12px] italic text-ink-400 hover:text-ink-600 transition-colors">
+                                keep it
                               </button>
                               <button onClick={handleDelete}
                                 className="text-[12px] font-semibold text-white px-2.5 py-1.5 rounded-lg transition-opacity hover:opacity-80"

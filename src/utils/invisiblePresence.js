@@ -17,6 +17,7 @@
 
 import { calcStreak, logDates } from './date.js'
 import { getProgress }          from './progress.js'
+import { liveItems }           from './live.js'
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -55,7 +56,7 @@ function eraLog(book) {
 export function detectSelfSustainingNarrative(book) {
   const log     = eraLog(book)
   const entries = sessionEntries(log)
-  const notes   = book.notes || []
+  const notes   = liveItems(book.notes)
   const pct     = getProgress(book)
   const signals = []
 
@@ -105,7 +106,7 @@ export function detectSelfSustainingNarrative(book) {
 export function computePresenceVisibility(book, settings) {
   const log     = eraLog(book)
   const entries = sessionEntries(log)
-  const notes   = book.notes || []
+  const notes   = liveItems(book.notes)
   const pct     = getProgress(book)
   const style   = settings?.insightStyle ?? 'observational'
   let v = 1.0
@@ -282,7 +283,7 @@ export function computeObservationCap(book, settings) {
   const v     = computePresenceVisibility(book, settings)
 
   // Gravity pressure: emotionally dense books generate their own tension
-  const openMyst = (book.mysteries || []).filter(m => !m.resolved).length
+  const openMyst = liveItems(book.mysteries).filter(m => !m.resolved).length
   const gravityPressure = openMyst >= 6 ? 0.15 : openMyst >= 4 ? 0.08 : 0
   const effectiveV = Math.max(0, v - gravityPressure)
 
@@ -304,8 +305,8 @@ export function computeObservationCap(book, settings) {
  *   Post-finish               Book has ended; it should remain large in memory
  */
 export function computeNarrativeDominance(book, settings) {
-  const notes     = book.notes     || []
-  const mysteries = book.mysteries || []
+  const notes     = liveItems(book.notes)
+  const mysteries = liveItems(book.mysteries)
   const pct       = getProgress(book)
   let dominance   = 0
 
@@ -393,7 +394,7 @@ export function detectNarrativeSaturation(book) {
  *   Early reread                 Currently on a reread, first 15% of the book
  */
 export function isSolitudeProtected(book) {
-  const notes   = book.notes || []
+  const notes   = liveItems(book.notes)
   const pct     = getProgress(book)
   const log     = eraLog(book)
   const entries = sessionEntries(log)

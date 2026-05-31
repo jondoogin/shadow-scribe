@@ -10,6 +10,8 @@
 // Output: one carefully qualified observation, or null.
 // Null is the correct output when data is insufficient. Never generalize thin data.
 
+import { liveItems } from './live.js'
+
 // ── Thematic word clusters ────────────────────────────────────────────────────
 const THEME_CLUSTERS = {
   grief:    ['grief', 'loss', 'death', 'dying', 'absence', 'mourning', 'missing', 'gone', 'buried', 'widow', 'orphan', 'funeral', 'bereaved'],
@@ -60,7 +62,7 @@ function detectAnnotationStyle(annotated) {
   let theoryCount = 0, confusingCount = 0, quoteCount = 0, favCount = 0
 
   for (const book of annotated) {
-    const notes = book.notes || []
+    const notes = liveItems(book.notes)
     totalNotes += notes.length
     totalWords += notes.reduce((s, n) => s + (n.text || '').trim().split(/\s+/).length, 0)
     theoryCount    += notes.filter(n => n.tag === 'theory').length
@@ -169,7 +171,7 @@ function detectThematicResonance(books) {
   const clusterCounts = {}
 
   for (const book of annotated) {
-    const noteText = (book.notes || []).map(n => (n.text || '').toLowerCase()).join(' ')
+    const noteText = liveItems(book.notes).map(n => (n.text || '').toLowerCase()).join(' ')
     for (const [cluster, words] of Object.entries(THEME_CLUSTERS)) {
       const matchCount = words.filter(w => noteText.includes(w)).length
       if (matchCount >= 2) {
@@ -261,8 +263,8 @@ export function generateCrossBookObservation(books) {
 // Called from CompanionHeader when `isFinished` and completedAt is recent.
 // Returns a short, specific, settled line — not congratulations.
 export function generateCompletionAfterimageLine(book) {
-  const notes         = book.notes     || []
-  const mysteries     = book.mysteries || []
+  const notes         = liveItems(book.notes)
+  const mysteries     = liveItems(book.mysteries)
   const openMysteries = mysteries.filter(m => !m.resolved)
   const daysAgo       = daysSince(book.completedAt)
   const theoryNotes   = notes.filter(n => n.tag === 'theory')

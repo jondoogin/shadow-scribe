@@ -16,6 +16,7 @@ import { arbitrateCandidates, shouldEnterAtmosphereMode, momentumWeight } from '
 import { extractNameMentions } from './reflectionEngine.js'
 import { detectMotifs, detectAtmosphericSignature, extractQuoteFragment } from './residueMemory.js'
 import { classifySilence } from './emotionalGravity.js'
+import { liveItems } from './live.js'
 
 function daysSince(dateStr) {
   if (!dateStr) return null
@@ -1136,9 +1137,10 @@ export function generatePresence(book, settings = null) {
   const style   = settings?.insightStyle ?? 'observational'
   const pct     = getProgress(book)
   const completed = book.chapters.filter(c => c.completed)
-  const openMyst  = (book.mysteries || []).filter(m => !m.resolved && isMysteryVisible(book, m, mode))
+  const allMyst   = liveItems(book.mysteries)
+  const openMyst  = allMyst.filter(m => !m.resolved && isMysteryVisible(book, m, mode))
   const important = completed.filter(c => c.important)
-  const notes     = book.notes || []
+  const notes     = liveItems(book.notes)
   const main      = (book.characters?.main || []).filter(c => isCharacterSafe(book, c))
   const allChars  = [...(book.characters?.main || []), ...(book.characters?.secondary || [])]
   const log        = book.readingLog || []
@@ -1172,16 +1174,16 @@ export function generatePresence(book, settings = null) {
   add(finishedObs(pct, notes, important, style), 'finished_obs')
 
   // Mystery count
-  add(mysteryObs(openMyst.length, book.mysteries?.length ?? 0, pct, style), 'mystery_count')
+  add(mysteryObs(openMyst.length, allMyst.length, pct, style), 'mystery_count')
 
   // Lingering mysteries — open for 10+ chapters
   add(lingeringMysteryObs(openMyst, book.currentChapter, pct, style), 'lingering_mystery')
 
   // Mystery propulsion — evolving + suspected mix
-  add(mysteryPropulsionObs(book.mysteries || [], book.currentChapter, pct, style), 'mystery_propulsion')
+  add(mysteryPropulsionObs(allMyst, book.currentChapter, pct, style), 'mystery_propulsion')
 
   // Widening suspicion — suspected mysteries gaining age
-  add(wideningSuspicionObs(book.mysteries || [], book.currentChapter, style), 'widening_suspicion')
+  add(wideningSuspicionObs(allMyst, book.currentChapter, style), 'widening_suspicion')
 
   // Character (deaths, allegiance shifts)
   if (main.length >= 3) {
@@ -1198,7 +1200,7 @@ export function generatePresence(book, settings = null) {
   add(notePatternObs(notes, style), 'note_pattern')
 
   // Interpretation evolution — revised notes, reflections, refined mysteries
-  add(interpretationObs(notes, book.mysteries || [], style), 'interpretation_evolution')
+  add(interpretationObs(notes, allMyst, style), 'interpretation_evolution')
 
   // Session rhythm
   add(sessionRhythmObs(eraLog, style), 'session_rhythm')
@@ -1223,10 +1225,10 @@ export function generatePresence(book, settings = null) {
   add(crossChapterEchoObs(notes, book.currentChapter || 0, style), 'cross_chapter_echo')
 
   // Gravitation — character in both notes and mysteries
-  add(gravitationObs(notes, book.mysteries || [], style), 'gravitation')
+  add(gravitationObs(notes, allMyst, style), 'gravitation')
 
   // Haunted thread — notes and open mystery threads overlap
-  add(hauntedThreadObs(notes, book.mysteries || [], style), 'haunted_thread')
+  add(hauntedThreadObs(notes, allMyst, style), 'haunted_thread')
 
   // Polarity reversal — character valence flipped between early and late notes
   add(polarityReversalObs(notes, style), 'polarity_reversal')
@@ -1235,7 +1237,7 @@ export function generatePresence(book, settings = null) {
   add(collapsedCertaintyObs(notes, style), 'collapsed_certainty')
 
   // Mystery morph — the question itself changed
-  add(mysteryMorphObs(book.mysteries || [], style), 'mystery_morph')
+  add(mysteryMorphObs(allMyst, style), 'mystery_morph')
 
   // Quote echo — early capture echoed by recent theories
   add(quoteEchoObs(notes, book.currentChapter || 0, style), 'quote_echo')
@@ -1292,7 +1294,7 @@ export function generatePresenceDebug(book, settings = null) {
   const style      = settings?.insightStyle ?? 'observational'
   const surfaced   = generatePresence(book, settings)
   const pct        = getProgress(book)
-  const openMyst   = (book.mysteries || []).filter(m => !m.resolved)
+  const openMyst   = liveItems(book.mysteries).filter(m => !m.resolved)
 
   const visibility        = computePresenceVisibility(book, settings)
   const cap               = computeObservationCap(book, settings)
@@ -1328,6 +1330,6 @@ export function generatePresenceDebug(book, settings = null) {
     pct:         +pct.toFixed(1),
     style,
     openMystCount: openMyst.length,
-    noteCount:   (book.notes || []).length,
+    noteCount:   liveItems(book.notes).length,
   }
 }

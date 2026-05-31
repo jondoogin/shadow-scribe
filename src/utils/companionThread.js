@@ -17,6 +17,7 @@
 import { PROVIDER_CONFIG, buildAiCall } from './aiRequest.js'
 import { detectConfidenceDrift, detectFixations } from './readerState.js'
 import { detectMotifs } from './residueMemory.js'
+import { liveItems } from './live.js'
 
 // ── Stopwords ─────────────────────────────────────────────────────────────────
 const STOPWORDS = new Set([
@@ -179,7 +180,7 @@ export async function generateNoteThreadResponse(note, book, apiKey, context = {
   const { echo = null } = context
 
   // ── Reading history signals ─────────────────────────────────────────────
-  const allNotes       = book.notes || []
+  const allNotes       = liveItems(book.notes)
   const theoryNotes    = allNotes.filter(n => n.tag === 'theory')
   const theoryCount    = theoryNotes.length
   const collapsedCount = theoryNotes.filter(n => n.revisedAt).length
@@ -476,18 +477,18 @@ export async function generateSessionReflection(sessionNote, book, sessionMeta, 
   const { chaptersRead = 1, prevCh = 0, newCh = 0, progressAfter = 0 } = sessionMeta || {}
   const bookTitle = `"${book.title}"${book.author ? ` by ${book.author}` : ''}`
 
-  const recentNotes = (book.notes || [])
+  const recentNotes = liveItems(book.notes)
     .slice(-4)
     .map(n => `  [${n.tag}] ${n.text.slice(0, 90)}${n.text.length > 90 ? '…' : ''}`)
     .join('\n')
 
-  const openMysteries = (book.mysteries || [])
+  const openMysteries = liveItems(book.mysteries)
     .filter(m => !m.resolved)
     .slice(0, 3)
     .map(m => `  "${m.text.slice(0, 80)}"`)
     .join('\n')
 
-  const dominant = detectDominantCluster(book.notes || [])
+  const dominant = detectDominantCluster(liveItems(book.notes))
 
   const contextLines = [
     `Book: ${bookTitle}`,
@@ -553,12 +554,12 @@ Rules:
  * @returns {Promise<string>}          Companion's response (1–2 sentences)
  */
 export async function generateCompanionChatResponse(userMessage, book, apiKey, history = []) {
-  const recentNotes = (book.notes || [])
+  const recentNotes = liveItems(book.notes)
     .slice(-6)
     .map(n => `  [${n.tag}] ch.${n.chapter ?? '?'}: ${n.text.slice(0, 100)}${n.text.length > 100 ? '…' : ''}`)
     .join('\n')
 
-  const openMysteries = (book.mysteries || [])
+  const openMysteries = liveItems(book.mysteries)
     .filter(m => !m.resolved)
     .slice(0, 4)
     .map(m => `  "${m.text.slice(0, 90)}"`)
@@ -566,7 +567,7 @@ export async function generateCompanionChatResponse(userMessage, book, apiKey, h
 
   const mainChars = (book.characters?.main || []).slice(0, 6).map(c => c.name).join(', ')
 
-  const allNotes = book.notes || []
+  const allNotes = liveItems(book.notes)
   const motifs   = allNotes.length >= 4 ? detectMotifs(allNotes, book.currentChapter || Infinity) : []
   const dominant = detectDominantCluster(allNotes)
 

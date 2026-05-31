@@ -3,6 +3,8 @@ import { getEffectiveMode, getDiscussionQuestionView } from '../utils/spoiler.js
 import { useSettings } from '../context/SettingsContext.jsx'
 import { generateDiscussionQuestions } from '../utils/aiExtractor.js'
 import { fmtDate } from '../utils/date.js'
+import { liveItems } from '../utils/live.js'
+import { aiEnabled, bookDepth } from '../utils/depthLevel.js'
 
 export default function DiscussionTab({ book, onUpdateBook }) {
   const [input,       setInput]       = useState('')
@@ -10,14 +12,15 @@ export default function DiscussionTab({ book, onUpdateBook }) {
   const [generating,  setGenerating]  = useState(false)
   const [genError,    setGenError]    = useState(null)
   const { settings } = useSettings()
-  const mode = getEffectiveMode(book, settings)
+  const mode  = getEffectiveMode(book, settings)
+  const depth = bookDepth(book, settings)
 
   // Discussion companion line — forward-facing, present-tense, NOT a cached reflection.
   // The carousel above already shows reflections. This should feel different:
   // active, interrogative, derived from current reading state rather than past synthesis.
   const discussionLine = useMemo(() => {
-    const notes      = book.notes      || []
-    const mysteries  = book.mysteries  || []
+    const notes      = liveItems(book.notes)
+    const mysteries  = liveItems(book.mysteries)
     const theoryNotes    = notes.filter(n => n.tag === 'theory')
     const confusingNotes = notes.filter(n => n.tag === 'confusing')
     const openMyst       = mysteries.filter(m => !m.resolved)
@@ -70,22 +73,23 @@ export default function DiscussionTab({ book, onUpdateBook }) {
 
   // Cross-surface residue — oldest questioning note as ambient echo
   const oldestNote = useMemo(() => {
-    const candidateNotes = (book.notes || []).filter(n => n.tag === 'theory' || n.tag === 'confusing')
+    const candidateNotes = liveItems(book.notes).filter(n => n.tag === 'theory' || n.tag === 'confusing')
     if (candidateNotes.length < 1) return null
     return [...candidateNotes].sort((a, b) => new Date(a.date) - new Date(b.date))[0]
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [book.notes?.length])
+  }, [book.notes])
 
   return (
     <div className="max-w-2xl">
 
       {/* Ambient companion line — forward-facing, present-tense */}
-      {discussionLine && (
+      {/* Quiet mode: the companion doesn't observe; this surface is user-owned. */}
+      {discussionLine && depth !== 'quiet' && liveItems(book.notes).length >= 3 && (
         <p className="text-[12px] text-ink-500 italic mb-6 leading-relaxed">{discussionLine}</p>
       )}
 
-      {/* Claude generate — minimal text link only */}
-      {hasAiKey && (
+      {/* Claude generate — minimal text link only. Quiet depth: AI is off. */}
+      {hasAiKey && aiEnabled(book, settings) && (
         <div className="flex justify-end mb-5">
           <button
             onClick={handleGenerate}
@@ -98,10 +102,12 @@ export default function DiscussionTab({ book, onUpdateBook }) {
       )}
       {genError && <p className="text-[11px] text-ember mb-4">{genError}</p>}
 
-      {/* Empty state */}
-      {questionViews.length === 0 && !userQuestions.length && !hasAiKey && (
-        <p className="text-[12px] text-ink-400 italic mb-6">
-          Questions will find their way here as the companion grows with you.
+      {/* Empty state — was guarded by !hasAiKey (always false); now shows correctly */}
+      {questionViews.length === 0 && !userQuestions.length && !generating && (
+        <p className="text-[13px] text-ink-400 italic mb-6 leading-relaxed">
+          {aiEnabled(book, settings)
+            ? 'The reading generates its own questions as it deepens. When the companion has enough to work with, it can draw them out.'
+            : 'Questions the story opens and doesn\'t close. Write what you\'re still carrying.'}
         </p>
       )}
 
@@ -130,10 +136,10 @@ export default function DiscussionTab({ book, onUpdateBook }) {
                   <p className="text-[12px] text-ink-600 mb-2.5 leading-relaxed">
                     Remove this question from the companion?
                   </p>
-                  <div className="flex gap-2">
+                  <div className="flex items-center gap-4">
                     <button onClick={() => setDeletingIdx(null)}
-                      className="text-[12px] text-ink-600 hover:text-ink-800 px-3 py-1.5 rounded-lg border border-ink-200 transition-colors">
-                      Keep it
+                      className="text-[12px] italic text-ink-400 hover:text-ink-600 transition-colors">
+                      keep it
                     </button>
                     <button onClick={() => deleteUserQ(i)}
                       className="text-[12px] font-semibold px-3 py-1.5 rounded-lg text-white bg-ember hover:bg-ember-light transition-colors">
@@ -159,7 +165,8 @@ export default function DiscussionTab({ book, onUpdateBook }) {
       )}
 
       {/* Cross-surface residue — oldest theory/confusing note as ambient echo */}
-      {(book.notes || []).length >= 5 && oldestNote && (
+      {/* Quiet depth: companion doesn't surface observations from other tabs. */}
+      {depth !== 'quiet' && liveItems(book.notes).length >= 5 && oldestNote && (
         <div className="mt-2 mb-6 pl-4 border-l-2 border-ink-100" style={{ opacity: 0.55 }}>
           <p className="text-[12px] text-ink-500 italic leading-relaxed">
             "{oldestNote.text.length > 120 ? oldestNote.text.slice(0, 120) + '…' : oldestNote.text}"
@@ -171,7 +178,9 @@ export default function DiscussionTab({ book, onUpdateBook }) {
       {/* Question input — written into the page, not mounted onto it */}
       <div className="border-t border-ink-100 pt-5 mt-2">
         <textarea value={input} onChange={e => setInput(e.target.value)} rows={2}
-          placeholder="A question you're carrying into the next chapter…"
+          placeholder={depth === 'quiet'
+            ? 'A question or pattern worth holding…'
+            : 'A question you\'re carrying into the next chapter…'}
           className="w-full border border-ink-100 rounded-xl px-3.5 py-2.5 text-sm placeholder-ink-400 resize-none transition-all mb-2"
           style={{ background: 'var(--color-card-base)' }} />
         <button onClick={addQ} disabled={!input.trim()}

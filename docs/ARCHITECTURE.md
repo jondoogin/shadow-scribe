@@ -1,5 +1,5 @@
 # Lantern — Architecture
-**Last updated:** 2026-05-27 (Session 121)
+**Last updated:** 2026-05-29 (Session 132)
 
 ---
 
@@ -12,67 +12,51 @@
 | Styles | Tailwind CSS v4 | `@import "tailwindcss"` — NOT v3 syntax |
 | Routing | React Router v7 | BrowserRouter + Routes |
 | Persistence | localStorage | Keys are FROZEN — never rename |
+| Cloud sync | Supabase (optional) | Magic-link auth, RLS. App runs identically without env vars. |
 | AI (ambient) | Existing reflection engine | Rule-based, cached in book data, no API call |
-| AI (live companion) | Anthropic API via Vercel serverless | `api/companion.js` — planned, not yet built |
+| AI (live) | Anthropic via Vercel serverless | `api/companion.js` — live on readwithlantern.com |
 
-**Routes (current):** `/library`, `/new`, `/book/:bookId`, `/settings`
-
-**Routes (planned, post-redesign):** Above + mobile bottom nav Companion tab (routing TBD — depends on book context decisions)
+**Routes:** `/library`, `/new`, `/book/:bookId`, `/settings`, `/about`
 
 ---
 
 ## Component Tree
 
-### Current (Session 120, in production)
+### Current (Session 132)
 
 ```
 BrowserRouter
-└── SettingsProvider  (shadowscribe_settings)
-    └── BooksProvider  (shadowscribe_books)
-        └── AppShell  (dark mode sync, view transition key)
-            ├── TopNav  (fixed, z-30; dark mode toggle + hamburger)
-            └── Routes
-                ├── /library       → LibraryPage → Library
-                ├── /new           → NewCompanionPage → CreateCompanion
-                ├── /book/:bookId  → BookPage → BookDashboard
-                │                     ├── CompanionHeader
-                │                     ├── [sticky: PresenceStrip + tab bar]
-                │                     ├── [lg+ two-column: 1fr + 260px CompanionPanel]
-                │                     │     Tabs: ProgressTab / CharactersTab / PlotTab /
-                │                     │           NotesTab / MysteriesTab / DiscussionTab
-                │                     └── ChapterUpdateModal
-                └── /settings      → SettingsPage
+└── AuthProvider  (Supabase magic-link session)
+    └── SettingsProvider  (shadowscribe_settings)
+        └── BooksProvider  (shadowscribe_books)
+            └── AppShell  (dark mode sync, view transition key)
+                ├── AmbientLayer  (two slow-drifting radial gradient blobs, 55s/48s)
+                ├── AtmosphericGlow  (mouse-following radial gradient, rAF lerp 0.012)
+                ├── StorageBanner  (quota exceeded / data corrupted alerts)
+                ├── TopNav  (fixed z-30; auth chip, dark mode toggle, hamburger)
+                └── Routes
+                    ├── /library       → LibraryPage → Library
+                    │                       ├── LibraryCompanion (cross-book ambient obs)
+                    │                       └── FirstBookInvitation (new user modal)
+                    ├── /new           → NewCompanionPage → CreateCompanion → EpubImportReview
+                    ├── /book/:bookId  → BookPage [BookErrorBoundary]
+                    │                     → BookDashboard
+                    │                         ├── CompanionHeader
+                    │                         ├── CompanionBand  [full-width, above tabs]
+                    │                         │     ├── Chapter context + progress bar
+                    │                         │     ├── Ambient reflection carousel
+                    │                         │     ├── Context cards (questions, character pills)
+                    │                         │     └── Conversation (persisted to book.companionChat[])
+                    │                         ├── [TAB BAR — 6 tabs]
+                    │                         │     Notes · Characters · Plot · Questions · Themes · Timeline
+                    │                         └── ChapterUpdateModal
+                    ├── /settings      → SettingsPage [SignInPanel at top]
+                    └── /about         → AboutPage
 ```
 
-### Planned (Session 121 redesign, not yet implemented)
+**Layout:** Single column. CompanionHeader → CompanionBand → TabBar → TabContent. All sections max-width 1000px.
 
-```
-BrowserRouter
-└── SettingsProvider
-    └── BooksProvider
-        └── AppShell  (+ atmospheric glow gradient)
-            ├── TopNav
-            └── Routes
-                ├── /library       → LibraryPage → Library  [restyled — Vellum]
-                ├── /new           → NewCompanionPage → CreateCompanion
-                ├── /book/:bookId  → BookPage → BookDashboard
-                │                     ├── CompanionHeader
-                │                     ├── CompanionBand  [NEW — full-width, above tabs]
-                │                     │     ├── AmbientGreeting  (rule-based from book data)
-                │                     │     ├── SurfacedCards  (characters / themes / questions)
-                │                     │     └── CompanionInput  (ephemeral, calls api/companion.js)
-                │                     ├── [tab bar — 5 tabs]
-                │                     │     Tabs: QuestionsTab / ThemesTab / CharactersTab /
-                │                     │           PlotTab / NotesTab
-                │                     │     [ProgressTab retired — content in CompanionBand]
-                │                     │     [MysteriesTab → QuestionsTab]
-                │                     │     [DiscussionTab → ThemesTab]
-                │                     └── ChapterUpdateModal
-                ├── /companion     → CompanionPage  [NEW — mobile full-screen companion]
-                └── /settings      → SettingsPage
-```
-
-**Layout note (planned):** No more `[1fr_260px]` grid. `BookDashboard` is single-column: `CompanionBand` fills full width, then `TabBar`, then tab content. `CompanionPanel` sidebar component retired. Two-column layout decision reverted in favor of companion-first single column.
+**Deleted components (Session 130):** `CompanionPanel.jsx`, `CompanionInsights.jsx`, `PresenceStrip.jsx`, `DirectionsDemoPage.jsx`
 
 ---
 
@@ -81,17 +65,24 @@ BrowserRouter
 ```
 shadow-scribe/
 ├── docs/                          ← project memory
-├── public/vite.svg
+├── api/
+│   └── companion.js               ← Vercel serverless Anthropic proxy
+├── public/
 ├── src/
 │   ├── main.jsx
-│   ├── App.jsx                    ← BooksProvider + AppShell
-│   ├── index.css                  ← @theme tokens, keyframes, data-mood, dark mode
+│   ├── App.jsx                    ← AuthProvider + BooksProvider + AppShell
+│   ├── index.css                  ← @theme tokens, keyframes, dark mode (html.dark ONLY — never dark: prefix)
 │   ├── context/
+│   │   ├── AuthContext.jsx        ← Supabase magic-link auth state
 │   │   ├── BooksContext.jsx       ← books[], updateBook, createBook, deleteBook, importLibrary, resetToDemo
-│   │   └── SettingsContext.jsx    ← settings{spoilerMode,insightStyle,defaultFormat,anthropicKey,darkMode,devMode}; useSettings()
-│   ├── hooks/useBooks.js          ← re-export of useBooks()
+│   │   └── SettingsContext.jsx    ← settings{...}; useSettings()
+│   ├── lib/
+│   │   └── supabase.js            ← Supabase client wrapper (returns null when env vars absent)
+│   ├── hooks/useBooks.js
 │   ├── utils/
-│   │   ├── storage.js             ← loadBooks, saveBooks, resetBooks
+│   │   ├── storage.js             ← loadBooks, saveBooks, sanitizeBook, checkStorageHealth
+│   │   ├── syncEngine.js          ← debounced push (1.5s), pullAndMerge, mergeBook, deleteCloudData
+│   │   ├── depthLevel.js          ← bookDepth(), aiEnabled(), ambientEnabled(), observationDensity()
 │   │   ├── date.js                ← fmtDate, calcStreak, logDates, sessionEntries, normalizeReadingLog
 │   │   ├── progress.js            ← getProgress
 │   │   ├── spoiler.js             ← graduated visibility engine (see AI_COMPANION_RULES.md)
@@ -100,18 +91,43 @@ shadow-scribe/
 │   │   ├── narrativeExtractor.js  ← rule-based EPUB extraction
 │   │   ├── companionPresence.js   ← generatePresence() — 13-lens immediate observation engine
 │   │   ├── reflectionEngine.js    ← assembleReflectionContext, generateRuleBasedReflections, cache helpers
-│   │   └── aiExtractor.js         ← callClaude(), aiExtractNarrative(), generateDiscussionQuestions(), generateCompanionReflections()
+│   │   ├── companionThread.js     ← all AI thread generation (note thread, chat, session reflection)
+│   │   ├── aiExtractor.js         ← callClaude(), aiExtractNarrative(), generateDiscussionQuestions()
+│   │   ├── aiRequest.js           ← buildAiCall() — routes to /api/companion proxy or direct
+│   │   ├── analytics.js           ← Plausible wrapper
+│   │   ├── logger.js              ← logError/logWarn with dev/prod distinction
+│   │   ├── uid.js                 ← monotonic ID generator
+│   │   ├── signalHierarchy.js
+│   │   ├── invisiblePresence.js
+│   │   ├── hauntScore.js
+│   │   ├── emotionalGravity.js
+│   │   ├── literaryPatina.js
+│   │   ├── residueMemory.js
+│   │   ├── readerState.js
+│   │   ├── transformScore.js
+│   │   └── crossBookMemory.js
 │   ├── data/
-│   │   ├── books.js               ← INITIAL_BOOKS (5 mock books)
-│   │   └── config.js              ← STATUS_CONFIG, TAG_CONFIG, MOOD_CONFIG, CHAPTER_TYPES, STRUCTURE_TYPES
+│   │   ├── books.js               ← INITIAL_BOOKS (10 residency corpus books)
+│   │   └── config.js              ← STATUS_CONFIG, TAG_CONFIG, CHAPTER_TYPES, STRUCTURE_TYPES
 │   ├── components/
 │   │   ├── layout/TopNav.jsx
-│   │   ├── library/Library.jsx + BookCard.jsx + CreateCompanion.jsx
-│   │   ├── dashboard/BookDashboard.jsx + CompanionHeader.jsx + PresenceStrip.jsx
-│   │   │             ReadingMomentum.jsx + RelationshipMap.jsx
+│   │   ├── auth/SignInPanel.jsx   ← magic-link form + sign-out + delete cloud data
+│   │   ├── library/
+│   │   │   ├── Library.jsx
+│   │   │   ├── BookCard.jsx
+│   │   │   ├── LibraryCompanion.jsx
+│   │   │   ├── FirstBookInvitation.jsx
+│   │   │   ├── CreateCompanion.jsx
+│   │   │   └── EpubImportReview.jsx
+│   │   ├── dashboard/
+│   │   │   ├── BookDashboard.jsx
+│   │   │   ├── CompanionHeader.jsx
+│   │   │   ├── CompanionBand.jsx   ← primary companion surface (replaces PresenceStrip + CompanionPanel)
+│   │   │   ├── ReadingMomentum.jsx
+│   │   │   └── RelationshipMap.jsx
 │   │   ├── modals/ChapterUpdateModal.jsx
 │   │   └── shared/ (icons, ProgressBar, StatusBadge, NoteTag, BookCover, SectionLabel, SectionHeading, EmptyState)
-│   ├── pages/ (LibraryPage, BookPage, NewCompanionPage, SettingsPage, DebugPage)
+│   ├── pages/ (LibraryPage, BookPage, NewCompanionPage, SettingsPage, AboutPage, DebugPage)
 │   ├── tabs/ (ProgressTab, CharactersTab, PlotTab, NotesTab, MysteriesTab, DiscussionTab)
 │   └── assets/
 ├── index.html
@@ -128,7 +144,10 @@ shadow-scribe/
 ```js
 const { books, updateBook, createBook, deleteBook, resetToDemo } = useBooks()
 const { settings, updateSetting } = useSettings()
-// settings shape: { spoilerMode, insightStyle, defaultFormat, anthropicKey, darkMode, devMode }
+const { user, sendMagicLink, signOut } = useAuth()
+// settings shape: { spoilerMode, insightStyle, defaultFormat, anthropicKey, darkMode, devMode,
+//                   deviceId, lastExportedAt, lastExportedNoteCount,
+//                   snapshotReminderDismissedAt, firstBookInvitationDismissedAt }
 ```
 
 ### Update pattern
@@ -328,9 +347,11 @@ Key stored in `settings.anthropicKey` (via SettingsContext → `shadowscribe_set
 
 ## Known Constraints
 
-- **No backend.** All data is localStorage. No cross-device sync, no accounts.
+- **Supabase is optional.** All data is localStorage by default. Supabase cloud sync activates only when `VITE_SUPABASE_URL` + `VITE_SUPABASE_ANON_KEY` env vars are present. The Supabase client returns null when absent — the app is fully functional without it.
+- **Deletion semantics.** Field-level sync merge is union-based: deleting an item on device A then syncing from device B revives it. Fix requires tombstone flags (`{ deleted: true, updatedAt }`) — not yet built.
 - **Vite `.bin/vite` not a symlink.** Build via `node node_modules/vite/bin/vite.js build` only. In git worktrees, run vite from worktree dir but point to parent `node_modules`.
 - **Tailwind v4 CSS layer rule.** All custom resets must be inside `@layer base {}`. Unlayered rules silently win over all utility classes.
+- **Dark mode via `html.dark` only.** Never use `dark:` Tailwind prefix — it does not work with this setup.
 - **`structureType` not on seed books.** Field set by CreateCompanion wizard; seed books fall back to format-based label detection.
 - **Library `showGrouped` logic.** When `filter === 'all' && !q`, Library renders status-grouped sections. When either changes, it renders a flat filtered grid. `BookCard` receives `featured={true}` only when grouping is active AND the reading group has exactly 1 book.
 

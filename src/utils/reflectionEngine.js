@@ -27,6 +27,7 @@ import { getProgress }                        from './progress.js'
 import { logDates }                           from './date.js'
 import { isMysteryVisible, getEffectiveMode } from './spoiler.js'
 import { extractNoteFragment, extractResidueFragments, detectMotifs, detectAtmosphericSignature } from './residueMemory.js'
+import { liveItems } from './live.js'
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -262,8 +263,8 @@ export function computeResonanceWeights(notes) {
  * Sole input to both generation paths. Includes note intelligence signals.
  */
 export function assembleReflectionContext(book, settings) {
-  const notes     = book.notes        || []
-  const mysteries = book.mysteries    || []
+  const notes     = liveItems(book.notes)
+  const mysteries = liveItems(book.mysteries)
   const log       = book.readingLog   || []
   const mode      = getEffectiveMode(book, settings)
   const currentCh = book.currentChapter || 0

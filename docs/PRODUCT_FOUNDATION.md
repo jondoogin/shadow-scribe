@@ -1,5 +1,5 @@
 # Lantern — Product Foundation
-**Last updated:** 2026-05-19 (Session 67)
+**Last updated:** 2026-05-29 (Session 132)
 
 ---
 
@@ -53,8 +53,8 @@ The ✦ glyph is the companion's visual signature. It marks moments of literary 
 - "You've been reading consistently" is observation, not praise
 
 ### 4. Living Literary Environment
-- Cream paper backgrounds, ink color palette, layered atmospheric warmth
-- Playfair Display serif — for headings, observations, editorial hierarchy
+- Cream paper backgrounds, ink color palette, layered atmospheric warmth (Vellum system: warm amber/ember `#c25538` light, `#d36045` dark)
+- Libre Baskerville serif — for headings, observations, editorial hierarchy (replaces Playfair Display)
 - Grain texture overlay — subtle paper presence throughout
 - Status-grouped library: reading now / set aside / finished — not a uniform grid
 - The feeling of a warm literary observatory, not a dashboard
@@ -65,8 +65,11 @@ The ✦ glyph is the companion's visual signature. It marks moments of literary 
 ### 5. Spoiler-Aware as Default
 The app never reveals what the reader doesn't know yet. Spoiler awareness is built into the data layer and every component that renders narrative data. This is a foundational constraint — not a feature.
 
-### 6. Mood-Adaptive
-Each book has a `mood` value. The entire companion dashboard shifts its accent colors to match that mood. The companion feels *tuned to the book*.
+### 6. Mood-Adaptive [RETIRED — Session 79]
+The book mood color system was retired in Session 79. All `[data-mood="*"]` selectors are frozen to gold. `book.mood` field is preserved in the data model for backward compatibility only — it does not drive any visual behavior. The Vellum design system (Sessions 121+) uses a single unified warm ember palette across all books.
+
+### 7. Cloud Sync — Optional, Invisible
+Cloud sync via Supabase magic-link is available but never required. The app is fully functional without it. When opted in: magic-link email auth (no password, no account), library and settings sync across devices, field-level merge preserves per-item changes. Device-local fields (API key, deviceId) are never synced. The sync is designed to be invisible — users should feel continuity, not infrastructure.
 
 ---
 

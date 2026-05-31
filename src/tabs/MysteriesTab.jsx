@@ -3,10 +3,12 @@ import { Ico } from '../components/shared/icons.jsx'
 import EmptyState from '../components/shared/EmptyState.jsx'
 import { getMysteryView, MYSTERY_STATUSES, getEffectiveMode } from '../utils/spoiler.js'
 import { useSettings } from '../context/SettingsContext.jsx'
+import { bookDepth } from '../utils/depthLevel.js'
 import { track } from '../utils/analytics.js'
 import { fmtDate } from '../utils/date.js'
 import { mysteryHauntScore, hauntLevel } from '../utils/hauntScore.js'
 import { uid } from '../utils/uid.js'
+import { liveItems } from '../utils/live.js'
 
 const today = () => new Date().toISOString().split('T')[0]
 
@@ -68,22 +70,26 @@ function generateMysteryResponse(text) {
 }
 
 export default function MysteriesTab({ book, onUpdateBook, flashItemId }) {
+  // Live mysteries — tombstoned items stay in book.mysteries for sync but are hidden
+  const liveMysteries = useMemo(() => liveItems(book.mysteries), [book.mysteries])
+
   // ── Note density by chapter — for companion residue echo ─────────────────
   const notesByChapter = useMemo(() => {
     const map = {}
-    for (const n of (book.notes || [])) {
+    for (const n of liveItems(book.notes)) {
       if (n.chapter) map[n.chapter] = (map[n.chapter] || 0) + 1
     }
     return map
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [book.notes?.length])
+  }, [book.notes])
 
   const [showing,          setShowing]          = useState('active')
   const [adding,           setAdding]           = useState(false)
   const [newQ,             setNewQ]             = useState('')
   const [showArchived,     setShowArchived]      = useState(false)
   const { settings } = useSettings()
-  const mode = getEffectiveMode(book, settings)
+  const mode  = getEffectiveMode(book, settings)
+  const depth = bookDepth(book, settings)
 
   // Companion thread state
   const [thinkingMystId,  setThinkingMystId]  = useState(null)  // mystery currently in thinking state
@@ -155,15 +161,16 @@ export default function MysteriesTab({ book, onUpdateBook, flashItemId }) {
   }
 
   const deleteMystery = (id) => {
-    onUpdateBook({ mysteries: book.mysteries.filter(m => m.id !== id) })
+    onUpdateBook({ mysteries: book.mysteries.map(m => m.id === id ? { ...m, deleted: true, updatedAt: new Date().toISOString() } : m) })
     setDeletingId(null)
   }
 
   const addMystery = () => {
     if (!newQ.trim()) return
-    const id   = uid('myst_')
-    const text = newQ.trim()
-    if (book.mysteries.length === 0) track('first_mystery', { format: book.format })
+    const id       = uid('myst_')
+    const text     = newQ.trim()
+    const isFirst  = liveMysteries.length === 0
+    if (isFirst) track('first_mystery', { format: book.format })
     onUpdateBook({
       mysteries: [...book.mysteries, {
         id,
@@ -178,8 +185,13 @@ export default function MysteriesTab({ book, onUpdateBook, flashItemId }) {
     setNewQ('')
     setAdding(false)
 
-    // ── Companion thread — brief thinking state, then acknowledgment ───────
-    const response = generateMysteryResponse(text)
+    // ── Companion thread — quiet depth suppresses replies entirely ──────────
+    if (depth === 'quiet') return
+
+    // First mystery earns a distinct response; later ones are hash-stable
+    const response  = isFirst
+      ? 'The reading is open now. This question will move with you.'
+      : generateMysteryResponse(text)
     const baseDelay = 900 + Math.min(text.split(/\s+/).length * 35, 900)
     const delay     = baseDelay + Math.floor(Math.random() * 400) - 200
     if (thinkingTimerRef.current) clearTimeout(thinkingTimerRef.current)
@@ -190,8 +202,8 @@ export default function MysteriesTab({ book, onUpdateBook, flashItemId }) {
     }, delay)
   }
 
-  const currentMysteries  = book.mysteries.filter(m => m.archivedEra === undefined)
-  const archivedMysteries = book.mysteries.filter(m => m.archivedEra !== undefined)
+  const currentMysteries  = liveMysteries.filter(m => m.archivedEra === undefined)
+  const archivedMysteries = liveMysteries.filter(m => m.archivedEra !== undefined)
 
   // Book temporal state — mysteries inherit the environmental silence of an abandoned book.
   // A mystery in a book that hasn't been touched for 90+ days recedes with it.
@@ -202,9 +214,9 @@ export default function MysteriesTab({ book, onUpdateBook, flashItemId }) {
 
   // Cross-surface residue — theory notes bleeding into mystery surface
   const theoryNoteCount = useMemo(
-    () => (book.notes || []).filter(n => n.tag === 'theory').length,
+    () => liveItems(book.notes).filter(n => n.tag === 'theory').length,
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [book.notes?.length]
+    [book.notes]
   )
 
   const viewedMysteries = currentMysteries
@@ -219,16 +231,22 @@ export default function MysteriesTab({ book, onUpdateBook, flashItemId }) {
   const noneAtAll = currentMysteries.length === 0
 
   const emptyTitle = noneAtAll
-    ? 'Questions tend to appear once the story begins moving.'
+    ? depth === 'quiet'
+      ? 'Questions accumulate here, without interpretation.'
+      : 'Questions tend to appear once the story begins moving.'
     : showing === 'resolved'
-      ? 'No threads have closed yet.'
+      ? 'Nothing has found its answer yet.'
       : 'No open threads.'
 
   const emptyBody = noneAtAll
-    ? "Open a thread whenever the story raises a question it isn't ready to answer."
+    ? depth === 'quiet'
+      ? 'Open a thread whenever the story holds something worth tracing.'
+      : depth === 'saturated'
+        ? 'Open the first thread — write what the story is withholding.'
+        : "Open a thread whenever the story raises a question it isn't ready to answer."
     : showing === 'resolved'
       ? "When a question finally gets its answer, it will rest here."
-      : "All the open threads in this reading have been resolved."
+      : "Every open thread in this reading has been resolved."
 
   return (
     <div className="max-w-2xl">
@@ -264,20 +282,27 @@ export default function MysteriesTab({ book, onUpdateBook, flashItemId }) {
 
       {adding && (
         <div className="bg-cream-50 border rounded-2xl p-4 mb-5 animate-slide-up" style={{ borderColor:'var(--ca-border, #E8D090)' }}>
+          {/* First-mystery framing — a different ceremony than the second or fifth */}
+          {liveMysteries.length === 0 && (
+            <p className="italic mb-3 leading-relaxed" style={{ fontSize: 12, color: 'var(--color-ink-400)' }}>
+              The first question opens the reading to something larger. Name what the story hasn't resolved yet.
+            </p>
+          )}
           <textarea value={newQ} onChange={e => setNewQ(e.target.value)} rows={2}
             onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); addMystery() } }}
             placeholder="What question is this story carrying?"
             autoFocus
             className="w-full border border-ink-200 rounded-xl px-3.5 py-2.5 text-sm text-ink-800 placeholder-ink-400 resize-none transition-all mb-3"
             style={{ background: 'var(--color-card-base)' }} />
-          <div className="flex gap-2 justify-end">
+          <div className="flex items-center justify-end gap-4">
             <button onClick={() => { setAdding(false); setNewQ('') }}
-              className="text-[12px] text-ink-500 hover:text-ink-700 px-3 py-1.5 rounded-lg border border-ink-200 transition-colors">
-              Cancel
+              className="text-[12px] italic text-ink-400 hover:text-ink-600 transition-colors">
+              cancel
             </button>
             <button onClick={addMystery}
-              className="text-[12px] font-semibold px-3 py-1.5 rounded-lg btn-accent">
-              Open thread
+              className="text-[12px] italic hover:opacity-75 transition-opacity"
+              style={{ color: 'var(--ca, #B8860B)', fontWeight: 500 }}>
+              {depth === 'quiet' ? 'Record this →' : 'Open thread →'}
             </button>
           </div>
         </div>
@@ -290,9 +315,9 @@ export default function MysteriesTab({ book, onUpdateBook, flashItemId }) {
           body={emptyBody}
           action={noneAtAll && (
             <button onClick={() => setAdding(true)}
-              className="text-sm font-medium hover:underline"
+              className="text-[13px] italic hover:opacity-75 transition-opacity"
               style={{ color: 'var(--ca, #B8860B)' }}>
-              Open the first thread →
+              raise the first question →
             </button>
           )}
         />
@@ -529,7 +554,7 @@ export default function MysteriesTab({ book, onUpdateBook, flashItemId }) {
                               marginTop: 4, flexShrink: 0, opacity: 0.65,
                             }}>✦</span>
                             <p className="companion-text-surface" style={{
-                              fontSize: 13,
+                              fontSize: 14,
                               fontFamily: 'var(--font-sans)',
                               lineHeight: 1.6,
                               color: 'var(--color-ink-700)',

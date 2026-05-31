@@ -18,9 +18,9 @@
   --color-ink-800:   #48423e;
   --color-ink-700:   #6a6460;   /* text secondary */
   --color-ink-600:   #7e7870;
-  --color-ink-500:   #999590;   /* text dim */
-  --color-ink-400:   #b3afa9;
-  --color-ink-300:   #c8c4be;
+  --color-ink-500:   #767270;   /* text dim */
+  --color-ink-400:   #8a8680;
+  --color-ink-300:   #9e9a94;
   --color-ink-200:   #dad6d0;   /* separator */
   --color-ink-100:   #e8e5df;   /* subtle separator */
 
@@ -82,7 +82,7 @@
   /* Text */
   --color-text-primary:      #3b3835;
   --color-text-secondary:    #6a6460;
-  --color-text-dim:          #999590;
+  --color-text-dim:          #767270;
 
   /* Accent — lantern amber-orange */
   --color-accent:            #a85e10;
@@ -859,9 +859,9 @@ html.dark {
   --color-ink-800:   #d4ccb8;
   --color-ink-700:   #a89e89;   /* text secondary */
   --color-ink-600:   #8a8070;
-  --color-ink-500:   #6e6555;   /* text dim — warm grey */
-  --color-ink-400:   #504840;
-  --color-ink-300:   #3a3430;
+  --color-ink-500:   #8a8272;   /* text dim — warm grey */
+  --color-ink-400:   #706860;
+  --color-ink-300:   #5c5650;
   --color-ink-200:   #2e2924;   /* card hover */
   --color-ink-100:   #201c18;   /* barely-visible separator */
 
@@ -892,7 +892,7 @@ html.dark {
   --color-companion-hover:   #1e1a16;
   --color-text-primary:      #ece5d4;
   --color-text-secondary:    #a89e89;
-  --color-text-dim:          #6e6555;
+  --color-text-dim:          #8a8272;
   --color-accent:            #c87020;
   --color-accent-dim:        rgba(200, 112, 32, 0.14);
   --color-separator:         rgba(236, 229, 212, 0.10);

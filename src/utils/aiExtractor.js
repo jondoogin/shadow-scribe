@@ -11,6 +11,7 @@
 
 import { cleanChapterHtml } from './narrativeExtractor.js'
 import { PROVIDER_CONFIG, AI_OP, devLog, dedupRequest, buildAiCall } from './aiRequest.js'
+import { liveItems } from './live.js'
 
 const MAX_CHAPTER_CHARS = 2500  // chars per chapter excerpt — ~600 tokens each
 const MAX_CHAPTERS      = 60    // hard cap for very long books
@@ -261,8 +262,8 @@ export function generateDiscussionQuestions(book, apiKey) {
   return dedupRequest(`discussion:${book.id}`, async () => {
     const pct          = Math.round((book.currentChapter / book.totalChapters) * 100)
     const visibleChaps = book.chapters?.filter(c => c.completed && c.summary) ?? []
-    const notes        = (book.notes || []).slice(-12)   // most recent 12
-    const mysteries    = (book.mysteries || []).filter(m => !m.resolved).slice(0, 8)
+    const notes        = liveItems(book.notes).slice(-12)   // most recent 12
+    const mysteries    = liveItems(book.mysteries).filter(m => !m.resolved).slice(0, 8)
 
     // Build context block
     const parts = []

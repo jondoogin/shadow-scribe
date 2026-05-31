@@ -12,17 +12,9 @@ function ordinal(n) {
   return n + 'th'
 }
 
-const STATUS_DOTS = {
-  reading:  { color: 'var(--color-accent)',    label: 'Reading'      },
-  finished: { color: 'var(--color-text-dim)',  label: 'Finished'     },
-  paused:   { color: 'var(--color-text-dim)',  label: 'Paused'       },
-  want:     { color: 'var(--color-hairline)',  label: 'Want to Read' },
-}
-
 export default function BookCard({ book, onClick, hero = false, primary = false, presence = '' }) {
   const pct         = getProgress(book)
   const rereadCount = book.rereadCount || 0
-  const statusDot   = STATUS_DOTS[book.status] ?? STATUS_DOTS.reading
 
   // Temporal receding — the gap since last reading registers as visual distance.
   // Recent: present and warm. Old: the date fades toward silence.
@@ -34,11 +26,6 @@ export default function BookCard({ book, onClick, hero = false, primary = false,
     : daysSince > 14
     ? 'var(--color-ink-300)'       // weeks away — receding
     : 'var(--color-ink-400)'       // recent — present and warm
-
-  // Status dot recedes for long-dormant paused books
-  const dotColor = book.status === 'paused' && daysSince > 60
-    ? 'var(--color-ink-200)'
-    : statusDot.color
 
   // Author color — slightly muted always; recedes gently with time
   const authorColor = daysSince > 90
@@ -143,7 +130,7 @@ export default function BookCard({ book, onClick, hero = false, primary = false,
         >
           <BookCover
             book={book}
-            className={(hero || primary) ? 'w-[64px] h-[96px]' : 'w-[56px] h-[84px]'}
+            className={(hero || primary) ? 'w-[84px] h-[126px]' : 'w-[68px] h-[102px]'}
             rounded="rounded-[8px]"
           />
         </div>
@@ -156,7 +143,7 @@ export default function BookCard({ book, onClick, hero = false, primary = false,
               className="font-serif leading-snug line-clamp-2 group-hover:text-gold transition-colors"
               style={{
                 fontSize: (hero || primary) ? 16 : 15,
-                fontWeight: 500,
+                fontWeight: 400,
                 color: 'var(--color-text-primary)',
                 letterSpacing: '-0.01em',
               }}
@@ -167,7 +154,7 @@ export default function BookCard({ book, onClick, hero = false, primary = false,
             {/* Author — recedes with temporal distance; breathes more under deep presence */}
             <p
               className={`font-serif italic ${authorMt} truncate transition-colors`}
-              style={{ fontSize: 12, color: authorColor }}
+              style={{ fontSize: 13, color: authorColor }}
             >
               {book.author}
             </p>
@@ -193,51 +180,51 @@ export default function BookCard({ book, onClick, hero = false, primary = false,
             )}
           </div>
 
-          {/* Footer — progress + meta; spacing shaped by presence and temporal state */}
+          {/* Footer — presence and status shape the footer register */}
           <div className={footerMt}>
-            {/* Status dot + chapter position */}
-            <div className={`flex items-center gap-2 ${progressMb}`}>
-              <span
-                className="w-1.5 h-1.5 rounded-full flex-shrink-0 transition-colors"
-                style={{ background: dotColor }}
-              />
-              <span
-                style={{
-                  fontSize: 11,
-                  fontFamily: 'var(--font-sans)',
-                  color: chapterColor,
-                }}
+            {book.status === 'finished' ? (
+              /* Finished — editorial: completion date in serif, no chapter count, no bar */
+              <p
+                className="italic"
+                style={{ fontSize: 12, fontFamily: 'var(--font-serif)', color: 'var(--color-ink-400)', marginTop: 4 }}
               >
-                {book.format === 'audiobook' ? 'Pt.' : 'Ch.'} {book.currentChapter}/{book.totalChapters}
-              </span>
-              <span
-                className="ml-auto tabular-nums"
-                style={{
-                  fontSize: 11,
-                  fontFamily: 'var(--font-sans)',
-                  fontWeight: 500,
-                  color: 'var(--color-accent)',
-                  opacity: pct > 0 ? pctOpacity : 0,
-                }}
-              >
-                {pct}%
-              </span>
-            </div>
+                {fmtDate(book.completedAt || book.lastUpdated)}
+              </p>
+            ) : (
+              <>
+                {/* Chapter position — reading and paused only; want books have no chapter yet */}
+                {book.status !== 'want' && (
+                  <div className={`flex items-center gap-2 ${progressMb}`}>
+                    <span style={{ fontSize: 11, fontFamily: 'var(--font-sans)', color: chapterColor }}>
+                      {book.format === 'audiobook' ? 'pt.' : 'ch.'} {book.currentChapter} of {book.totalChapters}
+                    </span>
+                    <span
+                      className="ml-auto tabular-nums"
+                      style={{
+                        fontSize: 11,
+                        fontFamily: 'var(--font-sans)',
+                        fontWeight: 500,
+                        color: 'var(--color-accent)',
+                        opacity: pct > 0 ? pctOpacity : 0,
+                      }}
+                    >
+                      {pct}%
+                    </span>
+                  </div>
+                )}
 
-            {/* Progress bar — weight varies by inhabited depth and temporal state */}
-            <ProgressBar value={pct} height={progressHeight} accentVar />
+                {/* Progress bar — weight varies by inhabited depth and temporal state */}
+                <ProgressBar value={pct} height={progressHeight} accentVar />
 
-            {/* Last updated — fades with temporal distance; compresses as it recedes */}
-            <p
-              className={`${dateMt} transition-colors`}
-              style={{
-                fontSize: 10,
-                fontFamily: 'var(--font-sans)',
-                color: dateColor,
-              }}
-            >
-              {fmtDate(book.lastUpdated)}
-            </p>
+                {/* Last updated — fades with temporal distance; compresses as it recedes */}
+                <p
+                  className={`${dateMt} transition-colors`}
+                  style={{ fontSize: 10, fontFamily: 'var(--font-sans)', color: dateColor }}
+                >
+                  {fmtDate(book.lastUpdated)}
+                </p>
+              </>
+            )}
           </div>
         </div>
       </div>

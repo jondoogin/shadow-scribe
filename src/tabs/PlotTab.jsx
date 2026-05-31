@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react'
 import { Ico } from '../components/shared/icons.jsx'
 import SectionHeading from '../components/shared/SectionHeading.jsx'
 import EmptyState from '../components/shared/EmptyState.jsx'
+import { liveItems } from '../utils/live.js'
 
 export default function PlotTab({ book, onUpdateBook }) {
   const [openNum, setOpenNum] = useState(book.currentChapter)
@@ -10,7 +11,7 @@ export default function PlotTab({ book, onUpdateBook }) {
   // Notes indexed by chapter — gives each completed chapter its reading residue
   const notesByChapter = useMemo(() => {
     const counts = {}
-    for (const note of book.notes || []) {
+    for (const note of liveItems(book.notes)) {
       if (note.chapter) counts[note.chapter] = (counts[note.chapter] || 0) + 1
     }
     return counts
@@ -24,7 +25,7 @@ export default function PlotTab({ book, onUpdateBook }) {
       <EmptyState
         icon={<Ico.Note />}
         title="The chronicle begins when you do"
-        body="Mark chapters complete in the Progress tab — what you've read will gather here."
+        body="What you've read will rest here — the shape of the reading as it accumulates."
       />
     )
   }

@@ -13,6 +13,8 @@
  * Pure functions — no React dependencies, no side effects.
  */
 
+import { liveItems } from './live.js'
+
 // ── Keyword helpers ───────────────────────────────────────────────────────────
 
 function extractKeyWords(text) {
@@ -58,7 +60,7 @@ export function noteHauntScore(note, book) {
   if (chAge >= 10) score += 1.5
   else if (chAge >= 5) score += 0.75
 
-  const inMystery = (book.mysteries || []).some(m =>
+  const inMystery = liveItems(book.mysteries).some(m =>
     !m.resolved && hasKeywordOverlap(note.text, m.text)
   )
   if (inMystery) score += 2.5
@@ -98,7 +100,7 @@ export function mysteryHauntScore(mystery, book) {
   else if (chAge >= 8) score += 1.0
   else if (chAge >= 4) score += 0.5
 
-  const noteMatches = (book.notes || []).filter(n =>
+  const noteMatches = liveItems(book.notes).filter(n =>
     hasKeywordOverlap(mystery.text, n.text)
   ).length
   score += Math.min(noteMatches * 0.75, 3.0)

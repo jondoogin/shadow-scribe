@@ -15,6 +15,8 @@ import { computeResonanceWeights } from '../utils/reflectionEngine.js'
 import { computeChapterPatina, chapterPatinaStyle } from '../utils/literaryPatina.js'
 import { buildGravityMap, detectSingularities, amplifyPatina } from '../utils/emotionalGravity.js'
 import { detectMotifs } from '../utils/residueMemory.js'
+import { liveItems } from '../utils/live.js'
+import { bookDepth } from '../utils/depthLevel.js'
 
 // ── CompanionOrientation — steadying / re-entry / "you are here" ─────────────
 // Shows above the progress block when there's reading context.
@@ -29,7 +31,7 @@ function CompanionOrientation({ book, settings }) {
     [book.currentChapter, book.readingLog?.length, settings.insightStyle]
   )
 
-  const hasContext = (book.currentChapter > 0) || (book.notes?.length > 0)
+  const hasContext = (book.currentChapter > 0) || (liveItems(book.notes).length > 0)
   if (!lines.length || !hasContext) return null
 
   return (
@@ -57,8 +59,9 @@ const SESSION_PAGE = 8
 
 export default function ProgressTab({ book, onUpdateBook, onOpenUpdate }) {
   const { settings } = useSettings()
-  const mode = getEffectiveMode(book, settings)
-  const pct = getProgress(book)
+  const mode  = getEffectiveMode(book, settings)
+  const depth = bookDepth(book, settings)
+  const pct   = getProgress(book)
   const [celebrating,   setCelebrating]   = useState(null)
   const [showAllSess,   setShowAllSess]   = useState(false)
   const [editingChNum,  setEditingChNum]  = useState(null)
@@ -69,7 +72,7 @@ export default function ProgressTab({ book, onUpdateBook, onOpenUpdate }) {
   // Used to show "N thoughts from this chapter" inline + forward-pull language.
   const notesByChapter = useMemo(() => {
     const map = {}
-    for (const n of (book.notes || [])) {
+    for (const n of liveItems(book.notes)) {
       if (n.chapter) {
         if (!map[n.chapter]) map[n.chapter] = []
         map[n.chapter].push(n)
@@ -77,20 +80,20 @@ export default function ProgressTab({ book, onUpdateBook, onOpenUpdate }) {
     }
     return map
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [book.notes?.length])
+  }, [book.notes])
 
   // ── Chapter destabilization map — chapters where meaning was renegotiated ──
   const destabMap = useMemo(
     () => detectChapterDestabilization(book),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [book.notes?.length, book.mysteries?.length]
+    [book.notes, book.mysteries]
   )
 
   // ── Emotional loading — chapters of peak reader intensity ─────────────────
   // Returns the top chapter by emotional word density. Used to mark chapters
   // where the reader was most emotionally activated while writing.
   const emotionalPeakChapters = useMemo(() => {
-    const loaded = detectEmotionalLoading(book.notes || [])
+    const loaded = detectEmotionalLoading(liveItems(book.notes))
     const peak = loaded[0]
     if (!peak) return new Set()
     // Mark top chapter + any others within 80% of peak density
@@ -98,36 +101,36 @@ export default function ProgressTab({ book, onUpdateBook, onOpenUpdate }) {
       loaded.filter(l => l.density >= peak.density * 0.8).map(l => l.chapter)
     )
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [book.notes?.length])
+  }, [book.notes])
 
   // ── Chapter patina — accumulated warmth from reading history ──────────────
   // Computed once per note/mystery change. Used to apply subtle environmental
   // warmth to completed chapters — felt more than seen.
   const resonanceWeights = useMemo(
-    () => computeResonanceWeights(book.notes || []),
+    () => computeResonanceWeights(liveItems(book.notes)),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [book.notes?.length]
+    [book.notes]
   )
   // ── Gravity map + singularities ────────────────────────────────────────────
   const motifs = useMemo(
-    () => detectMotifs(book.notes || [], book.currentChapter || Infinity),
+    () => detectMotifs(liveItems(book.notes), book.currentChapter || Infinity),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [book.notes?.length, book.currentChapter]
+    [book.notes, book.currentChapter]
   )
   const gravityMap = useMemo(
     () => buildGravityMap(book, resonanceWeights, motifs),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [book.notes?.length, book.mysteries?.length, motifs]
+    [book.notes, book.mysteries, motifs]
   )
   const singularities = useMemo(
     () => new Set(detectSingularities(book, resonanceWeights, motifs).map(s => s.num)),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [book.notes?.length, book.mysteries?.length, motifs]
+    [book.notes, book.mysteries, motifs]
   )
 
   const chapterPatinaMap = useMemo(() => {
-    const notes     = book.notes     || []
-    const mysteries = book.mysteries || []
+    const notes     = liveItems(book.notes)
+    const mysteries = liveItems(book.mysteries)
     const map = {}
     for (const ch of (book.chapters || [])) {
       if (ch.completed) {
@@ -141,7 +144,7 @@ export default function ProgressTab({ book, onUpdateBook, onOpenUpdate }) {
     }
     return map
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [book.notes?.length, book.mysteries?.length, emotionalPeakChapters, gravityMap])
+  }, [book.notes, book.mysteries, emotionalPeakChapters, gravityMap])
 
   const startEditTitle = (e, ch) => {
     e.stopPropagation()
@@ -182,7 +185,8 @@ export default function ProgressTab({ book, onUpdateBook, onOpenUpdate }) {
   return (
     <div className="max-w-2xl">
       {/* ── Companion orientation — re-entry warmth + continuity ── */}
-      <CompanionOrientation book={book} settings={settings} />
+      {/* Quiet depth: companion stays silent; orientation suppressed. */}
+      {depth !== 'quiet' && <CompanionOrientation book={book} settings={settings} />}
 
       {/* ── Progress — editorial spine, no container ── */}
       <div className="mb-10">
@@ -207,7 +211,7 @@ export default function ProgressTab({ book, onUpdateBook, onOpenUpdate }) {
         {/* Architectural spine — full-width manuscript rule */}
         <WeightedProgressBar book={book} height="h-px" />
         {/* Near-end ambient trace — companion noticing the weight shift */}
-        {pct >= 85 && pct < 100 && (
+        {pct >= 85 && pct < 100 && depth !== 'quiet' && (
           <p className="companion-echo mt-2" style={{ fontSize: 10 }}>
             The weight shifts toward the end.
           </p>
@@ -217,7 +221,9 @@ export default function ProgressTab({ book, onUpdateBook, onOpenUpdate }) {
       {isNew && (
         <div className="mb-8 pb-6 border-b border-ink-100 animate-fade-in">
           <p className="font-serif italic text-[14px] text-ink-500 leading-relaxed mb-3">
-            The companion is open. Mark chapters as you read — notes, mysteries, and characters gather here over time.
+            {depth === 'quiet'
+              ? 'Notes and chapters accumulate here as you read.'
+              : 'The companion is open alongside this reading. Everything you write and notice settles here as it unfolds.'}
           </p>
           {onOpenUpdate && (
             <button onClick={onOpenUpdate}
@@ -362,7 +368,8 @@ export default function ProgressTab({ book, onUpdateBook, onOpenUpdate }) {
                 )}
                 {/* Forward-pull note signal — chapters carry their reading residue */}
                 {/* Haunted notes (cross-surface, revised, aged) elevate the line + warm the color */}
-                {ch.completed && (() => {
+                {/* Quiet depth: the companion doesn't annotate the record — chapters stand alone. */}
+                {ch.completed && depth !== 'quiet' && (() => {
                   const chNotes  = notesByChapter[ch.num] || []
                   const destab   = destabMap[ch.num]
                   const isPeak   = emotionalPeakChapters.has(ch.num)

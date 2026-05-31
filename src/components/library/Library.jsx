@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { Ico } from '../shared/icons.jsx'
 import EmptyState from '../shared/EmptyState.jsx'
@@ -9,6 +9,12 @@ import { useBooks } from '../../context/BooksContext.jsx'
 import { useSettings } from '../../context/SettingsContext.jsx'
 import { getProgress } from '../../utils/progress.js'
 import { downloadLibrarySnapshot } from '../../utils/storage.js'
+import { liveItems } from '../../utils/live.js'
+import { fetchCoverUrl } from '../../utils/coverLookup.js'
+
+// Tracks which book IDs have already had a cover lookup attempted this session.
+// Module-level so it survives Library re-renders; resets on page refresh.
+const _coverLookupAttempted = new Set()
 
 const WELCOMED_KEY = 'lantern_welcomed'
 
@@ -137,8 +143,8 @@ function SnapshotReminder({ books, onSave, onDismiss }) {
 // regardless of how many sessions they've logged. Reading without annotation
 // produces a self-sustaining pattern, not an inhabited companion surface.
 function bookPresence(book) {
-  const notes      = (book.notes     || []).length
-  const mysteries  = (book.mysteries || []).filter(m => !m.resolved).length
+  const notes      = liveItems(book.notes).length
+  const mysteries  = liveItems(book.mysteries).filter(m => !m.resolved).length
   // Minimum threshold — truly sparse annotation registers as absence
   if (notes + mysteries < 4) return ''
   const sessions   = (book.readingLog || []).length           // was: readingSessions (bug)
@@ -166,7 +172,7 @@ function bookDrift(book) {
 }
 
 export default function Library() {
-  const { books } = useBooks()
+  const { books, updateBook } = useBooks()
   const { settings, updateSetting } = useSettings()
   const navigate  = useNavigate()
   const [q,        setQ]        = useState('')
@@ -178,6 +184,24 @@ export default function Library() {
     localStorage.setItem(WELCOMED_KEY, '1')
     setWelcomed(true)
   }
+
+  // ── Background cover refresh ─────────────────────────────────────────────
+  // For existing books that have no embedded cover and no stored coverUrl,
+  // fire Google Books lookups quietly — max 5 per session, staggered 500ms apart.
+  // The module-level Set prevents duplicate requests across re-renders.
+  useEffect(() => {
+    const candidates = books
+      .filter(b => !b.coverData && !b.coverUrl && !_coverLookupAttempted.has(b.id))
+      .slice(0, 5)
+    candidates.forEach((book, idx) => {
+      _coverLookupAttempted.add(book.id)
+      setTimeout(() => {
+        fetchCoverUrl(book.title, book.author, book.isbn)
+          .then(url => { if (url) updateBook(book.id, { coverUrl: url }) })
+      }, idx * 500)
+    })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [books.length])
 
   // ── Snapshot reminder ────────────────────────────────────────────────────
   const showSnapshotReminder = shouldShowSnapshotReminder(books, settings)
@@ -325,16 +349,18 @@ export default function Library() {
                 </span>
               ))}
             </div>
-            {/* Sort — minimal, no border */}
+            {/* Sort — cycling text-link, no native select chrome */}
             <div className="ml-auto">
-              <select
-                value={sort} onChange={e => setSort(e.target.value)}
-                className="text-[11px] text-ink-500 bg-transparent cursor-pointer focus:outline-none"
+              <button
+                onClick={() => setSort(s => {
+                  const opts = ['recent', 'title', 'progress']
+                  return opts[(opts.indexOf(s) + 1) % opts.length]
+                })}
+                className="italic transition-opacity hover:opacity-60"
+                style={{ fontSize: 11, color: 'var(--color-ink-400)' }}
               >
-                <option value="recent">recent</option>
-                <option value="title">a–z</option>
-                <option value="progress">furthest</option>
-              </select>
+                {sort === 'recent' ? 'recent' : sort === 'title' ? 'a–z' : 'furthest'}
+              </button>
             </div>
           </div>
         </div>

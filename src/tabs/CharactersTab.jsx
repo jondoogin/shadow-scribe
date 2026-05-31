@@ -7,6 +7,8 @@ import EmptyState from '../components/shared/EmptyState.jsx'
 import RelationshipMap from '../components/dashboard/RelationshipMap.jsx'
 import { getCharacterView, getEffectiveMode } from '../utils/spoiler.js'
 import { useSettings } from '../context/SettingsContext.jsx'
+import { liveItems } from '../utils/live.js'
+import { bookDepth } from '../utils/depthLevel.js'
 
 const REL_TYPES = ['love', 'ally', 'tension', 'hierarchy', 'neutral']
 
@@ -124,14 +126,15 @@ function AddCharForm({ book, onUpdateBook, onClose }) {
         )}
       </div>
 
-      <div className="flex gap-2 justify-end">
+      <div className="flex items-center justify-end gap-4">
         <button onClick={onClose}
-          className="text-[12px] text-ink-500 hover:text-ink-700 px-3 py-1.5 rounded-lg border border-ink-200 transition-colors">
-          Cancel
+          className="text-[12px] italic text-ink-400 hover:text-ink-600 transition-colors">
+          cancel
         </button>
         <button onClick={save} disabled={!canSave}
-          className="text-[12px] font-semibold px-3 py-1.5 rounded-lg btn-accent disabled:opacity-40">
-          Add to cast
+          className="text-[12px] italic hover:opacity-75 transition-opacity disabled:opacity-40"
+          style={{ color: 'var(--ca, #B8860B)', fontWeight: 500 }}>
+          add to cast →
         </button>
       </div>
     </div>
@@ -197,7 +200,7 @@ function charRelationalLine(ch, notes) {
 
 // ── Character card ─────────────────────────────────────────────────────────
 
-function CharCard({ ch, raw, veiled, flash, book, visibleChars, onSave, onUpdateBook, onDelete }) {
+function CharCard({ ch, raw, veiled, flash, book, visibleChars, onSave, onUpdateBook, onDelete, depth }) {
   const [open,          setOpen]          = useState(false)
   const [editing,       setEditing]       = useState(false)
   const [confirming,    setConfirming]    = useState(false)
@@ -347,10 +350,10 @@ function CharCard({ ch, raw, veiled, flash, book, visibleChars, onSave, onUpdate
               <p className="text-[13px] text-ink-600 mb-4 leading-relaxed">
                 Remove this character from the companion?
               </p>
-              <div className="flex gap-2">
+              <div className="flex items-center gap-4">
                 <button onClick={() => setConfirming(false)}
-                  className="text-[12px] text-ink-600 hover:text-ink-800 px-3 py-1.5 rounded-lg border border-ink-200 transition-colors">
-                  Keep them
+                  className="text-[12px] italic text-ink-400 hover:text-ink-600 transition-colors">
+                  keep them
                 </button>
                 <button onClick={onDelete}
                   className="text-[12px] font-semibold px-3 py-1.5 rounded-lg text-white bg-ember hover:bg-ember-light transition-colors">
@@ -410,14 +413,15 @@ function CharCard({ ch, raw, veiled, flash, book, visibleChars, onSave, onUpdate
                   className="text-[11px] text-ink-400 hover:text-ember italic transition-colors">
                   Remove from cast
                 </button>
-                <div className="flex gap-2">
+                <div className="flex items-center gap-4">
                   <button onClick={() => setEditing(false)}
-                    className="text-[12px] text-ink-500 hover:text-ink-700 px-3 py-1.5 rounded-lg border border-ink-200 transition-colors">
-                    Cancel
+                    className="text-[12px] italic text-ink-400 hover:text-ink-600 transition-colors">
+                    cancel
                   </button>
                   <button onClick={saveEdit}
-                    className="text-[12px] font-semibold px-3 py-1.5 rounded-lg btn-accent">
-                    Save
+                    className="text-[12px] italic hover:opacity-75 transition-opacity"
+                    style={{ color: 'var(--ca, #B8860B)', fontWeight: 500 }}>
+                    save →
                   </button>
                 </div>
               </div>
@@ -464,8 +468,9 @@ function CharCard({ ch, raw, veiled, flash, book, visibleChars, onSave, onUpdate
                 <p className="text-[13px] text-ink-600 leading-relaxed">{ch.description}</p>
               )}
 
-              {(() => {
-                const relLine = charRelationalLine(ch, book.notes)
+              {/* Quiet: companion observations suppressed */}
+              {depth !== 'quiet' && (() => {
+                const relLine = charRelationalLine(ch, liveItems(book.notes))
                 if (relLine) return <p className="text-[11px] text-ink-400 italic">{relLine}</p>
                 if (wasUpdated) return <p className="text-[11px] text-ink-300 italic">Your reading of this character has shifted.</p>
                 return null
@@ -494,16 +499,17 @@ function CharCard({ ch, raw, veiled, flash, book, visibleChars, onSave, onUpdate
                             className="border border-ink-200 rounded-lg px-2 py-1.5 text-sm text-ink-700 bg-cream-200">
                             {REL_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
                           </select>
-                          <div className="flex gap-2 ml-auto">
+                          <div className="flex items-center gap-4 ml-auto">
                             <button onClick={() => setEditingRelIdx(null)}
-                              className="text-[12px] text-ink-500 px-2.5 py-1 rounded-lg border border-ink-200 transition-colors">
-                              Cancel
+                              className="text-[12px] italic text-ink-400 hover:text-ink-600 transition-colors">
+                              cancel
                             </button>
                             <button
                               onClick={saveEditRel}
                               disabled={!editRelForm.label.trim()}
-                              className="text-[12px] font-semibold px-2.5 py-1 rounded-lg btn-accent disabled:opacity-40">
-                              Save
+                              className="text-[12px] italic hover:opacity-75 transition-opacity disabled:opacity-40"
+                              style={{ color: 'var(--ca, #B8860B)', fontWeight: 500 }}>
+                              save →
                             </button>
                           </div>
                         </div>
@@ -556,16 +562,17 @@ function CharCard({ ch, raw, veiled, flash, book, visibleChars, onSave, onUpdate
                     onChange={e => setRelForm(f => ({ ...f, label: e.target.value }))}
                     placeholder="Describe this connection…"
                     className="w-full border border-ink-200 rounded-lg px-2.5 py-1.5 text-sm text-ink-800 placeholder-ink-400 bg-cream-200" />
-                  <div className="flex gap-2">
+                  <div className="flex items-center gap-4">
                     <button
                       onClick={() => { setAddingRel(false); setRelForm({ toId: '', type: 'neutral', label: '' }) }}
-                      className="text-[12px] text-ink-500 px-2.5 py-1 rounded-lg border border-ink-200">
-                      Cancel
+                      className="text-[12px] italic text-ink-400 hover:text-ink-600 transition-colors">
+                      cancel
                     </button>
                     <button onClick={addRel}
                       disabled={!relForm.toId || !relForm.label.trim()}
-                      className="text-[12px] font-semibold px-2.5 py-1 rounded-lg btn-accent disabled:opacity-40">
-                      Add
+                      className="text-[12px] italic hover:opacity-75 transition-opacity disabled:opacity-40"
+                      style={{ color: 'var(--ca, #B8860B)', fontWeight: 500 }}>
+                      add →
                     </button>
                   </div>
                 </div>
@@ -596,6 +603,7 @@ function CharCard({ ch, raw, veiled, flash, book, visibleChars, onSave, onUpdate
 export default function CharactersTab({ book, onUpdateBook, flashItemId }) {
   const { settings } = useSettings()
   const mode         = getEffectiveMode(book, settings)
+  const depth        = bookDepth(book, settings)
   const [adding, setAdding] = useState(false)
 
   const applyView = chars => chars.map(c => getCharacterView(book, c, mode)).filter(Boolean)
@@ -609,12 +617,12 @@ export default function CharactersTab({ book, onUpdateBook, flashItemId }) {
   const userAddedCount = allRaw.filter(c => c.userAdded).length
 
   // Cross-surface residue — open mysteries circling named figures
-  const openMysteryCount = (book.mysteries || []).filter(m => !m.resolved).length
+  const openMysteryCount = liveItems(book.mysteries).filter(m => !m.resolved).length
   const notesMentionFigures = visibleChars.some(ch => {
     const firstName = (ch.name || '').split(' ')[0]
     if (!firstName || firstName.length < 3) return false
     const lc = firstName.toLowerCase()
-    return (book.notes || []).some(n =>
+    return liveItems(book.notes).some(n =>
       (n.text + ' ' + (n.reflection || '')).toLowerCase().includes(lc)
     )
   })
@@ -663,6 +671,7 @@ export default function CharactersTab({ book, onUpdateBook, flashItemId }) {
         onSave={updated => saveChar(charType, updated)}
         onUpdateBook={onUpdateBook}
         onDelete={() => deleteChar(charType, raw.id)}
+        depth={depth}
       />
     )
   }
@@ -687,7 +696,7 @@ export default function CharactersTab({ book, onUpdateBook, flashItemId }) {
         <EmptyState
           icon={<Ico.User />}
           title="The cast hasn't assembled yet."
-          body="Begin noting the people who matter in this story. They'll gather here as you read — named, described, connected."
+          body="Name the figures as they arrive. They'll gather here — described, connected, their weight accumulating."
           action={
             <button onClick={() => setAdding(true)}
               className="text-[13px] italic hover:opacity-75 transition-opacity"
@@ -698,8 +707,8 @@ export default function CharactersTab({ book, onUpdateBook, flashItemId }) {
         />
       )}
 
-      {/* Cross-surface residue — open mysteries bleeding into character surfaces */}
-      {showMysteryBleed && (
+      {/* Cross-surface residue — open mysteries bleeding into character surfaces; quiet: suppressed */}
+      {depth !== 'quiet' && showMysteryBleed && (
         <p className="text-[11px] text-ink-400 italic mb-5 leading-relaxed">
           The open questions are still circling some of these figures.
         </p>

@@ -20,6 +20,7 @@
  */
 
 import { supabase, isCloudEnabled } from '../lib/supabase.js'
+export { liveItems } from './live.js'
 
 const PUSH_DEBOUNCE_MS = 1500
 

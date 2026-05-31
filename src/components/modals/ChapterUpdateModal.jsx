@@ -12,7 +12,8 @@ import {
   markReflectionSurfaced,
 } from '../../utils/reflectionEngine.js'
 import { generateSessionReflection } from '../../utils/companionThread.js'
-import { aiEnabled } from '../../utils/depthLevel.js'
+import { aiEnabled, bookDepth } from '../../utils/depthLevel.js'
+import { liveItems } from '../../utils/live.js'
 
 // ── Natural language chapter parser ──────────────────────────────────────────
 // Accepts flexible phrasing and returns a chapter number, or null if unparseable.
@@ -107,6 +108,7 @@ export default function ChapterUpdateModal({ book, onClose, onUpdateBook }) {
   const label    = book.format === 'audiobook' ? 'Part' : 'Chapter'
   const { settings } = useSettings()
   const mode     = getEffectiveMode(book, settings)
+  const depth    = bookDepth(book, settings)
 
   // ── Form state ─────────────────────────────────────────────────────────────
   const defaultChapter = Math.min(book.currentChapter + 1, book.totalChapters)
@@ -197,9 +199,12 @@ export default function ChapterUpdateModal({ book, onClose, onUpdateBook }) {
       : null
     setGapOnEntry(gap)
 
-    const reflection = (gap !== null && gap >= 7)
-      ? pickReturnReflection(book)
-      : pickCompletionReflection(book)
+    // Quiet depth: no companion reflections surface; don't consume from the pool
+    const reflection = aiEnabled(book, settings)
+      ? (gap !== null && gap >= 7)
+        ? pickReturnReflection(book)
+        : pickCompletionReflection(book)
+      : null
     setCompletionReflection(reflection)
 
     const progressBefore = book.totalChapters
@@ -231,7 +236,7 @@ export default function ChapterUpdateModal({ book, onClose, onUpdateBook }) {
       gapDays: gap,
       isReturnSession: gap !== null && gap >= 7,
       isFinishSession: progressAfter >= 99,
-      noteCount: (book.notes || []).length,
+      noteCount: liveItems(book.notes).length,
       rereadEra: book.rereadCount || 0,
       ...(sessionNote.trim() ? { sessionReflection: sessionNote.trim() } : {}),
     }
@@ -281,8 +286,8 @@ export default function ChapterUpdateModal({ book, onClose, onUpdateBook }) {
   const revealAt  = c => c.revealChapter ?? parseInt(c.lastSeen?.match(/\d+/)?.[0] || '0')
   const allChars  = [...(book.characters?.main || []), ...(book.characters?.secondary || [])]
   const newlyMet  = allChars.filter(c => { const at = revealAt(c); return at > prevCh && at <= newCh })
-  const openMyst  = book.mysteries.filter(m => !m.resolved && isMysteryVisible(bookAtNew, m, mode))
-  const newMyst   = book.mysteries.filter(m => m.chapter > prevCh && m.chapter <= newCh && isMysteryVisible(bookAtNew, m, mode))
+  const openMyst  = liveItems(book.mysteries).filter(m => !m.resolved && isMysteryVisible(bookAtNew, m, mode))
+  const newMyst   = liveItems(book.mysteries).filter(m => m.chapter > prevCh && m.chapter <= newCh && isMysteryVisible(bookAtNew, m, mode))
   const ch        = book.chapters.find(c => c.num === newCh)
   const chaptersRead = newCh - prevCh
   const hasReflection = completionReflection && (
@@ -427,9 +432,12 @@ export default function ChapterUpdateModal({ book, onClose, onUpdateBook }) {
                     </span>
                   </div>
                   <ProgressBar value={pct} height="h-px" accentVar />
-                  <p className="italic mt-3" style={{ fontSize: 12, color: 'var(--color-ink-400)' }}>
-                    {observationText}
-                  </p>
+                  {/* Quiet: companion stays silent; the number is enough */}
+                  {depth !== 'quiet' && (
+                    <p className="italic mt-3" style={{ fontSize: 12, color: 'var(--color-ink-400)' }}>
+                      {observationText}
+                    </p>
+                  )}
                 </div>
               )}
 

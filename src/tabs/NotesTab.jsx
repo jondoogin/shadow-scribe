@@ -10,9 +10,10 @@ import { detectSingularities, noteGravityPersistence } from '../utils/emotionalG
 import { detectMotifs } from '../utils/residueMemory.js'
 import { useSettings } from '../context/SettingsContext.jsx'
 import { generateNoteThreadResponse, generateNoteThreadReply, generateThreadSummary, threadFallback, detectNoteEcho, detectDominantCluster } from '../utils/companionThread.js'
-import { aiEnabled } from '../utils/depthLevel.js'
+import { aiEnabled, bookDepth } from '../utils/depthLevel.js'
 import { uid } from '../utils/uid.js'
 import { track } from '../utils/analytics.js'
+import { liveItems } from '../utils/live.js'
 
 const today = () => new Date().toISOString().split('T')[0]
 const nowIso = () => new Date().toISOString()
@@ -171,6 +172,7 @@ function generateNoteCompanionResponse(note, isFirst) {
 
 export default function NotesTab({ book, onUpdateBook }) {
   const { settings } = useSettings()
+  const depth = bookDepth(book, settings)
 
   // ── Filter + search state ─────────────────────────────────────────────────
   const [activeTag,     setActiveTag]     = useState(null)
@@ -215,37 +217,39 @@ export default function NotesTab({ book, onUpdateBook }) {
   const [deletingId,     setDeletingId]     = useState(null)
   const [removingReflId, setRemovingReflId] = useState(null)
 
+  // Live notes — tombstoned items remain in book.notes for sync but are hidden from display
+  const liveNotes = useMemo(() => liveItems(book.notes), [book.notes])
+
   // ── Mystery chapters — companion cross-reference residue ─────────────────
   const mysteryChapters = useMemo(
-    () => new Set((book.mysteries || []).filter(m => !m.resolved && m.chapter).map(m => m.chapter)),
+    () => new Set(liveItems(book.mysteries).filter(m => !m.resolved && m.chapter).map(m => m.chapter)),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [book.mysteries?.length]
+    [book.mysteries]
   )
 
   // ── Resonance weights + singularities ────────────────────────────────────
   const resonanceWeights = useMemo(
-    () => computeResonanceWeights(book.notes || []),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [book.notes?.length]
+    () => computeResonanceWeights(liveNotes),
+    [liveNotes]
   )
   const singularityNums = useMemo(() => {
-    const motifs = detectMotifs(book.notes || [], book.currentChapter || Infinity)
+    const motifs = detectMotifs(liveNotes, book.currentChapter || Infinity)
     return new Set(detectSingularities(book, resonanceWeights, motifs).map(s => s.num))
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [book.notes?.length, book.mysteries?.length, resonanceWeights])
+  }, [liveNotes, book.mysteries, resonanceWeights])
 
   const q = search.trim().toLowerCase()
   const visible = useMemo(
-    () => book.notes
+    () => liveNotes
       .filter(n => !activeTag || n.tag === activeTag)
       .filter(n => !q || n.text.toLowerCase().includes(q) || (n.reflection || '').toLowerCase().includes(q)),
-    [book.notes, activeTag, q]
+    [liveNotes, activeTag, q]
   )
   // Newest first — writer witnesses their own note arriving
   const visibleReversed = useMemo(() => [...visible].reverse(), [visible])
   const tagCounts = useMemo(() => {
     const counts = {}
-    book.notes.forEach(n => { counts[n.tag] = (counts[n.tag] || 0) + 1 })
+    liveNotes.forEach(n => { counts[n.tag] = (counts[n.tag] || 0) + 1 })
     return counts
   }, [book.notes])
 
@@ -283,7 +287,7 @@ export default function NotesTab({ book, onUpdateBook }) {
 
   const addNote = () => {
     if (!newNote.trim()) return
-    const isFirstNote = book.notes.length === 0 && !book.companionIntroResponded
+    const isFirstNote = liveNotes.length === 0 && !book.companionIntroResponded
     const nowIso = new Date().toISOString()
     const note = {
       id: uid('n_'),
@@ -322,7 +326,7 @@ export default function NotesTab({ book, onUpdateBook }) {
     // Gated by echoGapRef: minimum 2 non-echo notes between each echo.
     // This keeps resurfacing occasional and earned, not mechanical.
     const canEcho = !isFirstNote && echoGapRef.current >= 2
-    const echo    = canEcho ? detectNoteEcho(note, book.notes, book.rereadCount || 0) : null
+    const echo    = canEcho ? detectNoteEcho(note, liveNotes, book.rereadCount || 0) : null
     if (echo) {
       setNoteEchoes(prev => ({ ...prev, [note.id]: echo }))
       echoGapRef.current = 0           // reset gap — next echo must wait 2+ notes
@@ -403,7 +407,7 @@ export default function NotesTab({ book, onUpdateBook }) {
   }
 
   const deleteNote = (noteId) => {
-    onUpdateBook({ notes: book.notes.filter(n => n.id !== noteId) })
+    onUpdateBook({ notes: book.notes.map(n => n.id === noteId ? { ...n, deleted: true, updatedAt: nowIso() } : n) })
     setDeletingId(null)
   }
 
@@ -501,7 +505,7 @@ export default function NotesTab({ book, onUpdateBook }) {
       })
   }
 
-  const notesPresence = deriveNotesPresence(book.notes, book.rereadCount || 0)
+  const notesPresence = deriveNotesPresence(liveNotes, book.rereadCount || 0)
 
   return (
     <div className="max-w-2xl">
@@ -565,15 +569,15 @@ export default function NotesTab({ book, onUpdateBook }) {
         )}
       </div>
 
-      {/* ── Notes presence — companion intimacy ─────────────────────────── */}
-      {notesPresence && (
+      {/* ── Notes presence — companion intimacy (quiet: silent) ─────────── */}
+      {notesPresence && depth !== 'quiet' && (
         <p className="italic mb-6 leading-relaxed" style={{ fontSize: 12, color: 'var(--color-ink-500)' }}>
           {notesPresence}
         </p>
       )}
 
       {/* ── Filter row + search as secondary reveal ──────────────────────── */}
-      {book.notes.length > 0 && (
+      {liveNotes.length > 0 && (
         <div className="flex items-center justify-between mb-6 gap-2">
           <div className="flex items-center notes-filter-row gap-0 pb-0.5 min-w-0 flex-1">
             <button onClick={() => setActiveTag(null)}
@@ -645,9 +649,11 @@ export default function NotesTab({ book, onUpdateBook }) {
       )}
 
       {/* ── Note list — newest first ─────────────────────────────────────── */}
-      {book.notes.length === 0 ? (
+      {liveNotes.length === 0 ? (
         <p className="italic" style={{ fontSize: 13, color: 'var(--color-ink-300)', marginTop: 4 }}>
-          Theories, favourite lines, confusions, hunches.
+          {depth === 'quiet'
+            ? 'A record of the reading, without interpretation.'
+            : 'Write what the story gives you.'}
         </p>
       ) : visible.length === 0 ? (
         <div className="py-14 text-center">
@@ -755,7 +761,7 @@ export default function NotesTab({ book, onUpdateBook }) {
                   <>
                     <div className="flex items-start justify-between gap-3">
                       <p className={`flex-1 ${isArchival ? 'leading-loose' : 'leading-relaxed'}`}
-                        style={{ fontSize: 13, color: 'var(--color-ink-700)' }}>
+                        style={{ fontSize: 14, color: 'var(--color-ink-700)' }}>
                         {note.text}
                       </p>
                       <NoteTag tag={note.tag} />
@@ -815,7 +821,7 @@ export default function NotesTab({ book, onUpdateBook }) {
                           <>
                             <div style={{ display: 'flex', alignItems: 'flex-start', gap: 7, paddingTop: 1 }}>
                               <span style={{ fontSize: 9, color: 'var(--ca, #B8860B)', marginTop: 4, flexShrink: 0, opacity: 0.65 }}>✦</span>
-                              <p style={{ fontSize: 13, fontFamily: 'var(--font-sans)', lineHeight: 1.6, color: 'var(--color-ink-700)', fontStyle: 'italic', margin: 0 }}>
+                              <p style={{ fontSize: 14, fontFamily: 'var(--font-sans)', lineHeight: 1.6, color: 'var(--color-ink-700)', fontStyle: 'italic', margin: 0 }}>
                                 {note.threadSummary || 'Thread settled.'}
                               </p>
                             </div>
@@ -844,7 +850,7 @@ export default function NotesTab({ book, onUpdateBook }) {
                                 {msg.role === 'companion' ? (
                                   <div style={{ display: 'flex', alignItems: 'flex-start', gap: 7, paddingTop: 1 }}>
                                     <span className="companion-glyph-settle" style={{ fontSize: 9, color: 'var(--ca, #B8860B)', marginTop: 4, flexShrink: 0, opacity: 0.65 }}>✦</span>
-                                    <p className="companion-text-surface" style={{ fontSize: 13, fontFamily: 'var(--font-sans)', lineHeight: 1.6, color: 'var(--color-ink-700)', margin: 0 }}>
+                                    <p className="companion-text-surface" style={{ fontSize: 14, fontFamily: 'var(--font-sans)', lineHeight: 1.6, color: 'var(--color-ink-700)', margin: 0 }}>
                                       {msg.text}
                                     </p>
                                   </div>
@@ -930,7 +936,8 @@ export default function NotesTab({ book, onUpdateBook }) {
                     {/* Era echoes (from a previous reading) are labeled          */}
                     {/* differently — they carry the weight of first-reading      */}
                     {/* certainty returning into a reread.                        */}
-                    {noteEchoes[note.id] && thinkingNoteId !== note.id && (
+                    {/* Quiet depth: companion stays silent; echoes suppressed.   */}
+                    {noteEchoes[note.id] && thinkingNoteId !== note.id && depth !== 'quiet' && (
                       <div
                         className="animate-fade-in"
                         style={{

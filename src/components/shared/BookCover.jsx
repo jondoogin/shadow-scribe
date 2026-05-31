@@ -1,10 +1,4 @@
-import { useState } from 'react'
-
-// Cover source chain — tried in order; falls back to gradient on exhaustion
-const COVER_SOURCES = [
-  isbn => `https://covers.openlibrary.org/b/isbn/${isbn}-L.jpg`,
-  isbn => `https://books.google.com/books/content?vid=ISBN:${isbn}&printsec=frontcover&img=1&zoom=1`,
-]
+import { useState, useEffect } from 'react'
 
 function GradientCover({ book, className, rounded }) {
   return (
@@ -28,13 +22,35 @@ function GradientCover({ book, className, rounded }) {
   )
 }
 
+// Build the ordered URL source list for a book.
+// coverUrl (stored Google Books lookup) is tried first, then ISBN-based sources.
+function buildSources(book) {
+  const list = []
+  if (book.coverUrl) list.push(() => book.coverUrl)
+  if (book.isbn) {
+    list.push(() => `https://covers.openlibrary.org/b/isbn/${book.isbn}-L.jpg`)
+    list.push(() => `https://books.google.com/books/content?vid=ISBN:${book.isbn}&printsec=frontcover&img=1&zoom=1`)
+  }
+  return list
+}
+
 export default function BookCover({ book, className = '', rounded = 'rounded-lg' }) {
   const [sourceIdx, setSourceIdx] = useState(0)
   const [loading,   setLoading]   = useState(true)
   const [failed,    setFailed]    = useState(false)
 
+  // Reset the source chain whenever the book's cover data changes (e.g. after
+  // a background lookup resolves and coverUrl is stored for the first time).
+  useEffect(() => {
+    setSourceIdx(0)
+    setLoading(true)
+    setFailed(false)
+  }, [book.id, book.coverUrl, book.isbn])
+
+  const sources = buildSources(book)
+
   const tryNext = () => {
-    if (sourceIdx < COVER_SOURCES.length - 1) {
+    if (sourceIdx < sources.length - 1) {
       setSourceIdx(i => i + 1)
       setLoading(true)
     } else {
@@ -43,12 +59,12 @@ export default function BookCover({ book, className = '', rounded = 'rounded-lg'
   }
 
   const handleLoad = e => {
-    // OpenLibrary returns a 1×1 pixel image on miss
+    // OpenLibrary returns a 1×1 pixel image on miss; treat as failure
     if (e.target.naturalWidth < 10) { tryNext(); return }
     setLoading(false)
   }
 
-  // Embedded EPUB cover: data URL, loads synchronously — highest priority
+  // Embedded EPUB cover: base64 data URL — highest priority, no network request
   if (book.coverData) {
     return (
       <div className={`${className} ${rounded} overflow-hidden flex-shrink-0`}>
@@ -61,7 +77,8 @@ export default function BookCover({ book, className = '', rounded = 'rounded-lg'
     )
   }
 
-  if (!book.isbn || failed) {
+  // No URL sources available, or all sources exhausted → gradient fallback
+  if (!sources.length || failed) {
     return <GradientCover book={book} className={className} rounded={rounded} />
   }
 
@@ -72,7 +89,7 @@ export default function BookCover({ book, className = '', rounded = 'rounded-lg'
       )}
       <img
         key={sourceIdx}
-        src={COVER_SOURCES[sourceIdx](book.isbn)}
+        src={sources[sourceIdx]()}
         onLoad={handleLoad}
         onError={tryNext}
         alt={`${book.title} cover`}

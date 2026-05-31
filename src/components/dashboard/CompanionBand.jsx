@@ -19,6 +19,7 @@ import { mysteryHauntScore, hauntLevel }       from '../../utils/hauntScore.js'
 import { getProgress }   from '../../utils/progress.js'
 import { useSettings }   from '../../context/SettingsContext.jsx'
 import { useBooks }      from '../../context/BooksContext.jsx'
+import { liveItems }     from '../../utils/live.js'
 
 // ── Fallback responses — used only when AI call fails ─────────────────────────
 const FALLBACK_RESPONSES = [
@@ -34,18 +35,21 @@ function fallbackResponse() {
 }
 
 // ── Chapter context greeting (rule-based, no AI required) ─────────────────────
-function buildChapterGreeting(book) {
+// Quiet depth: interpretive tails suppressed — just the factual position.
+function buildChapterGreeting(book, depth = 'resonant') {
   const ch     = book.currentChapter || 0
   const total  = book.totalChapters  || 0
-  const pct    = getProgress(book)
-  const notes  = (book.notes || []).length
-  const open   = (book.mysteries || []).filter(m => !m.resolved).length
+  const notes  = liveItems(book.notes).length
+  const open   = liveItems(book.mysteries).filter(m => !m.resolved).length
 
   if (ch === 0) return null
 
   const position = total > 0 ? Math.round((ch / total) * 100) : null
   let line = `Chapter ${ch}`
   if (total > 0) line += ` of ${total}`
+
+  // Quiet: the position is enough — companion doesn't interpret the story's shape
+  if (depth === 'quiet') return `${line}.`
 
   if (position !== null) {
     if (position <= 15) return `${line}. Early days — everything is still possibility.`
@@ -135,12 +139,12 @@ export default function CompanionBand({ book, onUpdateBook, onTabChange }) {
 
   // ── Surfaced open questions ────────────────────────────────────────────────
   const openQuestions = useMemo(() => {
-    return (book.mysteries || [])
+    return liveItems(book.mysteries)
       .filter(m => !m.resolved && isMysteryVisible(book, m, mode))
       .sort((a, b) => mysteryHauntScore(b, book) - mysteryHauntScore(a, book))
       .slice(0, 3)
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [book.mysteries?.length, book.currentChapter, mode])
+  }, [book.mysteries, book.currentChapter, mode])
 
   // ── Surfaced characters ────────────────────────────────────────────────────
   const surfacedCharacters = useMemo(() => {
@@ -262,7 +266,7 @@ export default function CompanionBand({ book, onUpdateBook, onTabChange }) {
   }
 
   // ── Derived display values ─────────────────────────────────────────────────
-  const chapterGreeting = buildChapterGreeting(book)
+  const chapterGreeting = buildChapterGreeting(book, depth)
   const pct             = getProgress(book)
   const hasConversation = messages.length > 0
 
@@ -271,7 +275,15 @@ export default function CompanionBand({ book, onUpdateBook, onTabChange }) {
   const showAmbient    = depth !== 'quiet'
   const showChat       = depth !== 'quiet'
 
-  const ambientObservation = showAmbient && !yieldsToBook && observations.length > 0
+  // First arrival — brand-new book: reading, no sessions, no notes yet
+  // The companion greets this specific reading before any content has accumulated.
+  const isFirstArrival = useMemo(() => (
+    book.status === 'reading' &&
+    !(book.readingLog?.length) &&
+    !liveItems(book.notes).length
+  ), [book.status, book.readingLog, book.notes])
+
+  const ambientObservation = showAmbient && !yieldsToBook && !isFirstArrival && observations.length > 0
     ? observations[obsIdx]
     : null
 
@@ -401,8 +413,20 @@ export default function CompanionBand({ book, onUpdateBook, onTabChange }) {
               </div>
             )}
 
+            {/* First arrival — personalized opening, before any reading has accumulated */}
+            {!hasConversation && isFirstArrival && (
+              <p className="companion-band-reflection animate-fade-in" style={{ opacity: presenceVisibility }}>
+                {depth === 'quiet'
+                  ? 'The companion witnesses without speaking. Notes and chapters accumulate here.'
+                  : depth === 'saturated'
+                    ? <>The companion is fully awake to <em>{book.title}</em>. Write what you notice.</>
+                    : <>The companion is open alongside <em>{book.title}</em>. Write what you notice — the rest will follow.</>
+                }
+              </p>
+            )}
+
             {/* Ambient reflection — secondary position, below input */}
-            {!hasConversation && ambientObservation && (
+            {!hasConversation && !isFirstArrival && ambientObservation && (
               <p
                 className="companion-band-reflection"
                 style={{
@@ -414,14 +438,12 @@ export default function CompanionBand({ book, onUpdateBook, onTabChange }) {
               </p>
             )}
 
-            {/* Ambient silence */}
-            {!hasConversation && !ambientObservation && (
+            {/* Ambient silence — quiet depth: nothing renders; silence doesn't announce itself */}
+            {!hasConversation && !isFirstArrival && !ambientObservation && depth !== 'quiet' && (
               <p className="companion-band-reflection" style={{ opacity: 0.42 }}>
-                {depth === 'quiet'
-                  ? 'Quiet — the companion is silent for this reading.'
-                  : poolSaturated
-                    ? 'Add more notes to deepen the manuscript.'
-                    : 'The companion is present.'}
+                {poolSaturated
+                  ? 'Add more notes to deepen the manuscript.'
+                  : 'The companion is present.'}
               </p>
             )}
 

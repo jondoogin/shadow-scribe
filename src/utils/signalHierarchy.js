@@ -16,6 +16,7 @@
 
 import { computeInterruptionRisk } from './invisiblePresence.js'
 import { getProgress }              from './progress.js'
+import { liveItems }               from './live.js'
 
 // ── Signal weights ─────────────────────────────────────────────────────────────
 // Higher = more emotionally important. Determines surfacing priority.
@@ -200,7 +201,7 @@ export function shouldEnterAtmosphereMode(book, settings) {
   const pct = getProgress(book)
 
   // Climax zone with no annotation — pure forward absorption
-  if (pct >= 80 && pct < 97 && (book.notes || []).length === 0) return true
+  if (pct >= 80 && pct < 97 && liveItems(book.notes).length === 0) return true
 
   // Lowered interruption risk threshold — companion steps back sooner
   if (computeInterruptionRisk(book) >= 0.55) return true
@@ -208,7 +209,7 @@ export function shouldEnterAtmosphereMode(book, settings) {
   // Dense recent interpretation (3+ theory/confusing/theme notes in last 24h):
   // the reader is already in deep dialogue with the text — companion would be noise
   const now = Date.now()
-  const recentDeep = (book.notes || []).filter(n =>
+  const recentDeep = liveItems(book.notes).filter(n =>
     ['theory', 'confusing', 'theme'].includes(n.tag) &&
     n.date && (now - new Date(n.date).getTime()) < 86_400_000
   ).length

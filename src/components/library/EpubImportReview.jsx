@@ -7,6 +7,8 @@ import { MOOD_CONFIG, STRUCTURE_TYPES, CHAPTER_TYPES } from '../../data/config.j
 import { useSettings } from '../../context/SettingsContext.jsx'
 import { extractNarrative } from '../../utils/narrativeExtractor.js'
 import { aiExtractNarrative } from '../../utils/aiExtractor.js'
+import { useBooks } from '../../context/BooksContext.jsx'
+import { fetchCoverUrl } from '../../utils/coverLookup.js'
 
 const MOOD_COLORS = {
   sage: '#3A6647', ember: '#9B2335', ink: '#44403C',
@@ -107,6 +109,7 @@ const AI_EXTRACTION_PHRASES = [
 // ── Main component ────────────────────────────────────────────────────────────
 export default function EpubImportReview({ importData, duplicateWarning, onCreate, onBack }) {
   const { settings } = useSettings()
+  const { updateBook } = useBooks()
   const navigate = useNavigate()
   const [step, setStep] = useState(1)
   const [editingIdx, setEditingIdx] = useState(null)
@@ -211,10 +214,20 @@ export default function EpubImportReview({ importData, duplicateWarning, onCreat
       }
 
       onCreate(book)
+      // Fire cover lookup if the EPUB had no embedded cover image
+      if (!book.coverData) {
+        fetchCoverUrl(book.title, book.author, book.isbn)
+          .then(url => { if (url) updateBook(book.id, { coverUrl: url }) })
+      }
     } catch {
       // Total failure — create companion without any extraction
       setExtracting(false)
-      onCreate(buildBook(importData, form))
+      const fallbackBook = buildBook(importData, form)
+      onCreate(fallbackBook)
+      if (!fallbackBook.coverData) {
+        fetchCoverUrl(fallbackBook.title, fallbackBook.author, fallbackBook.isbn)
+          .then(url => { if (url) updateBook(fallbackBook.id, { coverUrl: url }) })
+      }
     }
   }
 
@@ -375,38 +388,72 @@ export default function EpubImportReview({ importData, duplicateWarning, onCreat
               </div>
             </div>
 
-            {/* Depth level — how present the companion is for this book */}
+            {/* Depth level — ritual choice, not a settings dial */}
             <div className="mb-7">
-              <label className="block text-[10px] font-semibold uppercase tracking-widest mb-3" style={{ color: 'var(--color-ink-500)' }}>
-                Companion depth
-              </label>
-              <p className="italic mb-3" style={{ fontSize: 11, color: 'var(--color-ink-400)', lineHeight: 1.55 }}>
-                How present the companion should be for this reading. You can change this later.
+              <p className="font-serif mb-1.5" style={{ fontSize: 17, fontWeight: 400, color: 'var(--color-ink-900)' }}>
+                How should your companion be present?
               </p>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              <p className="italic mb-4" style={{ fontSize: 12, color: 'var(--color-ink-500)', lineHeight: 1.6 }}>
+                This shapes how Lantern holds space as you read. You can change it any time.
+              </p>
+              <div className="space-y-2">
                 {[
-                  { k: 'quiet',     label: 'Quiet',     hint: 'mostly silent record' },
-                  { k: 'resonant',  label: 'Resonant',  hint: 'balanced presence' },
-                  { k: 'saturated', label: 'Saturated', hint: 'dense engagement' },
+                  {
+                    k: 'quiet',
+                    label: 'Quiet',
+                    tagline: 'The companion witnesses without speaking.',
+                    detail: 'A silent record. Notes and chapters — no responses, no observations.',
+                  },
+                  {
+                    k: 'resonant',
+                    label: 'Resonant',
+                    tagline: 'Present without performing.',
+                    detail: 'Responds to your notes when something earns it. Patterns surface as they emerge.',
+                    recommended: true,
+                  },
+                  {
+                    k: 'saturated',
+                    label: 'Saturated',
+                    tagline: 'Fully awake to this reading.',
+                    detail: 'Dense observations, frequent reflections. The companion speaks often.',
+                  },
                 ].map(opt => {
                   const selected = form.depthLevel === opt.k
                   return (
                     <button
                       key={opt.k}
                       onClick={() => set('depthLevel', opt.k)}
-                      className="text-left px-3 py-2.5 rounded-xl transition-all"
+                      className="w-full text-left px-4 py-3.5 rounded-xl transition-all"
                       style={{
-                        background:   selected ? 'var(--color-card-deep)' : 'var(--color-cream-200)',
-                        border:       selected ? '1px solid var(--color-accent)' : '1px solid var(--color-hairline)',
-                        boxShadow:    selected ? '0 0 0 2px color-mix(in srgb, var(--color-accent) 20%, transparent)' : 'none',
+                        background:  selected
+                          ? 'color-mix(in srgb, var(--color-gold-bg, #FDF8EC) 55%, var(--color-cream, #FAF6EE))'
+                          : 'var(--color-cream-200)',
+                        border:      selected ? '1px solid rgba(184,134,11,0.45)' : '1px solid var(--color-hairline)',
+                        boxShadow:   selected ? '0 0 0 2px color-mix(in srgb, var(--color-accent) 14%, transparent)' : 'none',
                       }}
                     >
-                      <div style={{ fontSize: 12, fontWeight: 500, color: selected ? 'var(--color-accent)' : 'var(--color-ink-700)' }}>
-                        {opt.label}
+                      <div className="flex items-center gap-2 mb-1">
+                        <span
+                          className="font-serif"
+                          style={{ fontSize: 14, fontWeight: 400, color: selected ? 'var(--color-accent)' : 'var(--color-ink-800)' }}
+                        >
+                          {opt.label}
+                        </span>
+                        {opt.recommended && (
+                          <span className="italic" style={{ fontSize: 10, color: 'var(--color-ink-400)' }}>
+                            · recommended
+                          </span>
+                        )}
                       </div>
-                      <div className="italic mt-0.5" style={{ fontSize: 10, color: 'var(--color-ink-400)' }}>
-                        {opt.hint}
-                      </div>
+                      <p
+                        className="italic"
+                        style={{ fontSize: 13, fontFamily: 'var(--font-serif)', color: 'var(--color-ink-600)', lineHeight: 1.45, marginBottom: 3 }}
+                      >
+                        {opt.tagline}
+                      </p>
+                      <p style={{ fontSize: 11, fontFamily: 'var(--font-sans)', color: 'var(--color-ink-400)', lineHeight: 1.45 }}>
+                        {opt.detail}
+                      </p>
                     </button>
                   )
                 })}

@@ -41,6 +41,8 @@
  * This makes gravity slightly asymmetric even for otherwise identical inputs,
  * and prevents the system from feeling like clean analytics.
  */
+import { liveItems } from './live.js'
+
 function gravityJitter(seed) {
   let hash = 0
   for (let i = 0; i < seed.length; i++) {
@@ -63,8 +65,8 @@ function gravityJitter(seed) {
  * @returns {number} 0–1
  */
 export function computeChapterGravity(chNum, book, resonanceWeights = {}, motifs = []) {
-  const notes     = book.notes     || []
-  const mysteries = book.mysteries || []
+  const notes     = liveItems(book.notes)
+  const mysteries = liveItems(book.mysteries)
   const chapters  = book.chapters  || []
   const currentCh = book.currentChapter || 0
 
@@ -193,8 +195,8 @@ export function classifySilence(book) {
   if (gapDays < 3) return null
 
   const gap = Math.floor(gapDays)
-  const notes     = book.notes     || []
-  const mysteries = book.mysteries || []
+  const notes     = liveItems(book.notes)
+  const mysteries = liveItems(book.mysteries)
   const currentCh = book.currentChapter || 0
 
   // Dormant — very long absence; the story is unchanged and waiting

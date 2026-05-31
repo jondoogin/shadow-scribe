@@ -3,6 +3,518 @@ Reverse-chronological log of what was built, fixed, and decided in each working 
 
 ---
 
+## Session 146 — 2026-05-30
+**Theme:** Automatic cover lookup — Google Books API
+
+**FILES CHANGED**
+- `src/utils/coverLookup.js` (new)
+- `src/components/shared/BookCover.jsx`
+- `src/components/library/CreateCompanion.jsx`
+- `src/components/library/EpubImportReview.jsx`
+- `src/components/library/Library.jsx`
+
+**CHANGES**
+
+### Root cause
+
+Two-thirds of library cards showing gradient placeholders. Three scenarios cause this:
+1. Books created manually — no EPUB, so no embedded cover; no ISBN entered so no lookup triggered
+2. EPUB imports where the file had no embedded cover image
+3. Books with ISBNs but no Open Library/Google Books ISBN-based cover
+
+### Solution
+
+New utility `coverLookup.js` — queries Google Books API with ISBN first, then title+author. Returns a clean `https://` URL or null. No API key required. 9s timeout. Handles the `&edge=curl` artifact and upgrades `zoom=1 → zoom=0` for a larger image.
+
+### BookCover.jsx — `coverUrl` added to chain
+
+Priority order is now: `coverData` (embedded base64) → `coverUrl` (stored lookup) → `isbn` sources (Open Library + Google Books ISBN URLs) → gradient fallback.
+
+Sources are built as an array `buildSources(book)` inside the component. The existing `sourceIdx` / `tryNext` mechanism cycles through them in order, so `coverUrl` failure naturally falls through to ISBN sources and then to the gradient — no new state variables needed. A `useEffect` resets the chain if `book.coverUrl` or `book.isbn` changes (handles the case where a background lookup resolves while the card is already mounted).
+
+### Creation-time lookup
+
+`CreateCompanion.jsx` — fires `fetchCoverUrl` async immediately after `onCreate(newBook)`. Resolves after navigation; `updateBook(id, { coverUrl })` is called when the result arrives. Destructured `updateBook` from `useBooks` (was already using the hook for `books`).
+
+`EpubImportReview.jsx` — same pattern, only fires if `!book.coverData` (no point looking up if the EPUB already gave us an image). Both code paths (`handleCreate` success + catch fallback) covered. Added `useBooks` import.
+
+### Background refresh for existing books
+
+`Library.jsx` — module-level `_coverLookupAttempted` Set (persists across re-renders, resets on page refresh). On library mount and whenever `books.length` changes, finds up to 5 books with no `coverData` and no `coverUrl` that haven't been attempted this session. Fires lookups staggered 500ms apart. Stores `coverUrl` on success; on failure nothing is written so the next session will retry.
+
+**What this doesn't cover:** if Google Books has no record for a book at all (very obscure titles, self-published books without ISBNs), the gradient fallback continues to show. No data is written on failure so it retries each session without accumulating stale state.
+
+**Build:** clean ✓
+
+---
+
+## Session 145 — 2026-05-30
+**Theme:** Typographic Gravity Pass — contrast and hierarchy audit
+
+**FILES CHANGED**
+- `src/index.css`
+- `src/tabs/NotesTab.jsx`
+- `src/tabs/MysteriesTab.jsx`
+
+**CHANGES**
+
+Full typography audit surfaced two structural contrast failures — one in each mode — plus a type size hierarchy that was too flat at the primary reading level.
+
+### Color contrast failures addressed
+
+**Light mode:** `ink-300`, `ink-400`, `ink-500` / `text-dim` were all too light on warm cream backgrounds. `ink-300` (`#c8c4be`) was 1.54:1 on card — effectively invisible. Used for dates, chapter labels, edit/reflect/remove buttons, note echo text. `ink-400` (`#b3afa9`) was ~1.86:1. `ink-500` / `text-dim` (`#999590`) was 2.44:1 on page background — used for tab bar inactive, companion presence lines, filter links.
+
+New light mode values:
+- `ink-300`: `#c8c4be` → `#9e9a94` (warm visible gray, ~2.7:1 on card — appropriate for decorative micro-labels)
+- `ink-400`: `#b3afa9` → `#8a8680` (~3.2:1 — ghost action buttons readable at hover)
+- `ink-500` / `text-dim`: `#999590` → `#767270` (~4.3:1 — dim text passes at meaningful content size)
+
+**Dark mode:** Inverse problem — `ink-300`, `ink-400`, `ink-500` were too dark on near-black backgrounds. `ink-300` (`#3a3430`) was 1.46:1 on dark bg — invisible. Used for "reply", "settle thread →", "reflect", "edit" buttons. `ink-400` (`#504840`) was 2.03:1 — thread user messages and ghost actions barely present. `ink-500` / `text-dim` (`#6e6555`) was 3.26:1.
+
+New dark mode values:
+- `ink-300`: `#3a3430` → `#5c5650` (~2.6:1 — micro-labels visible in dark context)
+- `ink-400`: `#504840` → `#706860` (~3.4:1 — ghost text appropriately receded but readable)
+- `ink-500` / `text-dim`: `#6e6555` → `#8a8272` (~4.9:1 — passes cleanly)
+
+These changes propagate automatically to all components via CSS variables — no component code needed for the color work.
+
+### Type size — primary reading surfaces
+
+Primary reading content (note body text, companion thread responses) was `fontSize: 13` with weight 400. Secondary text (reflections, observations) is 12px, micro-labels are 10px. A 3px range across all supporting text — combined with identical weight — produces a flat hierarchy.
+
+`NotesTab.jsx`: Main note body text 13px → 14px. Companion thread responses (collapsed summary + live messages) 13px → 14px.
+
+`MysteriesTab.jsx`: Companion mystery response text 13px → 14px.
+
+The note textarea is 17px and the companion band input 19px — both continue to feel distinct from the saved card text. The new 14px creates a cleaner break above the 12px/10px support tier.
+
+**Build:** clean ✓
+
+---
+
+## Session 144 — 2026-05-30
+**Theme:** CompanionBand quiet-depth correctness
+
+**FILES CHANGED**
+- `src/components/dashboard/CompanionBand.jsx`
+
+**CHANGES**
+
+Two targeted fixes completing the quiet-depth contract in the primary companion surface.
+
+### Ambient silence announcement — removed
+
+The ambient silence fallback block was rendering `"Quiet — the companion is silent for this reading."` in quiet depth. This violates the architectural invariant: *"Never: Make the companion explain why it's quiet. Silence doesn't annotate itself."*
+
+Fix: added `depth !== 'quiet'` to the condition. In quiet mode the ambient slot renders nothing. The chapter greeting and progress bar stand alone. No commentary.
+
+### Chapter greeting interpretive tails — gated
+
+`buildChapterGreeting(book)` appended companion-voiced observations to the chapter position line regardless of depth:
+- "Early days — everything is still possibility."
+- "Patterns are beginning to form."
+- "The middle territory — where the story earns or loses what it promised."
+- "The story is deciding what it was."
+- etc.
+
+These are companion interpretations of the story's shape — exactly what quiet depth suppresses everywhere else. The function signature is now `buildChapterGreeting(book, depth = 'resonant')`. Quiet depth returns `"Chapter N of M."` with no tail. Non-quiet depth is unchanged.
+
+Call site: `const chapterGreeting = buildChapterGreeting(book, depth)`.
+
+**What was already correct:**
+- Carousel suppressed: `showAmbient = depth !== 'quiet'` ✓
+- Chat input suppressed: `showChat = depth !== 'quiet'` ✓
+- First-arrival message depth-aware ✓
+
+**Build:** clean ✓ | 133 modules
+
+---
+
+## Session 143 — 2026-05-30
+**Theme:** The Settled Surface — dissolving product-UI energy from interaction states
+
+**FILES CHANGED**
+- `src/components/library/Library.jsx`
+- `src/components/dashboard/CompanionHeader.jsx`
+- `src/tabs/CharactersTab.jsx`
+- `src/tabs/MysteriesTab.jsx`
+- `src/tabs/DiscussionTab.jsx`
+
+**CHANGES**
+
+### Library — Sort cycling text-link
+
+Replaced native `<select value={sort} onChange={...}>` with a quiet italic `<button>` that cycles through `['recent', 'title', 'progress']` on each click. The label shows the current state (`recent` / `a–z` / `furthest`). No browser-chrome dropdown arrow. Italic register marks it as interactive without structural UI weight. The sort options haven't changed — only the affordance.
+
+### Button pair pattern — cancel + save
+
+Unified all non-destructive form button pairs to ghost italic text-links:
+- **Cancel**: `text-[12px] italic text-ink-400 hover:text-ink-600 transition-colors` (no border, no padding box, lowercase)
+- **Save/confirm**: `text-[12px] italic hover:opacity-75 transition-opacity` with `color: var(--ca)` and `fontWeight: 500`, plus ` →` suffix
+
+Container changed from `flex gap-2` to `flex items-center gap-4` to give the two text-links breathing room.
+
+**Destructive actions preserved**: ember-fill "Remove companion" (CompanionHeader menu), "Yes, remove them" (CharactersTab), "Yes, remove it" (DiscussionTab) — destructive buttons retain full visual weight.
+
+### Files touched
+
+**CompanionHeader.jsx**: 3 pairs — pending action confirm dialog (Not yet / It's done →), editMeta (cancel / save →), delete confirmation cancel (keep it).
+
+**CharactersTab.jsx**: 5 pairs — AddCharForm (cancel / add to cast →), CharCard edit mode (cancel / save →), CharCard delete confirm cancel (keep them), relationship edit (cancel / save →), relationship add (cancel / add →).
+
+**MysteriesTab.jsx**: Add form (cancel / Open thread → or Record this →).
+
+**DiscussionTab.jsx**: Question delete cancel (keep it).
+
+**Build:** clean ✓ | 133 modules
+
+---
+
+## Session 142 — 2026-05-30
+**Theme:** Empty state atmosphere pass
+
+**FILES CHANGED**
+- `src/tabs/PlotTab.jsx`
+- `src/tabs/CharactersTab.jsx`
+- `src/tabs/NotesTab.jsx`
+- `src/tabs/ProgressTab.jsx`
+- `src/tabs/DiscussionTab.jsx`
+- `src/tabs/MysteriesTab.jsx`
+
+**CHANGES**
+
+Six targeted copy edits — no structural changes. Focus: remove product-UI vocabulary, replace instructional phrasing with atmospheric invitations, give each empty moment a distinct literary voice.
+
+**PlotTab** — `body` in `EmptyState`:
+- Before: "Mark chapters complete in the Progress tab — what you've read will gather here."
+- After: "What you've read will rest here — the shape of the reading as it accumulates."
+- Removed self-referential "Progress tab" instruction. The body now describes the space rather than directing the user.
+
+**CharactersTab** — `body` in `EmptyState`:
+- Before: "Begin noting the people who matter in this story. They'll gather here as you read — named, described, connected."
+- After: "Name the figures as they arrive. They'll gather here — described, connected, their weight accumulating."
+- Removed "Begin noting" instruction. "Their weight accumulating" matches the language of the Characters system (presence, gravity).
+
+**NotesTab** — zero-notes resonant/saturated state:
+- Before: 'Theories, favourite lines, confusions, hunches.'
+- After: 'Write what the story gives you.'
+- Was a dry list. Now an invitation. Quiet depth keeps "A record of the reading, without interpretation."
+
+**ProgressTab** — isNew welcome message, resonant:
+- Before: 'The companion is open. Mark chapters as you read — notes, mysteries, and characters gather here over time.'
+- After: 'The companion is open alongside this reading. Everything you write and notice settles here as it unfolds.'
+- Removed imperative "Mark chapters as you read." The new copy is observational rather than instructional. Quiet depth keeps "Notes and chapters accumulate here as you read."
+
+**DiscussionTab** — quiet empty state:
+- Before: 'Use this space to hold the questions and patterns you\'re carrying forward.'
+- After: 'Questions the story opens and doesn\'t close. Write what you\'re still carrying.'
+- "Use this space" is product-UI vocabulary. The replacement describes the quality of the questions themselves.
+
+**MysteriesTab** — two filter-empty titles + EmptyState CTA:
+- Resolved filter title: "No threads have closed yet." → "Nothing has found its answer yet."
+- All-resolved body: "All the open threads in this reading have been resolved." → "Every open thread in this reading has been resolved."
+- EmptyState action: `text-sm font-medium hover:underline` → `text-[13px] italic hover:opacity-75 transition-opacity` (matches ghost italic style of "raise a question →" button above)
+- EmptyState action copy: "Open the first thread →" → "raise the first question →" (consistent with the tab's own vocabulary)
+
+**Build:** clean ✓ | 133 modules
+
+---
+
+## Session 141 — 2026-05-30
+**Theme:** ChapterUpdateModal depth-sensitivity + CharactersTab atmosphere
+
+**FILES CHANGED**
+- `src/components/modals/ChapterUpdateModal.jsx`
+- `src/tabs/CharactersTab.jsx`
+
+**CHANGES**
+
+### ChapterUpdateModal — Depth-Sensitivity Pass
+
+Two companion surfaces gated:
+
+- **Reflection picking in `handleUpdate`**: was always picking from the completion or return reflection pool regardless of depth. Now `aiEnabled(book, settings)` guards this — quiet depth sets `reflection = null` and skips pool consumption entirely. A quiet companion shouldn't surface interpretive observations at chapter completion.
+- **`observationText` in done-state Card 1**: was always rendering the italic companion micro-note below the progress bar. Now gated `{depth !== 'quiet' && ...}`. In quiet mode the chapter number and progress bar stand alone.
+
+`import { aiEnabled, bookDepth }` already present; `const depth = bookDepth(book, settings)` added after `const mode`.
+
+### CharactersTab — Depth-Sensitivity Pass
+
+Two companion surfaces gated, `depth` threaded to `CharCard`:
+
+- **`charRelationalLine` / `wasUpdated` IIFE block** (lines "X has been shifting in your understanding.", "Your reading of X has softened.", "X appeared throughout your notes.", etc.): now `{depth !== 'quiet' && (() => { ... })()}`. All companion character-observation lines suppressed in quiet.
+- **`showMysteryBleed`** ("The open questions are still circling some of these figures."): gated `{depth !== 'quiet' && showMysteryBleed && (…)}`. The cross-surface residue line is a companion observation — suppressed in quiet.
+
+Infrastructure:
+- `bookDepth` imported from `'../utils/depthLevel.js'`
+- `const depth = bookDepth(book, settings)` computed after `const mode` in `CharactersTab`
+- `depth={depth}` added to `CharCard` in `sharedCardProps`
+- `CharCard` function signature updated: `{ ch, raw, veiled, flash, book, visibleChars, onSave, onUpdateBook, onDelete, depth }`
+
+**Depth system coverage is now complete.** Every companion surface across all tabs and the chapter-update modal is correctly gated against quiet depth: ProgressTab · NotesTab · DiscussionTab · MysteriesTab · CharactersTab · ChapterUpdateModal · SettingsPage · CompanionBand.
+
+**Build:** clean ✓ | 133 modules
+
+---
+
+## Session 140 — 2026-05-30
+**Theme:** Book completion ceremony + ProgressTab depth-sensitivity
+
+**FILES CHANGED**
+- `src/components/dashboard/CompanionHeader.jsx`
+- `src/tabs/ProgressTab.jsx`
+
+**CHANGES**
+
+### CompanionHeader — Completion Ceremony
+
+**Confirm dialog**: `CONFIRM.finish.body` changed from "Mark this companion as finished?" → "The reading ends here. Everything you've written and noticed stays with this companion." OK label changed from "Yes, it's done" → "It's done". The ceremony lives in this moment — when the user confirms, the copy should carry weight.
+
+**Post-completion afterimage**: Added `animate-fade-in` to the wrapper div (was absent — the page just changed with no arrival). Added a `veryFresh` tier (`daysAgo <= 2`) that renders at higher presence: ✦ glyph (gold, 0.55 opacity) + 13px ink-500 italic text vs the previous 12px ink-400. "The ending is still settling." now arrives with the visual weight the moment deserves. Older completion dates (3–30 days) remain at the previous 12px ink-400 treatment.
+
+### ProgressTab — Depth-Sensitivity
+
+Five companion surfaces now gated:
+- **`CompanionOrientation`**: orientation lines suppressed in quiet depth. The block simply doesn't render.
+- **Near-end ambient trace** ("The weight shifts toward the end."): gated on `depth !== 'quiet'`.
+- **Forward-pull chapter residue** (all the inline lines: "Still shaping what comes after.", "Your writing intensified here.", "A theory formed here.", "N thoughts from here."): the whole block gated on `depth !== 'quiet'`. In quiet mode, chapters stand alone — no companion annotations overlaid on the reading record.
+- **`isNew` welcome message**: quiet depth shows "Notes and chapters accumulate here as you read." instead of the companion-invoking default.
+
+`bookDepth` imported; `const depth = bookDepth(book, settings)` computed at component top.
+
+**Build:** clean ✓ | 133 modules
+
+---
+
+## Session 139 — 2026-05-30
+**Theme:** Notes + Themes tab depth-sensitivity
+
+Two content tabs that had incomplete depth-gating after the depth system was introduced.
+
+**FILES CHANGED**
+- `src/tabs/NotesTab.jsx`
+- `src/tabs/DiscussionTab.jsx`
+
+**CHANGES**
+
+### NotesTab — Depth-Sensitivity Pass
+
+NotesTab already had correct gating on `addNote()` (early return when `!aiEnabled`) and `submitThreadReply()`. Three companion surfaces were slipping through on quiet depth:
+
+- **`notesPresence` observation line** — now gated on `depth !== 'quiet'`. The rule-based companion micro-presence observations ("Your theories are accumulating…") count as companion observations per the quiet contract.
+- **Zero-notes empty state** — depth-aware: quiet shows "A record of the reading, without interpretation."; resonant/saturated keeps "Theories, favourite lines, confusions, hunches."
+- **`noteEchoes` display** — now gated on `depth !== 'quiet'`. Echo resurfacing (older notes bleeding into new ones) is a companion observation; suppressed in quiet.
+
+Imports updated: `bookDepth` added alongside existing `aiEnabled` import. `const depth = bookDepth(book, settings)` computed at component top.
+
+### DiscussionTab — Atmosphere Pass
+
+Larger gaps across the Themes tab:
+
+- **Generate button** — was showing even in quiet mode. Now gated on `aiEnabled(book, settings)`. A quiet companion can't generate questions.
+- **Empty state** — the existing empty state was guarded by `!hasAiKey` which is always `false` (the proxy means all users have access). It never rendered. Fixed: now shows when `questionViews.length === 0 && !userQuestions.length && !generating`. Copy is depth-aware: resonant/saturated gets "The reading generates its own questions as it deepens. When the companion has enough to work with, it can draw them out." Quiet gets "Use this space to hold the questions and patterns you're carrying forward."
+- **Companion line** (`discussionLine`) — now gated on `depth !== 'quiet'` and `liveItems(book.notes).length >= 3`. Previously showed for empty books ("Something in this story is worth sitting with." fired as a fallback with 0 notes — generic filler).
+- **Cross-surface residue** (oldest theory/confusing note echo) — now gated on `depth !== 'quiet'`. Companion observation territory.
+- **Input placeholder** — quiet: "A question or pattern worth holding…"; resonant/saturated: unchanged ("A question you're carrying into the next chapter…").
+
+**Build:** clean ✓ | 133 modules
+
+---
+
+## Session 138 — 2026-05-30
+**Theme:** Settings Depth Consistency + Questions Tab Atmosphere
+
+Two surface areas that remained at the old register after the wizard redesign.
+
+**FILES CHANGED**
+- `src/pages/SettingsPage.jsx`
+- `src/tabs/MysteriesTab.jsx`
+
+**CHANGES**
+
+### SettingsPage — Depth Level Card Redesign
+
+Replaced the `<select>` ("Quiet — mostly silent record", "Resonant — balanced presence", "Saturated — dense engagement") with a compact version of the ritual card design used in the creation wizard. The cards are now inside a full-width `<div>` instead of a `SettingsRow` (which constrained children to the right-side slot). Same three options, same visual language:
+- Warm amber selected state: gold border, light warm bg, faint gold glow ring
+- Label in serif 13px, "· recommended" tag on Resonant
+- Italic serif tagline always visible; detail line appears only when selected (hover-confirms the choice without permanently enlarging the section)
+- Font/color/border values match `CreateCompanion.jsx` precisely — the setting and the wizard are now the same artifact
+
+### MysteriesTab — Atmosphere Pass
+
+**Depth-aware empty state**: When no questions exist yet, copy now varies by companion depth.
+- Quiet: "Questions accumulate here, without interpretation." / "Open a thread whenever the story holds something worth tracing."
+- Resonant: existing copy (unchanged — already good)
+- Saturated: "Questions tend to appear once the story begins moving." / "Open the first thread — write what the story is withholding."
+
+**First-mystery ceremony**: When `liveMysteries.length === 0` and the add-form is open, a framing line appears above the textarea: "The first question opens the reading to something larger. Name what the story hasn't resolved yet." This frames the act before the user writes anything.
+
+**Depth-sensitive button label**: In quiet mode the submit button reads "Record this" (accurate — no companion response will follow). In resonant/saturated it reads "Open thread" (unchanged).
+
+**Companion thread — quiet suppression**: `addMystery()` now returns before setting `thinkingMystId` when depth is quiet. A quiet-mode book should never show companion thinking/reply states — this was inconsistent with the depth promise.
+
+**First-mystery special response**: When the first question is added (on resonant/saturated), the companion response is always "The reading is open now. This question will move with you." rather than the hash-selected response. Subsequent questions use the original hash-stable pool.
+
+**Build:** clean ✓ | 133 modules
+
+---
+
+## Session 137 — 2026-05-29
+**Theme:** First-Book Arrival Atmosphere — personalizing the opening moment
+
+A brand-new book at chapter 1 with no notes and no reading log showed the generic arc observation "You're in the very opening movements — the world is still finding its shape." Every new reading got the same text. The companion said nothing about *this* book or *this* beginning.
+
+**FILES CHANGED**
+- `src/components/dashboard/CompanionBand.jsx`
+
+**CHANGES**
+
+Added `isFirstArrival` useMemo: `status === 'reading' && !readingLog?.length && !liveItems(book.notes).length`.
+
+When `isFirstArrival` is true, the ambient reflection slot shows a depth-calibrated personalized opener:
+- **Quiet**: "The companion witnesses without speaking. Notes and chapters accumulate here."
+  (Matches wizard copy. No book title — quiet mode is about absence.)
+- **Resonant**: "The companion is open alongside *[Title]*. Write what you notice — the rest will follow."
+- **Saturated**: "The companion is fully awake to *[Title]*. Write what you notice."
+
+Title rendered in `<em>`. Because `companion-band-reflection` is already `font-style: italic`, `<em>` de-italicizes the title — the standard typographic treatment for book titles in running italic text. The title stands upright within the italic prose.
+
+`ambientObservation` now excludes the first-arrival case: `showAmbient && !yieldsToBook && !isFirstArrival && observations.length > 0`. Normal ambient and silence states gate on `!isFirstArrival`.
+
+After the first note is added or chapter updated, `isFirstArrival` becomes false and the normal companion presence takes over.
+
+**Build:** clean ✓ | 133 modules
+
+---
+
+## Session 136 — 2026-05-29
+**Theme:** Depth Level UX Exposure — making Quiet/Resonant/Saturated a ritual choice
+
+The depth level picker was a 3-column chip grid with hints like "mostly silent record" and "balanced presence" — settings-tier copy, no emotional weight. New users had no way to feel the difference between the three options. This pass makes it a meaningful opening act of the reading experience.
+
+**FILES CHANGED**
+- `src/components/library/CreateCompanion.jsx`
+- `src/components/library/EpubImportReview.jsx`
+
+**CHANGES**
+
+**Section heading**: The `"COMPANION DEPTH"` label in 10px uppercase is replaced by a 17px serif question: "How should your companion be present?" followed by "This shapes how Lantern holds space as you read. You can change it any time."
+
+**Card layout**: 3-column chips replaced with vertical full-width card stack (`space-y-2`). Each card is `px-4 py-3.5` with warm amber selected state.
+
+**Card content per option**:
+- Name in serif 14px + "· recommended" tag for Resonant
+- Italic serif tagline (evocative, not functional)
+- Detail line in sans 11px ink-400 (what actually changes)
+
+**Copy**:
+| Option | Tagline | Detail |
+|--------|---------|--------|
+| Quiet | The companion witnesses without speaking. | A silent record. Notes and chapters — no responses, no observations. |
+| Resonant | Present without performing. | Responds to your notes when something earns it. Patterns surface as they emerge. |
+| Saturated | Fully awake to this reading. | Dense observations, frequent reflections. The companion speaks often. |
+
+**Step 3 summary** (CreateCompanion): now includes depth level inline: "Patrick Rothfuss · print · 29 chapters · resonant · relaxed spoilers"
+
+**Build:** clean ✓ | 133 modules
+
+---
+
+## Session 135 — 2026-05-29
+**Theme:** Library Editorial Card Redesign — book cards atmospheric pass
+
+Book cards were reading like a product dashboard — status dot, "Ch. N/M" chapter counter, small cover thumbnails, bold title weight. The library is the most sophisticated atmospheric system in Lantern; the cards needed to match it.
+
+**FILES CHANGED**
+- `src/components/library/BookCard.jsx`
+
+**CHANGES**
+- **Cover sizes**: 56×84px → 68×102px (default); 64×96px → 84×126px (hero/primary). ~21% larger — covers are the visual soul of a book card.
+- **Title weight**: 500 → 400. Lighter serif weight reads more literary, less product-UI.
+- **Author font size**: 12 → 13px. Clearer typographic hierarchy between title and author.
+- **Status dot removed**: The `STATUS_DOTS` constant, `dotColor` variable, and the `<span>` dot element are gone. The ember left stripe already handles reading state. Finished/paused/want state is communicated by section placement and typography.
+- **Chapter format**: "Ch. N/M" → "ch. N of M" (lowercase, "of" instead of "/"). More narrative, less spreadsheet.
+- **Want books**: Skip the chapter line entirely — "ch. 0 of N" is meaningless and misleading.
+- **Finished book footer**: Completely different register. No chapter count, no progress bar. Just the completion date in 12px italic serif at ink-400 — a colophon. "Yesterday" / "Jan 23" — the book knows when it ended.
+
+**Build:** clean ✓ | 133 modules
+
+---
+
+## Session 134 — 2026-05-29
+**Theme:** Return Experience Polish — reading gap archaeology atmosphere pass
+
+The reading gap archaeology blocks in `CompanionHeader.jsx` were implemented but rendered in 11px ink-300 italic — visually inert, dismissed subconsciously. This pass makes them land.
+
+**WHAT CHANGED**
+- `src/components/dashboard/CompanionHeader.jsx`
+
+**Active book archaeology (isReading, was 7 days, now 3 days)**
+- Threshold lowered: 7 → 3 days. Frequent-enough readers (weekly, bi-weekly) now always see the pull-quote on return.
+- Mystery threshold: 14 → 7 days.
+- Font: 11px → 13px for the quote. Color: ink-300 → ink-500.
+- Mystery: 11px at 0.72 opacity → 12px at ink-400. ✦ glyph: gold at 0.75 opacity (was gold at 0.25 effective opacity).
+- Gap label now shown at 7+ days only (3-6 days: just the atmospheric quote, no header text).
+- Container: `background: rgba(184,134,11,0.04)` + `borderLeft: 2px solid rgba(184,134,11,0.22)` + `borderRadius: 0 6px 6px 0`. Makes the block visually cohere, lands as warm-amber annotation rather than a footnote.
+
+**Paused book archaeology (isPaused, was 14 days, now 7 days)**
+- Threshold lowered: 14 → 7 days.
+- Same font/color upgrades as active (13px ink-500 quote, 12px ink-400 mystery).
+- Copy reworked: `Set aside ${durationStr} ago.` → `formatGapLabel(days, paused)` literary framing ("Set aside two weeks ago." etc).
+- ✦ glyph added before top mystery (was just quoted text, no marker).
+- Same warm amber container.
+
+**`formatGapLabel(days, paused)` helper added**
+Literary phrasing for both states. Active: "A week away from this story." / "Two weeks away…" / "N months away…". Paused: "Set aside a week ago." / "Set aside two weeks ago." / "Set aside N months ago."
+
+**Build:** clean ✓ | 133 modules
+
+---
+
+## Session 133 — 2026-05-29
+**Theme:** Tombstone Deletion — Sync-correct item deletion
+
+**WHY**
+Union-based sync (`unionById`) merges arrays by picking the item with the later `updatedAt`. With filter-based deletion, a deleted item simply disappeared from the local array. On next sync from another device, the item had no tombstone — the union would resurrect it (older live copy beats absence). Tombstones fix this: `{ deleted: true, updatedAt: <now> }` wins against any older copy on any device.
+
+**CORE PRIMITIVE — `utils/live.js`**
+New zero-dependency utility. Single export:
+```js
+export function liveItems(arr) {
+  return Array.isArray(arr) ? arr.filter(item => !item?.deleted) : []
+}
+```
+No Supabase imports, no React imports. Used by pure computation utilities (emotionalGravity, hauntScore, etc.) without dragging in sync infrastructure.
+
+**DELETION SEMANTICS**
+- `deleteNote(id)` — stamps `{ ...n, deleted: true, updatedAt: nowIso() }` via `.map()`; never filters
+- `deleteMystery(id)` — same pattern
+- Stored arrays (`book.notes`, `book.mysteries`) keep tombstones for sync correctness
+- All read/display sites call `liveItems()` at point of use
+
+**FILES CHANGED**
+- `src/utils/live.js` — new (source of truth)
+- `src/utils/syncEngine.js` — re-exports `liveItems` from `live.js` for backward compat
+- `src/tabs/NotesTab.jsx` — tombstone delete; `liveNotes` memo; all compute/render uses `liveNotes`
+- `src/tabs/MysteriesTab.jsx` — tombstone delete; `liveMysteries` memo; all compute/render uses `liveMysteries`
+- `src/components/library/Library.jsx` — `bookPresence()` uses `liveItems()`
+- `src/components/dashboard/CompanionHeader.jsx` — reading gap archaeology uses `liveItems()`
+- `src/components/dashboard/CompanionBand.jsx` — greeting and open questions use `liveItems()`
+- `src/tabs/DiscussionTab.jsx`, `CharactersTab.jsx`, `ProgressTab.jsx`, `PlotTab.jsx` — `liveItems()` throughout
+- `src/components/modals/ChapterUpdateModal.jsx` — note/mystery counts use `liveItems()`
+- `src/utils/companionPresence.js`, `companionThread.js`, `reflectionEngine.js` — all switched
+- `src/utils/invisiblePresence.js`, `emotionalGravity.js`, `hauntScore.js` — all switched
+- `src/utils/signalHierarchy.js`, `crossBookMemory.js`, `literaryPatina.js`, `aiExtractor.js` — all switched
+
+**ARCHITECTURAL NOTE**
+`bookNotesRef` in NotesTab stays as `book.notes` (full array). Async AI callbacks must write back tombstones intact — filtering before write-back would corrupt the stored array.
+
+**`useMemo` dep arrays**: changed from `book.notes?.length` → `book.notes` (reference) wherever tombstone deletion (map, not filter) must trigger recomputation.
+
+**Build:** clean ✓ | 133 modules
+
+---
+
 ## Session 121 — 2026-05-27
 **Theme:** Design System 4.0 + Companion-First Architecture — Planning
 
