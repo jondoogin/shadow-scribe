@@ -90,23 +90,6 @@ export default function TopNav() {
             <span className="hidden sm:inline">Add a book</span>
           </button>
 
-          <button
-            onClick={() => updateSetting('darkMode', !isDark)}
-            title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
-            aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
-            className="w-9 h-9 flex items-center justify-center rounded-lg transition-all"
-            style={{
-              border: '1px solid var(--color-ink-200)',
-              background: 'transparent',
-              color: 'var(--color-ink-500)',
-              fontSize: 15,
-            }}
-            onMouseEnter={e => { e.currentTarget.style.background = 'var(--color-ink-100)'; e.currentTarget.style.color = 'var(--color-ink-800)' }}
-            onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--color-ink-500)' }}
-          >
-            {isDark ? '☀︎' : '◗'}
-          </button>
-
           {/* ── Auth chip ── small, quiet; only renders when cloud is configured ── */}
           {isCloudEnabled && status === 'signed-in' && (
             <button
@@ -212,8 +195,8 @@ export default function TopNav() {
                   onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
                 >
                   <span className="flex items-center gap-3">
-                    <span style={{ fontSize: 15 }}>{isDark ? '☀︎' : '◗'}</span>
-                    {isDark ? 'Light mode' : 'Dark mode'}
+                    <span style={{ fontSize: 15 }}>{isDark ? '◗' : '☀︎'}</span>
+                    Dark mode
                   </span>
                   <span
                     className="text-[10px] font-semibold uppercase tracking-widest"
