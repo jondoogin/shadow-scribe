@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { uid } from '../../utils/uid.js'
 import { Ico } from '../shared/icons.jsx'
 import SectionLabel from '../shared/SectionLabel.jsx'
@@ -24,13 +24,82 @@ export default function CreateCompanion({ onCreate, onCancel }) {
   const { books, updateBook } = useBooks()
   const [step, setStep] = useState(1)
   const [form, setForm] = useState({
-    title:'', author:'', isbn:'', format: settings.defaultFormat ?? 'print', mood:'gold',
+    title:'', author:'', isbn:'', coverUrl:'',
+    format: settings.defaultFormat ?? 'print', mood:'gold',
     depthLevel: settings.defaultDepthLevel ?? 'resonant',
     spoilerMode: settings.spoilerMode ?? 'relaxed', structureType:'chapter',
     hasSeries:false, seriesName:'', seriesPos:'', seriesTotal:'',
     totalChapters:'',
   })
   const [coverErr, setCoverErr] = useState(false)
+
+  // Google Books search state
+  const [searchQuery,   setSearchQuery]   = useState('')
+  const [searchResults, setSearchResults] = useState([])
+  const [searchLoading, setSearchLoading] = useState(false)
+  const [searchOpen,    setSearchOpen]    = useState(false)
+  const [searchError,   setSearchError]   = useState(null)
+  const searchRef = useRef(null)
+
+  useEffect(() => {
+    const q = searchQuery.trim()
+    if (q.length < 2) { setSearchResults([]); setSearchError(null); setSearchOpen(false); return }
+    let cancelled = false
+    const timer = setTimeout(async () => {
+      setSearchLoading(true)
+      setSearchError(null)
+      try {
+        const res  = await fetch(
+          `https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(q)}&maxResults=6&fields=items(volumeInfo/title,volumeInfo/authors,volumeInfo/industryIdentifiers,volumeInfo/imageLinks,volumeInfo/pageCount)`
+        )
+        if (cancelled) return
+        if (!res.ok) {
+          // 429 is the common one — the shared Google Books quota is exhausted
+          setSearchResults([])
+          setSearchError(res.status === 429
+            ? 'Book search is busy right now. Enter the details below instead.'
+            : 'Book search is unavailable right now. Enter the details below instead.')
+        } else {
+          const data = await res.json()
+          if (cancelled) return
+          setSearchResults(data.items || [])
+        }
+        setSearchOpen(true)
+      } catch {
+        if (cancelled) return
+        setSearchResults([])
+        setSearchError('Book search could not be reached. Enter the details below instead.')
+        setSearchOpen(true)
+      } finally {
+        if (!cancelled) setSearchLoading(false)
+      }
+    }, 350)
+    return () => { cancelled = true; clearTimeout(timer) }
+  }, [searchQuery])
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    const fn = e => { if (!searchRef.current?.contains(e.target)) setSearchOpen(false) }
+    document.addEventListener('mousedown', fn)
+    return () => document.removeEventListener('mousedown', fn)
+  }, [])
+
+  const handleSearchSelect = (item) => {
+    const v    = item.volumeInfo
+    const isbn = v.industryIdentifiers?.find(i => i.type === 'ISBN_13')?.identifier
+               || v.industryIdentifiers?.find(i => i.type === 'ISBN_10')?.identifier
+               || ''
+    const url  = v.imageLinks?.thumbnail?.replace('http://', 'https://') || ''
+    const est  = v.pageCount ? String(Math.max(1, Math.round(v.pageCount / 22))) : ''
+    set('title',    v.title || '')
+    set('author',   (v.authors || []).join(', '))
+    set('isbn',     isbn)
+    set('coverUrl', url)
+    if (est) set('totalChapters', est)
+    setCoverErr(false)
+    setSearchQuery('')
+    setSearchOpen(false)
+  }
 
   // EPUB import state
   const [importing,        setImporting]        = useState(false)
@@ -82,6 +151,7 @@ export default function CreateCompanion({ onCreate, onCancel }) {
       totalChapters: n,
       lastUpdated: new Date().toISOString().split('T')[0],
       coverBg: `linear-gradient(160deg,${MOOD_COLORS[form.mood]}CC 0%,${MOOD_COLORS[form.mood]}66 100%)`,
+      coverUrl: form.coverUrl || undefined,
       mood: form.mood,
       depthLevel: form.depthLevel,
       readingLog: [],
@@ -97,10 +167,11 @@ export default function CreateCompanion({ onCreate, onCancel }) {
     }
     track('companion_created', { format: form.format })
     onCreate(newBook)
-    // Fire cover lookup async — manually created books never have coverData.
-    // updateBook is stable from context; this safely resolves after navigation.
-    fetchCoverUrl(newBook.title, newBook.author, newBook.isbn)
-      .then(url => { if (url) updateBook(newBook.id, { coverUrl: url }) })
+    // Only fire async cover lookup if search didn't already provide one
+    if (!form.coverUrl) {
+      fetchCoverUrl(newBook.title, newBook.author, newBook.isbn)
+        .then(url => { if (url) updateBook(newBook.id, { coverUrl: url }) })
+    }
   }
 
   const formats = [
@@ -114,9 +185,13 @@ export default function CreateCompanion({ onCreate, onCancel }) {
     { k:'full',    l:'Full Spoilers', desc:'Show everything freely' },
   ]
 
-  const coverUrl = form.isbn && !coverErr
-    ? `https://covers.openlibrary.org/b/isbn/${form.isbn}-M.jpg`
-    : null
+  const coverPreviewUrl = form.coverUrl
+    || (form.isbn && !coverErr ? `https://covers.openlibrary.org/b/isbn/${form.isbn}-M.jpg` : null)
+
+  // A search that finds nothing must say so — otherwise the primary path dead-ends silently
+  const searchNoResults = searchOpen && !searchLoading && !searchError
+    && searchResults.length === 0 && searchQuery.trim().length >= 2
+  const showSearchPanel = searchOpen && (searchResults.length > 0 || !!searchError || searchNoResults)
 
   const inputCls = "w-full border border-ink-200 rounded-xl px-3.5 py-2.5 text-sm text-ink-800 placeholder-ink-400 bg-cream-200 transition-all"
 
@@ -167,26 +242,75 @@ export default function CreateCompanion({ onCreate, onCancel }) {
         {/* ── Step 1: Book info + format + mood ── */}
         {step === 1 && (
           <div>
-            <h1 className="font-serif text-2xl font-bold text-ink-900 mb-1">Tell me about your book</h1>
-            <p className="text-sm text-ink-500 mb-5">We'll build your companion from here.</p>
+            <h1 className="font-serif text-2xl font-bold text-ink-900 mb-1">What are you reading?</h1>
+            <p className="text-sm text-ink-500 mb-5">Search to find your book, or enter details below.</p>
 
-            {/* EPUB import affordance */}
-            <div className="mb-7 p-4 rounded-xl border border-dashed border-ink-200 bg-cream-50">
-              <p className="text-[12px] text-ink-500 mb-3 italic">Have an EPUB file? Import it to auto-detect chapters, characters, and themes.</p>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept=".epub"
-                className="hidden"
-                onChange={e => handleEpubFile(e.target.files[0])}
-              />
-              <button
-                onClick={() => fileInputRef.current?.click()}
-                className="flex items-center gap-2 px-4 py-2 rounded-xl border border-ink-200 bg-cream-200 text-[13px] font-medium text-ink-700 hover:border-ink-400 hover:text-ink-900 transition-all">
-                <Ico.Book /> Import from EPUB
-              </button>
-              {importError && (
-                <p className="text-[12px] text-ember mt-2">{importError}</p>
+            {/* ── Google Books search ── */}
+            <div className="mb-6 relative" ref={searchRef}>
+              <div className="relative">
+                <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-ink-400 pointer-events-none">
+                  <Ico.Search />
+                </span>
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={e => setSearchQuery(e.target.value)}
+                  onFocus={() => (searchResults.length > 0 || searchError) && setSearchOpen(true)}
+                  placeholder="Search by title or author…"
+                  className={inputCls}
+                  style={{ paddingLeft: '2.25rem' }}
+                />
+                {searchLoading && (
+                  <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[10px] italic text-ink-400">
+                    searching…
+                  </span>
+                )}
+              </div>
+
+              {/* Results dropdown */}
+              {showSearchPanel && (
+                <div
+                  className="absolute left-0 right-0 top-full mt-1 rounded-xl overflow-hidden z-20"
+                  style={{
+                    background: 'var(--color-card-base)',
+                    border: '1px solid var(--color-ink-200)',
+                    boxShadow: 'var(--shadow-menu)',
+                  }}
+                >
+                  {searchNoResults && (
+                    <p className="px-3.5 py-3 text-[12px] italic text-ink-500">
+                      Nothing found by that name. Enter the details below instead.
+                    </p>
+                  )}
+                  {searchError && (
+                    <p className="px-3.5 py-3 text-[12px] italic text-ink-500">
+                      {searchError}
+                    </p>
+                  )}
+                  {searchResults.map((item, i) => {
+                    const v      = item.volumeInfo
+                    const thumb  = v.imageLinks?.thumbnail?.replace('http://', 'https://')
+                    const author = (v.authors || []).join(', ')
+                    return (
+                      <button
+                        key={i}
+                        onMouseDown={e => { e.preventDefault(); handleSearchSelect(item) }}
+                        className="w-full flex items-center gap-3 px-3 py-2.5 text-left transition-colors hover:bg-cream-200"
+                        style={{ borderBottom: i < searchResults.length - 1 ? '1px solid var(--color-ink-100)' : 'none' }}
+                      >
+                        {thumb ? (
+                          <img src={thumb} alt="" className="w-8 h-12 object-cover rounded flex-shrink-0" />
+                        ) : (
+                          <div className="w-8 h-12 rounded bg-ink-100 flex-shrink-0" />
+                        )}
+                        <div className="min-w-0">
+                          <p className="text-[13px] font-medium text-ink-800 truncate">{v.title}</p>
+                          {author && <p className="text-[11px] text-ink-400 truncate italic">{author}</p>}
+                        </div>
+                      </button>
+                    )
+                  })}
+                </div>
               )}
             </div>
 
@@ -194,8 +318,8 @@ export default function CreateCompanion({ onCreate, onCancel }) {
 
             <div className="flex gap-5 mb-7">
               <div className="flex-shrink-0">
-                {coverUrl ? (
-                  <img src={coverUrl} onError={() => setCoverErr(true)} alt="Cover"
+                {coverPreviewUrl ? (
+                  <img src={coverPreviewUrl} onError={() => setCoverErr(true)} alt="Cover"
                     className="w-[72px] h-[108px] rounded-xl object-cover"
                     style={{ boxShadow:'var(--shadow-panel)' }} />
                 ) : (
@@ -203,7 +327,7 @@ export default function CreateCompanion({ onCreate, onCancel }) {
                     <Ico.Book />
                   </div>
                 )}
-                {form.isbn && !coverErr && <p className="text-[10px] text-ink-400 text-center mt-1.5">Preview</p>}
+                {coverPreviewUrl && <p className="text-[10px] text-ink-400 text-center mt-1.5">Preview</p>}
               </div>
 
               <div className="flex-1 space-y-3.5">
@@ -324,6 +448,31 @@ export default function CreateCompanion({ onCreate, onCancel }) {
               }`}>
               Continue →
             </button>
+
+            {/* EPUB import — tertiary path for those who have the file */}
+            <div className="mt-5 pt-5" style={{ borderTop: '1px solid var(--color-ink-100)' }}>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".epub"
+                className="hidden"
+                onChange={e => handleEpubFile(e.target.files[0])}
+              />
+              <p className="text-[11px] italic text-center" style={{ color: 'var(--color-ink-400)' }}>
+                Have an EPUB?{' '}
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  className="underline hover:opacity-70 transition-opacity"
+                  style={{ color: 'var(--color-ink-500)' }}
+                >
+                  Import it
+                </button>
+                {' '}to auto-detect chapters and extract the full structure.
+              </p>
+              {importError && (
+                <p className="text-[12px] text-ember mt-2 text-center">{importError}</p>
+              )}
+            </div>
           </div>
         )}
 

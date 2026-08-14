@@ -1,9 +1,11 @@
 # Lantern — Handoff Document
-**Last updated:** 2026-05-31 · Session 158 (Mobile audit + Plot discoverability + Library card redesign)
+**Last updated:** 2026-08-12 · Session 162 (Dock audit + rebuild)
 **Stack:** React 19 · Vite 8 · Tailwind CSS v4 · React Router v7 · localStorage + Supabase (optional cloud sync) · Vercel Serverless Functions (`/api/companion` — live)
 **localStorage keys (FROZEN):** `shadowscribe_books` · `shadowscribe_settings` · `lantern_welcomed` — must NEVER be renamed
 **Build command:** `node node_modules/vite/bin/vite.js build`
-**Status: V2 COMPANION-FIRST REDESIGN — Complete. Four design sessions complete: Typography (S145), LibraryCompanion atmosphere (S147), Tab architecture (S148), Plot summaries + CompletionBand + Focus rings (S149–S151). S152: Finished-book experience pass + About page accuracy. S153: Threads + Themes for finished books. S154: About page visual improvements + RelationshipMap redesign. S155: Completion moment + PlotTab parse fix. S156: Finished-book library card. S157: Depth Level UX + Dark mode audit + Empty states pass. S158: Mobile audit + Plot discoverability + Library card redesign.**
+**Status: V2 COMPANION-FIRST REDESIGN — Complete. Four design sessions complete: Typography (S145), LibraryCompanion atmosphere (S147), Tab architecture (S148), Plot summaries + CompletionBand + Focus rings (S149–S151). S152: Finished-book experience pass + About page accuracy. S153: Threads + Themes for finished books. S154: About page visual improvements + RelationshipMap redesign. S155: Completion moment + PlotTab parse fix. S156: Finished-book library card. S157: Depth Level UX + Dark mode audit + Empty states pass. S158: Mobile audit + Plot discoverability + Library card redesign. S159: Return experience + Dark mode fixes + Voice calibration + Cross-book search + Library colophon + Landing page audit. S160: Google Books search-to-populate + Mobile bottom nav + Onboarding update. S161: Search failure states + Plot summary discoverability. S162: Dock (mobile bottom nav) audit + rebuild.**
+
+> ⚠️ **Session numbering has diverged from git.** This doc's S159–S161 (return experience, Google Books search, mobile dock, search failure states) are **uncommitted working-tree changes**. Meanwhile `git log` contains a *separate* `s160`–`s162` track — Google OAuth + email/password auth, an account page, subscription skeleton, three sign-up nudges, and PWA theme-color sync — none of which is described anywhere in this document. Two session tracks were run against the same repo with colliding numbers. **Before the next session: reconcile these**, decide which numbering is canonical, and document the auth/account work. Nothing here is broken by it, but the doc is currently an incomplete picture of the app.
 
 ---
 
@@ -12,6 +14,13 @@
 - **Product:** Companion-first reading environment running on Vellum design system (Libre Baskerville, warm amber/ember palette). CompanionBand is the primary interface surface. Cloud sync via Supabase magic-link is live and opt-in. Depth Level (Quiet/Resonant/Saturated) is per-book and wired to behavior.
 - **Infrastructure:** Vercel serverless `/api/companion` proxy handles all AI calls without requiring a user API key. Field-level merge handles multi-device sync conflicts per array item, not last-write-wins whole-book. Tombstone deletion is now live — deleted notes/mysteries leave `{ deleted: true, updatedAt }` tombstones that propagate correctly across devices on sync.
 - **Deletion semantics (resolved):** `deleteNote` and `deleteMystery` stamp tombstones; `liveItems()` in `utils/live.js` filters them for all display and computation. The stored arrays keep tombstones for sync correctness.
+- **Search (S159):** Cross-book search now finds notes, mysteries, character names, and chapter summaries/titles (in addition to title/author). Minimum 3 characters to trigger content search. Placeholder updated to "Search titles, authors, or notes…"
+- **Library colophon (S159):** Quiet archival summary at the bottom of the grouped library view — "N books closed · N notes in the margins · N days of reading". Only shows when there are finished books. 11px serif italic, very receded.
+- **Return experience (S159):** BookCard now shows "away N days" / "away N weeks" below the progress bar for reading books idle 5+ days. CompanionHeader reading-gap archaeology container bumped from 5% to 8% amber, border 22% → 28%, gap label 11px ink-400 → 12px ink-500.
+- **Dark mode (S159):** Library.jsx banners and reading-now-zone were using `var(--color-cream)` (not remapped in dark mode) as the color-mix base. Fixed to `var(--color-bg)` everywhere. This fixed the banners (WelcomeBanner, SnapshotReminder, PostSnapshotNudge, SignUpNudge) showing too-light backgrounds in dark mode.
+- **Voice calibration (S159):** AboutPage hero companion aside removed "I" language. Old: "I've kept them where you put them." → New: "Still here. Where you left them." Exhibit note tag "reaction" (removed from product) cleaned up to "Note · ch. 9".
+- **Book addition — Google Books search (S160):** CreateCompanion step 1 redesigned: search field is now primary ("What are you reading?"), manual entry is secondary, EPUB import is tertiary (small italic link at the bottom). Searching queries `googleapis.com/books/v1/volumes` — no API key needed. Selecting a result auto-populates title, author, ISBN, cover URL, and an estimated chapter count (`pageCount ÷ 22`). `form.coverUrl` is stored on the new book; async `fetchCoverUrl` is skipped if search already provided a cover.
+- **The dock (S160, rebuilt S162):** `src/components/layout/BottomNav.jsx` — 3-item nav fixed to bottom on `sm:hidden`, hidden on `/book/*` and `/new` (those surfaces have their own navigation). Left = library, right = settings, centre = the reading in progress, named by title and linking to `/book/:id`, falling back to `add a book → /new` when nothing is open. Every icon sits in a fixed 18×18 box; active state is amber + a top rule + `aria-current`. Page clearance comes from `.dock-clear` on the route wrapper in App.jsx, which includes `env(safe-area-inset-bottom)`. See DESIGN_SYSTEM.md → "The Dock" for the full contract.
 
 ---
 
@@ -24,6 +33,120 @@ The companion is the star. Book data — characters, questions, themes, plot not
 ---
 
 ## RECENT SESSIONS
+
+### Session 162 — 2026-08-12 — Dock audit + rebuild
+
+The mobile bottom nav (the "dock") was audited and rebuilt. Every finding below was measured in the live DOM, before and after.
+
+**The alignment bug (confirmed, root-caused, fixed).** The `✦` in the centre slot was a bare text node inside the shared `Item` wrapper span. That span carried no font-size of its own, so it inherited the body's `16px × 1.65` line-height and computed to **26.4px tall** against its SVG neighbours' **16px** — pushing the "reading" label **5.2px below** "library" and "settings" (measured `labelTop` 789.2 vs 784.0). Fix: every icon now sits in a fixed **18×18 flex-centred box** regardless of content. Measured after: `iconTop` 768.5 / `iconH` 18 / `labelTop` 792.5, identical across all three slots.
+
+**Safe-area clearance (pre-existing bug, fixed).** The route wrapper used a flat `pb-16` (64px) against a 56px dock — 8px of slack, and **zero** allowance for the `env(safe-area-inset-bottom)` the dock itself absorbs. On a notched iPhone the dock renders ~90px tall while the padding stays 64px, putting the bottom ~34px of every page behind it. Desktop-only testing could never surface this. Replaced with `.dock-clear` in `index.css`: `calc(4.25rem + env(safe-area-inset-bottom))`, reset to `0` at `sm`.
+
+**The centre slot was a no-op.** With no book in progress it navigated to `/library` — from the library, which is where it was most often tapped. It now offers `add a book →/new`. With a book open it names the book (`✦` + title, serif italic) instead of the generic word "reading", and goes to `/book/:id`. Subtitles are dropped before truncation at 18 chars ("Project Hail Mary: A Novel" → "Project Hail Mary"); articles are kept, since this labels what you're reading rather than sorting a shelf.
+
+**Other findings fixed:** labels were 9px, below the S145 micro-label floor of 10px. Active state was colour-only — now colour + a 26×1.5px amber rule at the item's top edge (the tab bar's active underline, inverted for a bottom-anchored surface) + `aria-current="page"`. No `aria-label` on the nav or its buttons; added. Flat opaque background replaced with `color-mix(--color-bg 92%)` + `blur(10px) saturate(1.04)` and a soft upward shadow, so content dissolves under the dock instead of hitting a hard cut.
+
+**Not changed, flagged instead:** the dock stays hidden on `/book/*`. Tapping the centre slot therefore makes the dock disappear, which is a slightly odd beat. Restoring it there is a navigation-architecture decision (S160 hid it deliberately; the book page's own tab bar is sticky-*top*, so there's no actual collision at the bottom) — worth a decision next session, not a drive-by change.
+
+**Verified:** all three slots measured aligned in dark **and** light at 375px, no horizontal overflow, active state tracks the route correctly across `/library` and `/settings`, and the empty-centre (`add a book`) branch was rendered and measured by temporarily forcing the branch in source — identical geometry, `aria-label` correct. Build: `node node_modules/vite/bin/vite.js build` → clean ✓. No React errors in console; the 429s present are the known Google Books quota issue (Known Limitations #0), not from this change.
+
+**Gotcha worth remembering:** when the Browser pane is hidden, CSS transitions **freeze mid-flight**, so `getComputedStyle` on any element carrying `transition-colors` returns the *pre-change* value indefinitely. This produced a convincing false positive — the dock's inactive colour read as the dark-mode `#706860` while `--color-ink-400` demonstrably resolved to the light `#8a8680` on the same element. A throwaway probe element (no transition) settled it. If a computed colour contradicts its own custom property, suspect a frozen transition before suspecting the token.
+
+---
+
+### Session 161 — 2026-08-03 — Search failure states + Plot summary discoverability + nested-button fix
+
+**Verification pass on S159/S160 (all clean):** BottomNav dark mode correct (`--color-cream` IS remapped in `html.dark` at index.css:896 — not the S159 Library.jsx bug class). BottomNav correctly hidden on `/new` and `/book/*`. Cross-book search confirmed finding note-only text. LibraryColophon renders ("2 books closed · 38 notes in the margins") and gracefully omits the days segment when finished books lack `firstOpenedAt`/`completedAt`.
+
+**What shipped:**
+
+**Google Books search failure states (`src/components/library/CreateCompanion.jsx`):**
+- The search dropdown previously rendered only on `searchOpen && searchResults.length > 0`. Any failure — no matches, network error, or a 429 — showed "searching…" then *nothing*. Silent dead end on the primary book-adding path (S160 promoted search to primary).
+- Added `searchError` state. Non-ok responses are now detected via `res.ok` (previously a 429's JSON error body was silently treated as zero results).
+- Three states now render in the dropdown panel: results, "Nothing found by that name. Enter the details below instead.", and an error line. 429 gets its own copy ("Book search is busy right now…").
+- Added a `cancelled` guard in the debounce effect so a slow in-flight response can't overwrite fresher results.
+- `onFocus` reopens the panel when there's an error to re-show, not just results.
+
+**Plot summary discoverability (`src/tabs/PlotTab.jsx`):**
+- Expanding a chapter with no summary showed a bare, dead `No summary yet.` The S158 banner ("The companion can fill in N chapter summaries · gather them →") sits at the top of the list — on a 20–40 chapter book it is scrolled far out of reach, so the expanded chapter was a true dead end.
+- The expanded no-summary state now carries the affordance inline: "Nothing gathered here yet." + `gather them →`, plus a `gathering…` state and inline `genError` display. Because `openNum` holds a single chapter, this appears at most once — it never repeats down the list.
+- Hoisted `aiEnabled(book, settings)` to a single `aiOn` const.
+- Removed a dead branch: `aiEnabled()` is exactly `depth !== 'quiet'`, so the old `!aiOn && depth !== 'quiet'` fallback was unreachable.
+- Quiet depth still renders pure silence in the expanded panel — verified. Invariant preserved.
+
+**Verified:** search error state against the live 429; no-results and happy-path via stubbed responses (selection still populates title/author/ISBN and clears the query). Plot affordance verified in dark + light at desktop and 375px. Demo localStorage data was temporarily modified for testing and fully restored.
+
+**Nested `<button>` fix (`src/tabs/PlotTab.jsx`) — pre-existing bug, fixed this session:**
+- The chapter row's expand `<button>` contained the star `<button>`. Invalid HTML; React logged "cannot be a descendant of" hydration errors on every Plot render.
+- Restructured: the row is now a `<div>` holding the expand `<button>` (`flex-1 min-w-0 text-left flex items-center gap-3`, wrapping the number circle + title/summary) as a **sibling** of the actions group (note count, star, chevron).
+- Chevron became its own `<button>` so it stays clickable and keeps its position *after* the star — but carries `tabIndex={-1}` + `aria-hidden="true"` so it doesn't duplicate the expand button in the tab order or the a11y tree.
+- Expand button gained `aria-expanded`.
+- Dropped `e.stopPropagation()` from the star handler — meaningless once un-nested. Verified the star no longer toggles expansion.
+
+**S101 hierarchy preserved — verified numerically, not by eye.** Captured computed geometry before and after; every value is identical: row heights 82/75/62 px (isJustRead / isRecent / older), number 12px·500 vs 10px·400, title 16/14/12px with weights 500/500/400, title font Libre Baskerville vs Inter, summary 12/11px, and `titleX` = 101px on every row. Confirmed in dark + light at desktop and 375px (no horizontal overflow), and that expand / chevron / star each work independently.
+
+**Build:** `node node_modules/vite/bin/vite.js build` → clean ✓ | 139 modules | fresh-tab console: zero errors
+
+**Gotcha worth remembering:** the browser tool's console buffer is cumulative and does **not** clear on reload — stale nested-button errors kept appearing after the fix. A transient mid-edit oxc parse error also produced a `[vite] Failed to reload` that made the page silently run the *old* module, so an early "identical geometry" reading was measuring stale code. Open a **fresh tab** for a trustworthy console read, and confirm the new DOM is actually live before trusting any measurement.
+
+---
+
+### Session 160 — 2026-05-31 — Google Books search + Mobile bottom nav + Onboarding + Housekeeping
+
+**What shipped:**
+
+**Book addition — search-first (`src/components/library/CreateCompanion.jsx`):**
+- Step 1 heading: "Tell me about your book" → "What are you reading?"
+- Google Books search input added as the primary path. Queries `googleapis.com/books/v1/volumes` (no API key needed). 350ms debounce. Results dropdown shows thumbnail, title, author.
+- Selecting a result auto-populates: title, author, ISBN, `form.coverUrl` (stored on the book), and estimated chapter count (`pageCount ÷ 22`). Fills in below the search, user can still edit.
+- EPUB import demoted from a dashed-border affordance to a quiet italic link at the bottom: "Have an EPUB? Import it…"
+- `handleCreate`: if `form.coverUrl` is set from search, skips the async `fetchCoverUrl` lookup.
+
+**Mobile bottom nav (`src/components/layout/BottomNav.jsx` — new):**
+- 3-item fixed nav: Library (books icon) / Reading ✦ / Settings (gear icon).
+- `sm:hidden` — only visible on mobile viewports.
+- Hidden on `/book/*` and `/new` routes (those have their own tab-level navigation).
+- Reading ✦: navigates to most recently updated `status === 'reading'` book; falls back to `/library` if none exist. ✦ shows amber when activeBook exists, dim when not.
+- `src/App.jsx`: BottomNav imported and rendered inside AppShell. `pb-16 sm:pb-0` added to the view-enter route wrapper to clear the nav.
+
+**WelcomeBanner copy (`src/components/library/Library.jsx`):**
+- `hasKey` path: "import an EPUB or add a book manually" → "search for your book by title or author… no EPUB required."
+
+**Handoff doc housekeeping:**
+- Component tree updated to Session 160 with correct tab names (Threads / Chronicle, not Questions / Timeline).
+- Known Limitations: removed three stale entries (tombstone deletion — shipped S133; calcStreak timezone — already fixed via `localDateKey()`; Open Library 1px placeholder — already handled in BookCover.jsx `handleLoad`).
+- Queue: cleared S159 items, added fresh priorities.
+
+**Build:** HMR clean ✓ | no errors
+
+---
+
+### Session 159 — 2026-05-31 — Return experience + Dark mode + Voice calibration + Cross-book search + Reading stats + Landing page audit
+
+**What shipped:**
+
+**Return experience polish:**
+- `src/components/library/BookCard.jsx` — Added "away N days" / "away N weeks" line below progress bar for `status === 'reading'` books with `daysSince >= 5`. 10px italic serif ink-300, 75% opacity. Surfaces the reading gap at library card level so readers see it before entering the book.
+- `src/components/dashboard/CompanionHeader.jsx` — Reading gap archaeology container: background 5% → 8% amber, border 22% → 28% amber, gap label 11px ink-400 → 12px ink-500. More atmospheric weight on the re-entry moment.
+
+**Dark mode fixes (Library.jsx):**
+- All four banner components (WelcomeBanner, SnapshotReminder, PostSnapshotNudge, SignUpNudge) used `var(--color-cream)` as the color-mix base color. `--color-cream` is defined in `@theme` and never remapped in `html.dark`, so dark mode banners showed a light background. Fixed to `var(--color-bg)` (dark-mode-aware) throughout. 5 occurrences replaced via `replace_all`.
+- Reading-now-zone inline style had the same `var(--color-cream)` issue, overriding the CSS dark mode rule. Fixed to `var(--color-bg)`.
+
+**Companion voice calibration:**
+- `src/pages/AboutPage.jsx` — Hero companion aside: "I've kept them where you put them." → "Still here. Where you left them." Removes "I" language that violates the architectural invariant (companion never uses first person).
+- `src/pages/AboutPage.jsx` — Exhibit note tag: "Note · ch. 9 · reaction" → "Note · ch. 9". "reaction" was a tag type removed from the product; stale reference cleaned up.
+
+**Cross-book search (`src/components/library/Library.jsx`):**
+- `matches()` function extended: now searches `book.notes[].text`, `book.mysteries[].text`, character names (`book.characters.main/secondary[].name`), and chapter titles/summaries — but only when `q.length >= 3` to avoid expensive searches on single characters.
+- Search placeholder: "Search titles or authors…" → "Search titles, authors, or notes…"
+
+**Library colophon (`src/components/library/Library.jsx`):**
+- New `LibraryColophon` component added. Shows at bottom of grouped library view when `finished.length > 0`. Computes: books closed, total live notes across all books, total reading days across finished books (sum of firstOpenedAt → completedAt spans). Renders as a single quiet line: "✦ N books closed · N notes in the margins · N days of reading". 11px serif italic, opacity 0.40. Archival, not dashboard.
+
+**Build:** HMR clean ✓ | no errors
+
+---
 
 ### Session 158 — 2026-05-31 — Mobile audit + Plot discoverability + Library card redesign
 
@@ -567,7 +690,7 @@ Major items across this block:
 
 **Routes:** `/library`, `/new`, `/book/:bookId`, `/settings`, `/about`
 
-### Component Tree (Session 132 — actual current state)
+### Component Tree (Session 160 — actual current state)
 
 ```
 BrowserRouter
@@ -578,25 +701,29 @@ BrowserRouter
                 ├── AmbientLayer  (two slow-drifting radial gradient blobs, 55s/48s)
                 ├── AtmosphericGlow  (mouse-following radial gradient, rAF lerp 0.012)
                 ├── StorageBanner  (quota exceeded / data corrupted alerts)
-                ├── TopNav  (fixed z-30; auth chip, dark mode toggle, hamburger)
-                └── Routes
-                    ├── /library       → LibraryPage → Library
-                    │                       ├── LibraryCompanion (cross-book ambient obs)
-                    │                       └── FirstBookInvitation (new user modal)
-                    ├── /new           → NewCompanionPage → CreateCompanion → EpubImportReview
-                    ├── /book/:bookId  → BookPage [BookErrorBoundary]
-                    │                     → BookDashboard
-                    │                         ├── CompanionHeader
-                    │                         ├── CompanionBand  [full-width, above tabs]
-                    │                         │     ├── Chapter context + progress bar
-                    │                         │     ├── Ambient reflection carousel
-                    │                         │     ├── Context cards (questions, character pills)
-                    │                         │     └── Conversation (persisted to book.companionChat[])
-                    │                         ├── [TAB BAR — 6 tabs]
-                    │                         │     Notes · Characters · Plot · Questions · Themes · Timeline
-                    │                         └── ChapterUpdateModal
-                    ├── /settings      → SettingsPage [SignInPanel at top — cloud sync]
-                    └── /about         → AboutPage
+                ├── TopNav  (fixed z-50; auth chip, dark mode toggle, hamburger)
+                ├── Routes  [pb-16 sm:pb-0 — clearance for mobile bottom nav]
+                │   ├── /library       → LibraryPage → Library
+                │   │                       ├── LibraryCompanion (cross-book ambient obs)
+                │   │                       └── FirstBookInvitation (new user modal)
+                │   ├── /new           → NewCompanionPage → CreateCompanion → EpubImportReview
+                │   │                       CreateCompanion step 1: search-first (Google Books),
+                │   │                       manual entry secondary, EPUB import tertiary
+                │   ├── /book/:bookId  → BookPage [BookErrorBoundary]
+                │   │                     → BookDashboard
+                │   │                         ├── CompanionHeader
+                │   │                         ├── CompanionBand  [full-width, above tabs]
+                │   │                         │     ├── Chapter context + progress bar
+                │   │                         │     ├── Ambient reflection carousel
+                │   │                         │     ├── Context cards (questions, character pills)
+                │   │                         │     └── Conversation (persisted to book.companionChat[])
+                │   │                         ├── [TAB BAR — 6 tabs]
+                │   │                         │     Notes · Characters · Plot · Threads · Themes · Chronicle
+                │   │                         └── ChapterUpdateModal
+                │   ├── /settings      → SettingsPage [SignInPanel at top — cloud sync]
+                │   └── /about         → AboutPage
+                └── BottomNav  ("the dock" — sm:hidden; Library / ✦ book-in-progress / Settings;
+                                 centre falls back to "add a book" → /new; hidden on /book/* and /new)
 ```
 
 **Layout:** Single column. CompanionHeader → CompanionBand → TabBar → TabContent. All sections max-width 1000px.
@@ -847,30 +974,36 @@ These systems are easy to accidentally flatten. Each has been calibrated careful
 
 ## 5 — KNOWN LIMITATIONS / ACTIVE BUGS
 
-**Deletion semantics (sync):** Union merge means deleting an item on device A, then syncing from device B, revives it. Fix: tombstone flags (`{ deleted: true, updatedAt }`) across notes, mysteries, and other id-keyed arrays. Planned but not yet built.
+**Google Books 429 — quota is shared, NOT per-IP (corrected S161):** The cover lookup system fires one API call per book on library mount (up to 5), and CreateCompanion search fires per keystroke burst. When exhausted, the API returns 429 with:
 
-**`calcStreak` timezone:** Uses `new Date()` without timezone awareness. Midnight readings across timezone boundaries may produce incorrect streak counts.
+> Quota exceeded for quota metric 'Queries' and limit 'Queries **per day**' of service 'books.googleapis.com' for consumer 'project_number:624717413613'
 
-**Open Library cover edge cases:** Some books have `isbn: null` to avoid wrong covers. Open Library sometimes returns a 1px placeholder (200 OK) that `onError` fallback doesn't catch.
+That consumer is Google's **shared anonymous project**, not the user's IP — so this is reachable in production, contrary to the earlier note here. As of S161 the search **fails gracefully** (explicit "Book search is busy right now. Enter the details below instead." with manual entry directly below), so it degrades rather than dead-ends. The underlying quota still deserves a real fix: register an API key with its own quota, or proxy the lookup through `/api/` so it uses a project we control.
+
+*(The PlotTab nested-`<button>` bug listed here previously was fixed in S161 — see the session entry.)*
+
+**Series position in Library colophon:** The `LibraryColophon` counts all finished books globally but doesn't distinguish re-reads. If a user finishes the same book twice (different `rereadCount`), it counts as 2 "books closed". Acceptable for now.
 
 ---
 
 ## 6 — NEXT WORK QUEUE
 
 **Priority order for next session:**
-1. **Return experience polish** — Reading gap archaeology is implemented in CompanionHeader (pull-quote from last note, literary gap label, warm amber container) but can be easy to miss. The re-entry moment when a reader returns after days away deserves more prominence and atmospheric weight.
-2. **Dark mode thorough audit** — CompletionBand and any newer surfaces may have hardcoded rgba values that go invisible in dark mode. Pattern: replace `rgba(184,134,11,...)` → `color-mix(in srgb, var(--ca) N%, transparent)`, `rgba(28,20,16,...)` separator borders → `var(--color-separator-soft)`.
-3. **Companion voice calibration pass** — As more surfaces have been added (depth picker, empty state copy, chapter update flow), the companion voice register may have drifted. Worth an audit against the CALIBRATION_LOG.md principles.
+
+-1. **Reconcile the two session tracks (new, S162).** See the warning at the top of this document. The git history contains an entire auth / account / subscription / sign-up-nudge track that this doc never describes, under session numbers that collide with the ones used here. Pick a canonical numbering and write up the auth work before anything else — every future session is reading an incomplete map until this is done.
+
+0a. **Decide whether the dock should persist on `/book/*` (new, S162).** It's currently hidden there, so tapping the dock's centre slot makes the dock vanish. The book page's tab bar is sticky-*top*, so there is no layout collision — this is purely a question of whether navigation should be constant. A decision, not a bug.
+
+0. **Google Books quota (raised to top by S161)** — The 429 is production-reachable, not dev-only (see Known Limitations). Search now degrades gracefully, but the primary book-adding path silently loses its best affordance whenever the shared anonymous quota is exhausted. Register an API key with its own quota, or proxy through `/api/`.
+1. **ISBN barcode scan** — Physical book readers can point their phone camera at the back of a book. `BarcodeDetector` Web API has broad support (Chrome/Edge/Android, Safari iOS 17+). Would overlay a camera view, scan the barcode, extract ISBN, then auto-populate via the same Google Books flow. Layered on top of the existing search — not a replacement.
+2. **Onboarding atmospheric pass** — The WelcomeBanner is functionally correct but text-heavy. Could be more atmospheric, shorter, and should better reflect the new search-first book-adding flow. Consider a brief first-use tour or an illustrated first-empty-state.
+3. **Goodreads CSV import** — Users can export their Goodreads reading history as CSV. Batch-create companions from the file. Map Goodreads shelves to Lantern statuses (`read` → `finished`, `currently-reading` → `reading`, `to-read` → `want`). Power-user path, not default.
+4. **Rate limiting for companion proxy** — `/api/companion` has no per-IP limiting. Important before scale. Simple fix: Vercel KV or upstash rate limiter at 20 req/min per IP.
 
 **Deliberately not building yet:**
-- Mobile bottom nav Companion tab (routing without book context is unresolved — decide routing first)
-- Rate limiting for companion proxy (important before scale, not for current alpha)
 - Any new AI call sites until existing 7+ paths are calibrated against real reader response
-
-**Deliberately not building yet:**
-- Mobile bottom nav Companion tab (routing without book context is unresolved — decide routing first)
-- Rate limiting for companion proxy (important before scale, not for current alpha)
-- Any new AI call sites until existing 7+ paths are calibrated against real reader response
+- Social/sharing features (violates architectural invariant)
+- Push notifications (would require service worker — worth doing but not urgent)
 
 ---
 

@@ -221,6 +221,13 @@ export default function BookCard({ book, onClick, hero = false, primary = false,
 
                 {/* Progress bar — weight varies by inhabited depth and temporal state */}
                 <ProgressBar value={pct} height={progressHeight} accentVar />
+
+                {/* Return pull — surfaces the gap at library level for away 5+ days */}
+                {book.status === 'reading' && daysSince >= 5 && (
+                  <p className="font-serif italic" style={{ fontSize: 10, color: 'var(--color-ink-300)', marginTop: 4, opacity: 0.75 }}>
+                    away {daysSince >= 14 ? `${Math.round(daysSince / 7)} week${Math.round(daysSince / 7) !== 1 ? 's' : ''}` : `${daysSince} days`}
+                  </p>
+                )}
               </>
             )}
           </div>

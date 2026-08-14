@@ -373,12 +373,28 @@ Serif is used for headings, companion observations, and literary emphasis. Sans-
 
 ---
 
+## The Dock (mobile bottom nav)
+
+`src/components/layout/BottomNav.jsx` — `sm:hidden`, fixed, `z-40`, min-height 56px. Hidden on `/book/*` and `/new`, which carry their own navigation.
+
+**Geometry contract.** Every icon sits in a fixed **18×18 flex-centred box**, whatever it contains — an SVG, a text glyph, anything. This is not cosmetic: an unboxed `✦` text node inherits the body line-height (16px × 1.65 = 26.4px), grows ~10px taller than its SVG neighbours, and pushes its label 5px out of line with the rest of the row. Icon tops and label tops must measure identical across all three slots.
+
+**Type.** Labels are 10px — the S145 micro-label floor. Sans, `letter-spacing: 0.04em`, lowercase. The exception is the centre slot when it names a book: serif italic, letter-spacing 0, matching how titles are set everywhere else in the app.
+
+**Active state.** Amber text + full icon opacity + a 26×1.5px amber rule at the **top** edge of the item — the tab bar's active underline, inverted for a surface anchored to the bottom of the screen. Never colour alone. `aria-current="page"` accompanies it.
+
+**Surface.** `color-mix(in srgb, var(--color-bg) 92%, transparent)` + `blur(10px) saturate(1.04)`, soft upward shadow. Content dissolves under the dock rather than hitting a hard cut. Use `--color-bg`, never `--color-cream`, as the color-mix base.
+
+**The centre slot is not a static destination.** It names the reading in progress (book title → `/book/:id`), or offers `add a book` → `/new` when nothing is open. It must never resolve to a no-op — the earlier version navigated to `/library` when no book was being read, i.e. to the page it was most often tapped from.
+
+---
+
 ## Spacing
 
 - Standard inner padding: `p-4` (16px)
 - Form inputs: `px-3.5 py-2.5`
 - Section gaps: `space-y-2` to `space-y-8` depending on visual weight
-- Bottom page padding: `pb-16` (prevents mobile content obscured at viewport bottom)
+- Bottom page padding: `.dock-clear` on the route wrapper — `calc(4.25rem + env(safe-area-inset-bottom))` below `sm`, `0` above. Clears the mobile dock (BottomNav) *and* the home-indicator inset the dock absorbs. The old flat `pb-16` cleared the 56px dock by 8px and ignored the inset entirely, so on notched iPhones the last ~34px of every page sat behind the dock.
 
 ---
 

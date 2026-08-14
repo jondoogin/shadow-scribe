@@ -1,4 +1,16 @@
 {
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "LINES=$(wc -l < /Users/johnduggan/Projects/lantern/docs/CHATGPT_HANDOFF.md 2>/dev/null || echo 0); if [ \"$LINES\" -gt 550 ]; then echo \"\"; echo \"⚠️  HANDOFF: ${LINES} lines — trim before next session (limit: 600)\"; echo \"\"; elif [ \"$LINES\" -gt 0 ]; then echo \"\"; echo \"✓  Handoff: ${LINES}/600 lines\"; echo \"\"; fi"
+          }
+        ]
+      }
+    ]
+  },
   "permissions": {
     "allow": [
       "Read",

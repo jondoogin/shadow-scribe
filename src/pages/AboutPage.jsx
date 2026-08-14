@@ -291,7 +291,7 @@ function Exhibit() {
           <div style={{ width: 2, flexShrink: 0, alignSelf: 'stretch', background: 'var(--color-separator)', borderRadius: 1 }} />
           <div>
             <p style={{ fontFamily: 'var(--font-sans)', fontSize: 9, fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--color-text-dim)', opacity: 0.5, marginBottom: 4 }}>
-              Note · ch. 9 · reaction
+              Note · ch. 9
             </p>
             <p style={{ fontFamily: 'var(--font-serif)', fontStyle: 'italic', fontSize: 12, lineHeight: 1.55, color: 'var(--color-text-secondary)', margin: 0 }}>
               "The first time Rocky says 'friend' — I had to put the book down."
@@ -746,7 +746,7 @@ export default function AboutPage() {
               <div className="lp-hero-aside">
                 <div className="lp-hero-aside-label">Companion · still here</div>
                 <p>
-                  You left off on chapter nineteen. The questions you've been carrying — they're not getting smaller. I've kept them where you put them.
+                  You left off on chapter nineteen. The questions you've been carrying — they're not getting smaller. Still here. Where you left them.
                 </p>
               </div>
             </div>

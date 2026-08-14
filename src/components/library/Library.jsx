@@ -28,7 +28,7 @@ function WelcomeBanner({ hasKey, onDismiss }) {
       <div
         className="p-6 rounded-2xl"
         style={{
-          background: 'color-mix(in srgb, var(--color-gold-bg, #FDF8EC) 45%, var(--color-cream, #FAF6EE))',
+          background: 'color-mix(in srgb, var(--color-gold-bg, #FDF8EC) 45%, var(--color-bg))',
           border: '1px solid color-mix(in srgb, var(--ca) 14%, transparent)',
         }}
       >
@@ -55,11 +55,11 @@ function WelcomeBanner({ hasKey, onDismiss }) {
           </p>
         ) : (
           <p className="text-[12px] leading-relaxed mb-5 italic" style={{ color: 'var(--color-ink-400)', lineHeight: 1.7 }}>
-            The example books below show what an annotated reading looks like. To begin your own, import an EPUB or add a book manually with the{' '}
+            The example books below show what an annotated reading looks like. To begin your own, search for your book by title or author with the{' '}
             <Link to="/new" onClick={onDismiss} className="underline hover:opacity-80 transition-opacity" style={{ color: 'var(--color-ink-500)' }}>
               Add a book
             </Link>
-            {' '}button above.
+            {' '}button above — no EPUB required.
           </p>
         )}
         <div className="flex items-center gap-5">
@@ -111,7 +111,7 @@ function SnapshotReminder({ books, onSave, onDismiss }) {
       <div
         className="px-5 py-4 rounded-xl flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4"
         style={{
-          background: 'color-mix(in srgb, var(--color-gold-bg, #FDF8EC) 32%, var(--color-cream, #FAF6EE))',
+          background: 'color-mix(in srgb, var(--color-gold-bg, #FDF8EC) 32%, var(--color-bg))',
           border: '1px solid color-mix(in srgb, var(--ca) 10%, transparent)',
         }}
       >
@@ -139,6 +139,35 @@ function SnapshotReminder({ books, onSave, onDismiss }) {
   )
 }
 
+// ── Library colophon — quiet reading summary at the bottom of the shelf ──────
+// Only visible in grouped view when there are finished books.
+// One line: N books closed · N notes · N days. Archival, not dashboard.
+function LibraryColophon({ books }) {
+  const finished = books.filter(b => !b.archived && b.status === 'finished')
+  if (finished.length === 0) return null
+
+  const totalNotes = books.reduce((sum, b) => sum + liveItems(b.notes).length, 0)
+  const totalDays  = finished.reduce((sum, b) => {
+    if (!b.firstOpenedAt || !b.completedAt) return sum
+    return sum + Math.max(1, Math.floor((new Date(b.completedAt) - new Date(b.firstOpenedAt)) / 86400000))
+  }, 0)
+
+  const parts = [
+    `${finished.length} ${finished.length === 1 ? 'book' : 'books'} closed`,
+    totalNotes > 0 ? `${totalNotes} ${totalNotes === 1 ? 'note' : 'notes'} in the margins` : null,
+    totalDays > 1  ? `${totalDays} days of reading`                                         : null,
+  ].filter(Boolean)
+
+  return (
+    <div style={{ textAlign: 'center', paddingTop: 52, paddingBottom: 8, opacity: 0.40 }}>
+      <span style={{ fontSize: 8, color: 'var(--color-ink-300)', marginRight: 9, verticalAlign: 'middle' }}>✦</span>
+      <span style={{ fontFamily: 'var(--font-serif)', fontStyle: 'italic', fontSize: 11, color: 'var(--color-ink-400)', letterSpacing: '0.01em' }}>
+        {parts.join(' · ')}
+      </span>
+    </div>
+  )
+}
+
 // ── Post-snapshot sign-up nudge — appears briefly after "later" (signed-out) ──
 function PostSnapshotNudge({ onDismiss }) {
   const navigate = useNavigate()
@@ -147,7 +176,7 @@ function PostSnapshotNudge({ onDismiss }) {
       <div
         className="px-5 py-4 rounded-xl flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4"
         style={{
-          background: 'color-mix(in srgb, var(--color-gold-bg, #FDF8EC) 24%, var(--color-cream, #FAF6EE))',
+          background: 'color-mix(in srgb, var(--color-gold-bg, #FDF8EC) 24%, var(--color-bg))',
           border: '1px solid color-mix(in srgb, var(--ca) 8%, transparent)',
         }}
       >
@@ -199,7 +228,7 @@ function SignUpNudge({ totalNotes, onDismiss }) {
       <div
         className="px-5 py-4 rounded-xl flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4"
         style={{
-          background: 'color-mix(in srgb, var(--color-gold-bg, #FDF8EC) 32%, var(--color-cream, #FAF6EE))',
+          background: 'color-mix(in srgb, var(--color-gold-bg, #FDF8EC) 32%, var(--color-bg))',
           border: '1px solid color-mix(in srgb, var(--ca) 10%, transparent)',
         }}
       >
@@ -338,8 +367,19 @@ export default function Library() {
   ]
 
   const qLower = q.toLowerCase()
-  const matches = b =>
-    !q || b.title.toLowerCase().includes(qLower) || b.author.toLowerCase().includes(qLower)
+  const matches = b => {
+    if (!q) return true
+    if (b.title.toLowerCase().includes(qLower)) return true
+    if (b.author.toLowerCase().includes(qLower)) return true
+    if (q.length >= 3) {
+      if (liveItems(b.notes).some(n => (n.text || '').toLowerCase().includes(qLower))) return true
+      if (liveItems(b.mysteries).some(m => (m.text || '').toLowerCase().includes(qLower))) return true
+      const chars = [...(b.characters?.main || []), ...(b.characters?.secondary || [])]
+      if (chars.some(c => (c.name || '').toLowerCase().includes(qLower))) return true
+      if (b.chapters?.some(c => (c.title || '').toLowerCase().includes(qLower) || (c.summary || '').toLowerCase().includes(qLower))) return true
+    }
+    return false
+  }
 
   const sortFn = (a, b) => {
     if (sort === 'recent')   return new Date(b.lastUpdated) - new Date(a.lastUpdated)
@@ -427,7 +467,7 @@ export default function Library() {
             </span>
             <input
               type="text" value={q} onChange={e => setQ(e.target.value)}
-              placeholder="Search titles or authors…"
+              placeholder="Search titles, authors, or notes…"
               className="w-full pl-8 pr-4 py-2 rounded-xl bg-cream-50/80 text-sm text-ink-800 placeholder-ink-300 transition-all"
               style={{ border: '1px solid var(--color-separator-soft)' }}
             />
@@ -544,7 +584,7 @@ export default function Library() {
                 className={`reading-now-zone${setAside.length + finished.length + archived.length > 0 ? ' topo-gap-active' : ''}`}
                 style={{
                   // Zone warmth responds continuously to total annotation mass
-                  background: `color-mix(in srgb, var(--color-gold-bg, #FDF8EC) ${zoneWarmthPct}%, var(--color-cream, #FAF6EE))`,
+                  background: `color-mix(in srgb, var(--color-gold-bg, #FDF8EC) ${zoneWarmthPct}%, var(--color-bg))`,
                   // Deeply accumulated zone: slightly more breathing room (vertical only — horizontal handled by CSS)
                   ...(readingNowMass >= 6 ? { paddingTop: 26, paddingBottom: 18 } : {}),
                 }}
@@ -684,6 +724,10 @@ export default function Library() {
                 </div>
               </section>
             )}
+
+            {/* Colophon — quiet library summary at the bottom of a lived-in shelf */}
+            <LibraryColophon books={books} />
+
           </div>
         )}
       </main>

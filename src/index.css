@@ -871,6 +871,13 @@ body::before {
   border-color: var(--color-separator);
 }
 
+/* ── Mobile dock clearance ──
+   A flat pb-16 (64px) only just cleared the 56px dock and nothing at all of the
+   home-indicator inset the dock also absorbs — on a notched iPhone the last
+   ~34px of every page sat behind it. */
+.dock-clear { padding-bottom: calc(4.25rem + env(safe-area-inset-bottom)); }
+@media (min-width: 640px) { .dock-clear { padding-bottom: 0; } }
+
 /* ── Gold rule divider (below nav) ── */
 .gold-rule {
   height: 1px;

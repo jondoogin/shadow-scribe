@@ -327,11 +327,11 @@ export default function CompanionHeader({ book, onOpenUpdate, onUpdateBook }) {
         const containerStyle = {
           marginTop: 12,
           padding: '10px 12px',
-          background: 'color-mix(in srgb, var(--ca) 5%, transparent)',
-          borderLeft: '2px solid color-mix(in srgb, var(--ca) 22%, transparent)',
+          background: 'color-mix(in srgb, var(--ca) 8%, transparent)',
+          borderLeft: '2px solid color-mix(in srgb, var(--ca) 28%, transparent)',
           borderRadius: '0 6px 6px 0',
         }
-        const labelStyle = { fontSize: 11, color: 'var(--color-ink-400)', marginBottom: 6, letterSpacing: '0.01em' }
+        const labelStyle = { fontSize: 12, color: 'var(--color-ink-500)', marginBottom: 6, letterSpacing: '0.01em' }
 
         const lastNote = liveItems(book.notes).slice(-1)[0]
 
@@ -402,8 +402,8 @@ export default function CompanionHeader({ book, onOpenUpdate, onUpdateBook }) {
             style={{
               marginTop: 12,
               padding: '10px 12px',
-              background: 'color-mix(in srgb, var(--ca) 5%, transparent)',
-              borderLeft: '2px solid color-mix(in srgb, var(--ca) 18%, transparent)',
+              background: 'color-mix(in srgb, var(--ca) 8%, transparent)',
+              borderLeft: '2px solid color-mix(in srgb, var(--ca) 28%, transparent)',
               borderRadius: '0 6px 6px 0',
             }}
           >

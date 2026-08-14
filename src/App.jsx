@@ -4,6 +4,7 @@ import { BooksProvider, useBooks } from './context/BooksContext.jsx'
 import { SettingsProvider, useSettings } from './context/SettingsContext.jsx'
 import { AuthProvider, useAuth } from './context/AuthContext.jsx'
 import TopNav from './components/layout/TopNav.jsx'
+import BottomNav from './components/layout/BottomNav.jsx'
 import LibraryPage from './pages/LibraryPage.jsx'
 import BookPage from './pages/BookPage.jsx'
 import NewCompanionPage from './pages/NewCompanionPage.jsx'
@@ -365,7 +366,7 @@ function AppShell() {
       <div className="max-w-[1000px] mx-auto px-5 sm:px-10">
         <div className="gold-rule" />
       </div>
-      <div key={location.pathname} className="view-enter">
+      <div key={location.pathname} className="view-enter dock-clear">
         <Routes>
           <Route path="/" element={<Navigate to="/library" replace />} />
           <Route path="/library" element={<LibraryPage />} />
@@ -380,6 +381,7 @@ function AppShell() {
           <Route path="*" element={<Navigate to="/library" replace />} />
         </Routes>
       </div>
+      <BottomNav />
     </div>
   )
 }
