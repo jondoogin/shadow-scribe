@@ -25,6 +25,16 @@ The companion is the star. Book data — characters, questions, themes, plot not
 
 ## RECENT SESSIONS
 
+### Session 163 — 2026-10-26 — Neural narration (feature branch, not merged)
+
+**What shipped (on branch `feature/lantern-neural-narration`, awaiting review):**
+- Listen page with a neural-narration player, mini-player, sleep timer, lock-screen controls, and procedural ambience with ducking.
+- A Reader view that shares position with Listen.
+- `lantern-narrate`, a Mac CLI that turns an EPUB into a `.lantern-audio` package with free local models (Kokoro by default). AirDrop the package to the iPhone and import it.
+- Browser speech as a no-setup fallback. Book text and audio stay on-device (IndexedDB) and never sync.
+
+**Open:** run the benchmark on John's M2 (MLX/Pocket/Qwen), listen to the samples and fill in the subjective columns, and test on an iPhone (background playback, storage eviction).
+
 ### Session 158 — 2026-05-31 — Mobile audit + Plot discoverability + Library card redesign
 
 **What shipped:**
