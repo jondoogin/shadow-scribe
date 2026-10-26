@@ -9,6 +9,20 @@ import { extractNarrative } from '../../utils/narrativeExtractor.js'
 import { aiExtractNarrative } from '../../utils/aiExtractor.js'
 import { useBooks } from '../../context/BooksContext.jsx'
 import { fetchCoverUrl } from '../../utils/coverLookup.js'
+import { saveContent, requestPersistentStorage } from '../../content/contentRepository.js'
+
+// Keep the EPUB's text (IndexedDB only) so the companion can Read and Listen.
+// Failure here never blocks creating the companion; it can be linked later.
+async function retainContent(book, content) {
+  if (!content) return
+  try {
+    await saveContent(content)
+    book.contentId = content.contentId
+    requestPersistentStorage()
+  } catch (err) {
+    console.warn('[lantern] could not retain EPUB text:', err)
+  }
+}
 
 const MOOD_COLORS = {
   sage: '#3A6647', ember: '#9B2335', ink: '#44403C',
@@ -213,6 +227,7 @@ export default function EpubImportReview({ importData, duplicateWarning, onCreat
         book.extractionMeta = extractionMeta
       }
 
+      await retainContent(book, importData.content)
       onCreate(book)
       // Fire cover lookup if the EPUB had no embedded cover image
       if (!book.coverData) {
@@ -223,6 +238,7 @@ export default function EpubImportReview({ importData, duplicateWarning, onCreat
       // Total failure — create companion without any extraction
       setExtracting(false)
       const fallbackBook = buildBook(importData, form)
+      await retainContent(fallbackBook, importData.content)
       onCreate(fallbackBook)
       if (!fallbackBook.coverData) {
         fetchCoverUrl(fallbackBook.title, fallbackBook.author, fallbackBook.isbn)
