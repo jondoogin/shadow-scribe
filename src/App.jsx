@@ -12,6 +12,10 @@ import AboutPage from './pages/AboutPage.jsx'
 import SignInPage from './pages/SignInPage.jsx'
 import AccountPage from './pages/AccountPage.jsx'
 import DebugPage from './pages/DebugPage.jsx'
+import ListenPage from './pages/ListenPage.jsx'
+import ReaderPage from './pages/ReaderPage.jsx'
+import { PlaybackProvider } from './context/PlaybackContext.jsx'
+import MiniPlayer from './components/listen/MiniPlayer.jsx'
 import { logError } from './utils/logger.js'
 
 // ── Atmospheric mouse-following ember glow ─────────────────────────────────────
@@ -371,6 +375,8 @@ function AppShell() {
           <Route path="/library" element={<LibraryPage />} />
           <Route path="/new" element={<NewCompanionPage />} />
           <Route path="/book/:bookId" element={<BookPage />} />
+          <Route path="/book/:bookId/listen" element={<ListenPage />} />
+          <Route path="/book/:bookId/read" element={<ReaderPage />} />
           <Route path="/settings" element={<SettingsPage />} />
           <Route path="/about" element={<AboutPage />} />
           <Route path="/signin" element={<SignInPage />} />
@@ -380,6 +386,7 @@ function AppShell() {
           <Route path="*" element={<Navigate to="/library" replace />} />
         </Routes>
       </div>
+      <MiniPlayer />
     </div>
   )
 }
@@ -390,9 +397,11 @@ export default function App() {
       <AuthProvider>
         <SettingsProvider>
           <BooksProvider>
-            <ErrorBoundary>
-              <AppShell />
-            </ErrorBoundary>
+            <PlaybackProvider>
+              <ErrorBoundary>
+                <AppShell />
+              </ErrorBoundary>
+            </PlaybackProvider>
           </BooksProvider>
         </SettingsProvider>
       </AuthProvider>

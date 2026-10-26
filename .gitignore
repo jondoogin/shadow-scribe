@@ -41,3 +41,15 @@ public/fonts/
 *.njsproj
 *.sln
 *.sw?
+
+# Narration — generated audio, packages, models and caches never go in git
+*.lantern-audio
+*.lantern-audio.partial
+*.m4b
+*.onnx
+narration-benchmark/
+.lantern-narrator/
+tools/narrator/.venv/
+tools/narrator/*.egg-info/
+__pycache__/
+.pytest_cache/

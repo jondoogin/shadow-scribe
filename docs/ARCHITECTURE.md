@@ -16,7 +16,7 @@
 | AI (ambient) | Existing reflection engine | Rule-based, cached in book data, no API call |
 | AI (live) | Anthropic via Vercel serverless | `api/companion.js` — live on readwithlantern.com |
 
-**Routes:** `/library`, `/new`, `/book/:bookId`, `/settings`, `/about`
+**Routes:** `/library`, `/new`, `/book/:bookId`, `/book/:bookId/listen`, `/book/:bookId/read`, `/settings`, `/about`
 
 ---
 
@@ -342,6 +342,19 @@ Capabilities:
 - `_sourceLineCount: number` — how many context lines were sent (internal/dev)
 
 Key stored in `settings.anthropicKey` (via SettingsContext → `shadowscribe_settings`). Never committed to repo.
+
+---
+
+## Narration, Reader and Listen (Session 163)
+
+Full design: [`NARRATION.md`](NARRATION.md).
+
+- **Routes:** `/book/:bookId/listen`, `/book/:bookId/read`
+- **Persistence:** IndexedDB `lantern_content` v1 holds `contents`, `sections` ([contentId, id]), `audiobooks` (index contentId), and `audio` ([audiobookId, sectionId]). localStorage `lantern_listen` holds `{ prefs, books: { [bookId]: { read, listen } } }`. The `Book` model gains `contentId?: "sha256:<hex>"`.
+- **Global context:** `PlaybackProvider`, inside `BooksProvider`, exposes `usePlayback()` → `{ session, playerState, ambient, sleep, openSession, closeSession, play, pause, toggle, skip, seek, next, prev, goTo, setRate, setNarrationVolume, setAmbientTrack, setAmbientVolume, setDuck, setSleep, saveReadPosition }`.
+- **Players:** `GeneratedAudioPlayer` (HTMLAudio, one object URL per chapter) and `SpeechNarrationPlayer` (Web Speech, sentence by sentence) share one state shape.
+- **Ambience:** `AmbientEngine` uses procedural buffers. Its graph is source → track gain → duck gain → master.
+- **Offline generator:** `tools/narrator` (Python) uses `scripts/narration-script.mjs` so segmentation is identical to the app.
 
 ---
 

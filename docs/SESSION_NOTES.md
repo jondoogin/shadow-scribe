@@ -3,6 +3,29 @@ Reverse-chronological log of what was built, fixed, and decided in each working 
 
 ---
 
+## Session 163 — 2026-10-26
+**Theme:** Neural narration: local audiobook generation, Listen player, Reader, ambience (branch `feature/lantern-neural-narration`)
+
+**FILES CHANGED**
+- New: `src/content/*`, `src/narration/*`, `src/atmosphere/ambientEngine.js`, `src/context/PlaybackContext.jsx`, `src/hooks/useBookContent.js`, `src/pages/ListenPage.jsx`, `src/pages/ReaderPage.jsx`, `src/components/listen/*`, `src/test/*`, `scripts/*`, `tools/narrator/*`, `docs/NARRATION.md`
+- Modified: `src/utils/epubParser.js` (durable content model, `parseEpubContent`, `dc:` prefix fix under non-browser DOMs), `src/App.jsx` (routes, PlaybackProvider, MiniPlayer), `CompanionHeader.jsx` (Read/Listen entry points), `EpubImportReview.jsx` (retains text in IndexedDB), `icons.jsx`, `index.css`, `vite.config.js`, `package.json` (vitest)
+
+**DECISIONS**
+- Hybrid: generate on the Mac (Kokoro primary, Pocket TTS fallback, Qwen3 optional) → `.lantern-audio` package → import on any device. The browser speech fallback needs no setup.
+- Book text/audio only in IndexedDB `lantern_content`; companion record gains only `contentId`. Nothing new syncs to Supabase.
+- Narration never advances companion progress; it offers the ChapterUpdateModal.
+
+**VERIFIED**
+- 60 Vitest + 17 pytest tests passing.
+- The Kokoro CLI generated a package from a public-domain EPUB at −18 LUFS. Ctrl-C followed by a rerun resumed from cache.
+- 14/14 browser checks in Chromium: import, play, ±15 s, speed, chapters, resume after reload, Read along highlight, mini-player.
+- Lint unchanged from main (49 errors / 9 warnings, all pre-existing).
+
+**NOT YET VERIFIED**
+- Apple Silicon (MLX, Pocket, Qwen benchmarks), iPhone Safari playback, lock-screen behaviour, and storage eviction.
+
+---
+
 ## Session 147 — 2026-05-30
 **Theme:** LibraryCompanion atmosphere pass (Session B)
 

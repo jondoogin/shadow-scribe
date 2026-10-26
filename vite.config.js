@@ -8,4 +8,9 @@ export default defineConfig({
     host: true,   // bind to 0.0.0.0 — accessible on local network (phone, etc.)
     port: 5230,
   },
+  test: {
+    environment: 'node',
+    include: ['src/**/*.test.{js,jsx}'],
+    setupFiles: ['src/test/setup.js'],
+  },
 })

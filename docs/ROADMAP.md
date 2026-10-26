@@ -5,6 +5,15 @@
 
 ## Active Milestone Queue
 
+### Milestone: Neural Narration (Listen + Reader) — Session 163 — in review
+- [x] Local generator CLI (Kokoro / Pocket TTS / Qwen3) with resume, cache, loudness, `.lantern-audio` packaging
+- [x] IndexedDB content + audio storage, stable locators
+- [x] Listen player, mini-player, sleep timer, Media Session, ambience with ducking
+- [x] Reader view with shared position and live highlight
+- [ ] Mac benchmark (MLX, Pocket, Qwen) + subjective listening notes
+- [ ] iPhone verification: lock-screen playback, ambience in background, 7-day eviction behaviour
+- [ ] Optional: in-app progress UI for generation (currently CLI only)
+
 ### Milestone: LibraryCompanion Atmosphere Pass — ✓ Session 147 — complete
 
 Visual and language pass on the cross-book companion surface at the library entrance.

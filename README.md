@@ -40,10 +40,26 @@ npm run build
 
 Output is in `dist/`.
 
+## Listening (neural narration)
+
+Lantern can read your DRM-free EPUBs aloud.
+
+- **Instantly**, with your device's built-in voice.
+- **With natural neural voices** generated for free on your Mac by `lantern-narrate`, then imported on any device, including iPhone, as a `.lantern-audio` file.
+
+Book text and audio stay on your devices. See [`docs/NARRATION.md`](docs/NARRATION.md) and [`tools/narrator/`](tools/narrator/).
+
+## Tests
+
+```bash
+npm test                            # Vitest
+cd tools/narrator && pytest         # narrator CLI (after pip install -e '.[dev]')
+```
+
 ## Architecture
 
 - React 19 + Vite + Tailwind CSS 4
-- `localStorage` for all persistence (no backend, no database)
+- `localStorage` for companion data; IndexedDB for book text and narration audio (on-device only; optional Supabase sync covers companion data only)
 - Anthropic API via browser fetch (BYOK — user provides their own key)
 - React Router for SPA routing
 

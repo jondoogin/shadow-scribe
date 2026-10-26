@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import BookCover from '../shared/BookCover.jsx'
 import ReadingMomentum from './ReadingMomentum.jsx'
 import { Ico } from '../shared/icons.jsx'
@@ -530,6 +530,14 @@ export default function CompanionHeader({ book, onOpenUpdate, onUpdateBook }) {
                   : 'Begin your first chapter'}
             <span style={{ fontSize: 12, opacity: 0.55 }}>→</span>
           </button>
+        </div>
+      )}
+
+      {/* ── Read / Listen entry points ── */}
+      {!editingMeta && !pendingAction && (
+        <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1" style={{ fontSize: 12 }}>
+          <Link to={`/book/${book.id}/read`} className="listen-link inline-flex items-center gap-1.5"><Ico.Open /> Read</Link>
+          <Link to={`/book/${book.id}/listen`} className="listen-link inline-flex items-center gap-1.5"><Ico.Headphones /> Listen</Link>
         </div>
       )}
 
