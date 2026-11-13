@@ -4,15 +4,17 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+import time
 import urllib.request
 from pathlib import Path
 
 from . import benchmark
-from .engines import ENGINE_IDS, EngineUnavailable, create_engine
+from .engines import ENGINE_IDS, EngineUnavailable, create_engine, memory_shortfall
 from .generate import GenerationInterrupted, Generator, SegmentFailed, StopFlag
 from .hardware import recommend, report
 from .package import write_m4b, write_package
-from .paths import models_dir
+from . import storage
+from .paths import benchmarks_dir, isolate_caches, models_dir, output_dir
 from .script import ScriptError, narrated_sections, script_from_source
 
 DEFAULT_BENCH_COMBOS = [
@@ -20,6 +22,7 @@ DEFAULT_BENCH_COMBOS = [
     ("kokoro-mlx", "af_heart"),
     ("pocket", "alba"), ("pocket", "charles"),
     ("qwen3", "Ryan"), ("qwen3", "Aiden"),
+    ("qwen3-1.7b", "Ryan"),  # skipped automatically below 24 GB of memory
 ]
 
 
@@ -33,8 +36,32 @@ def _fmt_dur(s: float | None) -> str:
 def cmd_doctor(args) -> int:
     r = report()
     print(json.dumps(r, indent=1) if args.json else "\n".join(f"{k:>18}: {v}" for k, v in r.items()))
+    if not args.json:
+        u = storage.usage()
+        print(f"{'storage':>18}: {storage.fmt_bytes(u['totalBytes'])} in {u['home']}")
     for tip in recommend(r):
         print(f"• {tip}")
+    return 0
+
+
+def cmd_clean(args) -> int:
+    u = storage.usage()
+    print(f"Narrator folder: {u['home']}")
+    for name, c in u["categories"].items():
+        print(f"  {name:<11} {storage.fmt_bytes(c['bytes']):>9}  {c['about']}")
+    print(f"  {'total':<11} {storage.fmt_bytes(u['totalBytes']):>9}")
+    for var, path in u["sharedCaches"].items():
+        print(f"  (not managed) {var}={path}: shared cache, delete it yourself if you want")
+    chosen = [c for c in storage.CATEGORIES if getattr(args, c)] or (list(storage.CATEGORIES) if args.all else [])
+    if not chosen:
+        print("Nothing deleted. Choose what to remove, e.g. `lantern-narrate clean --jobs --yes`, "
+              "or `--all --yes` for everything.")
+        return 0
+    if not args.yes:
+        print(f"Would delete: {', '.join(chosen)}. Add --yes to do it.")
+        return 0
+    for d in storage.clean(chosen):
+        print(f"✓ removed {d}")
     return 0
 
 
@@ -131,16 +158,27 @@ def cmd_generate(args) -> int:
 
 
 def cmd_benchmark(args) -> int:
-    combos = DEFAULT_BENCH_COMBOS
+    skipped = []
     if args.only:
         combos = [tuple(c.split(":", 1)) for c in args.only.split(",")]
+    else:
+        mem = report().get("memory_gb")
+        combos = []
+        for engine_id, voice in DEFAULT_BENCH_COMBOS:
+            reason = memory_shortfall(engine_id, mem)
+            if reason:
+                skipped.append({"engine": engine_id, "voice": voice, "ok": False, "error": reason})
+            else:
+                combos.append((engine_id, voice))
+    if not args.output:
+        args.output = str(benchmarks_dir() / time.strftime("%Y%m%d-%H%M%S"))
     script_path = Path(args.script)
     if script_path.suffix != ".json":
         data = script_from_source(script_path, include_all=True)
         script_path = Path(args.output) / "passage.script.json"
         script_path.parent.mkdir(parents=True, exist_ok=True)
         script_path.write_text(json.dumps(data, indent=1), encoding="utf-8")
-    rep = benchmark.run(script_path.resolve(), combos, Path(args.output), args.speed)
+    rep = benchmark.run(script_path.resolve(), combos, Path(args.output), args.speed, skipped=skipped)
     print(f"✓ {Path(args.output) / 'RESULTS.md'}")
     return 0 if any(r.get("ok") for r in rep["results"]) else 1
 
@@ -181,7 +219,7 @@ def main(argv=None) -> int:
     s.add_argument("--speed", type=float, default=1.0)
     s.add_argument("--sections", help="narrated sections to generate, e.g. 1-3,7 (default: all)")
     s.add_argument("--bitrate", type=int, default=64, help="AAC kbps (default 64)")
-    s.add_argument("-o", "--output", help="package path (default ./<title>-<voice>.lantern-audio)")
+    s.add_argument("-o", "--output", help=f"package path (default {output_dir()}/<title>-<voice>.lantern-audio)")
     s.add_argument("--job-dir", help="override job/cache folder")
     s.add_argument("--include-all", action="store_true")
     s.add_argument("--no-text", action="store_true", help="omit caption text from the package")
@@ -192,8 +230,15 @@ def main(argv=None) -> int:
     s.add_argument("--script", default=str(Path(__file__).resolve().parents[1] / "benchmark" / "passage.script.json"))
     s.add_argument("--only", help="engine:voice list, e.g. kokoro:af_heart,pocket:alba")
     s.add_argument("--speed", type=float, default=1.0)
-    s.add_argument("-o", "--output", default="narration-benchmark")
+    s.add_argument("-o", "--output", help=f"results folder (default {benchmarks_dir()}/<timestamp>)")
     s.set_defaults(fn=cmd_benchmark)
+
+    s = sub.add_parser("clean", help="show what the narrator stores and remove it")
+    for c, about in storage.CATEGORIES.items():
+        s.add_argument(f"--{c}", action="store_true", help=f"remove {about}")
+    s.add_argument("--all", action="store_true", help="remove everything in the narrator folder")
+    s.add_argument("--yes", action="store_true", help="actually delete (otherwise only shows what would go)")
+    s.set_defaults(fn=cmd_clean)
 
     s = sub.add_parser("_bench-one", help=argparse.SUPPRESS)
     s.add_argument("script")
@@ -204,6 +249,7 @@ def main(argv=None) -> int:
     s.set_defaults(fn=cmd_bench_one)
 
     args = p.parse_args(argv)
+    isolate_caches()  # before any engine import, so model downloads stay in the narrator folder
     try:
         return args.fn(args)
     except ScriptError as e:

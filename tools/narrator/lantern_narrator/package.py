@@ -21,6 +21,7 @@ import zipfile
 from pathlib import Path
 
 from .generate import GENERATOR_VERSION, slug
+from .paths import output_dir
 from .script import narrated_sections
 
 PACKAGE_FORMAT = "lantern-audiobook"
@@ -93,7 +94,7 @@ def write_package(script: dict, state: dict, job_dir: Path, out_path: Path | Non
         raise ValueError("No finished chapters to package yet.")
     book = script["book"]
     if out_path is None:
-        out_path = Path.cwd() / f"{slug(book.get('title') or 'book')}-{slug(state.get('voice') or 'voice', 16)}.lantern-audio"
+        out_path = output_dir() / f"{slug(book.get('title') or 'book')}-{slug(state.get('voice') or 'voice', 16)}.lantern-audio"
     out_path = Path(out_path)
     out_path.parent.mkdir(parents=True, exist_ok=True)
     tmp = out_path.with_name(out_path.name + ".partial")

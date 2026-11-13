@@ -2,8 +2,11 @@
 
 * kokoro-mlx  — Kokoro-82M on MLX. Same Apache-2.0 weights as the ONNX engine,
   usually faster on M-series GPUs.
-* qwen3       — Qwen3-TTS 12Hz 0.6B CustomVoice (Apache-2.0). Expressive, but
-  heavier; evaluated, not the default. See docs/NARRATION.md for why.
+* qwen3       — Qwen3-TTS 12Hz 0.6B CustomVoice, 8-bit (Apache-2.0). Expressive,
+  but heavier than Kokoro; evaluated, not the default.
+* qwen3-1.7b  — Qwen3-TTS 12Hz 1.7B CustomVoice, bf16 (~4.5 GB download). Meant
+  for 32 GB+ Macs (e.g. M5 Pro 48 GB); skipped by default on 16 GB machines.
+  See docs/NARRATION.md.
 
 Weights download from Hugging Face (mlx-community/*) on first use.
 """
@@ -100,3 +103,11 @@ class Qwen3MlxEngine(Engine):
         else:
             results = self._model.generate(text, voice=voice or self.default_voice, lang_code="English")
         return _collect(results)
+
+
+class Qwen3LargeMlxEngine(Qwen3MlxEngine):
+    id = "qwen3-1.7b"
+    label = "Qwen3-TTS 1.7B CustomVoice (MLX, bf16)"
+
+    def __init__(self, repo: str = "mlx-community/Qwen3-TTS-12Hz-1.7B-CustomVoice-bf16"):
+        super().__init__(repo)

@@ -119,7 +119,8 @@ def bench_one(script_path: Path, engine_id: str, voice: str, out_dir: Path, spee
     return result
 
 
-def run(script_path: Path, combos: list[tuple[str, str]], out_dir: Path, speed: float = 1.0) -> dict:
+def run(script_path: Path, combos: list[tuple[str, str]], out_dir: Path, speed: float = 1.0,
+        skipped: list[dict] | None = None) -> dict:
     out_dir.mkdir(parents=True, exist_ok=True)
     results = []
     for engine_id, voice in combos:
@@ -136,6 +137,9 @@ def run(script_path: Path, combos: list[tuple[str, str]], out_dir: Path, speed: 
                  "error": (proc.stderr or proc.stdout).strip()[-800:]}
         results.append(r)
         print("  ", "ok" if r.get("ok") else f"skipped: {r.get('error', '')[:200]}", flush=True)
+    for r in skipped or []:
+        print(f"▶ {r['engine']} / {r['voice']}\n   skipped: {r['error']}", flush=True)
+        results.append(r)
     report = {"hardware": hw_report(), "script": str(script_path), "speed": speed,
               "ranAt": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), "results": results}
     (out_dir / "results.json").write_text(json.dumps(report, indent=1), encoding="utf-8")
@@ -148,8 +152,8 @@ def markdown(report: dict) -> str:
     lines = [
         "# Lantern narration benchmark",
         "",
-        f"Run {report['ranAt']} on **{hw.get('model') or hw['cpu']}** ({hw['machine']}, "
-        f"{hw.get('cpu_cores')} cores, {hw.get('memory_gb')} GB RAM, {hw['os']}).",
+        f"Run {report['ranAt']} on **{' · '.join(x for x in (hw.get('model'), hw['cpu']) if x)}** "
+        f"({hw['machine']}, {hw.get('cpu_cores')} cores, {hw.get('memory_gb')} GB memory, {hw['os']}).",
         "",
         "Same script, segmentation, pauses and loudness gain for every engine. "
         "*x realtime* = seconds of speech produced per second of compute (higher is faster).",

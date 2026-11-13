@@ -6,8 +6,9 @@ import os
 import platform
 import shutil
 import subprocess
+from pathlib import Path
 
-from .paths import home
+from .paths import home, is_inside_home
 
 
 def _sysctl(name: str) -> str | None:
@@ -75,22 +76,52 @@ def report() -> dict:
         "packages": {p: importlib.util.find_spec(p) is not None
                      for p in ("kokoro_onnx", "onnxruntime", "pocket_tts", "mlx_audio", "torch")},
         "narrator_home": str(home()),
+        "shared_caches": {v: os.environ[v] for v in ("HF_HOME", "TORCH_HOME")
+                          if os.environ.get(v) and not is_inside_home(Path(os.environ[v]))},
     }
+
+
+# Hardware tiers the narrator is tuned for (see docs/NARRATION.md, "Hardware targets").
+TIER_SMALL = 12   # below: Kokoro / Pocket only
+TIER_LARGE = 24   # at or above: Qwen3 1.7B is worth testing (e.g. M5 Pro 48 GB)
+
+
+def tier(r: dict) -> str:
+    mem = r.get("memory_gb") or 0
+    if mem and mem < TIER_SMALL:
+        return "small"
+    if mem and mem < TIER_LARGE:
+        return "standard"   # e.g. M2 Air 16 GB
+    return "large"           # e.g. M5 Pro 48 GB (also used when memory is unknown)
 
 
 def recommend(r: dict) -> list[str]:
     tips = []
     mem = r.get("memory_gb") or 0
+    t = tier(r)
     if r["apple_silicon"]:
-        tips.append("Apple Silicon detected: 'kokoro' (ONNX/CPU) is the default; try 'kokoro-mlx' too and keep the faster one.")
-    if mem and mem < 12:
-        tips.append("Under 12 GB RAM: avoid qwen3; use kokoro or pocket.")
-    elif mem and mem <= 16:
-        tips.append("16 GB RAM: qwen3 0.6B 8-bit fits, but expect it to be several times slower than Kokoro for a full novel.")
+        tips.append("Apple Silicon detected: 'kokoro' (ONNX/CPU) is the default; the benchmark also runs "
+                    "'kokoro-mlx' (GPU). Keep whichever is faster.")
+    if t == "small":
+        tips.append(f"{mem:g} GB memory: use kokoro or pocket; qwen3 is skipped.")
+    elif t == "standard":
+        tips.append(f"{mem:g} GB memory: qwen3 0.6B fits but will be several times slower than Kokoro for a "
+                    "whole novel; qwen3-1.7b is skipped by default.")
+    elif mem:
+        tips.append(f"{mem:g} GB memory: every engine fits, including qwen3-1.7b (~4.5 GB download). The default "
+                    "benchmark includes it; Kokoro stays the default engine until the samples have been compared.")
     if not r["tools"]["afconvert"] and not r["tools"]["ffmpeg"]:
         tips.append("No AAC encoder found (afconvert/ffmpeg). Chapters will be stored as large WAV files.")
     if not r["tools"]["node"]:
         tips.append("Node.js not found: needed to read EPUBs (run `npm install` in the repo).")
-    if (r.get("disk_free_gb") or 0) < 5:
-        tips.append("Less than 5 GB free disk: a 10-hour book needs ~300 MB of AAC plus temporary WAVs per chapter.")
+    free = r.get("disk_free_gb") or 0
+    need = 15 if t == "large" else 5
+    if free < need:
+        tips.append(f"Less than {need} GB free disk: models take 0.3–6 GB and a 10-hour book needs ~300 MB of AAC "
+                    "plus temporary WAVs per chapter.")
+    tips.append(f"Everything the narrator downloads or writes is in {r['narrator_home']} "
+                "(`lantern-narrate clean` shows and removes it).")
+    for var, path in (r.get("shared_caches") or {}).items():
+        tips.append(f"{var} is set to {path}, outside the narrator folder: model downloads go there and "
+                    "`clean` will not remove them.")
     return tips
