@@ -35,7 +35,9 @@ The companion is the star. Book data — characters, questions, themes, plot not
 
 - John listened and chose **Qwen3 1.7B** for its quality and expressiveness, but not the Ryan voice. It is now the default on the MacBook Pro, and the voice is chosen per book: `lantern-narrate audition book.epub` reads that book's opening in all 9 voices, and `generate --voice X` remembers the choice for that book. An optional `--style` instruction (e.g. "warm, unhurried narration") shapes delivery. Only Ryan and Aiden are native English speakers; the other seven speak English with an accent.
 
-**Open:** audition voices on the Mac and pick one for the first book; check that `--style` works with the Mac's mlx-audio; rerun Kokoro MLX after the dependency fix.
+- John heard all 9 voices and picked **Aiden** as the default. He wants to explore a custom voice builder next (Qwen3 VoiceDesign).
+
+**Open:** decide how a designed voice stays consistent across a book (see NARRATION.md); check that `--style` works with the Mac's mlx-audio; rerun Kokoro MLX after the dependency fix.
 
 ### Session 163 — 2026-10-26 — Neural narration (feature branch, not merged)
 

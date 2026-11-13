@@ -94,7 +94,7 @@ Subjective quality (naturalness, prosody, pronunciation, consistency) is **left 
 
 ### Recommendation
 
-- **Default on the MacBook Pro: Qwen3-TTS 1.7B (`qwen3-1.7b`).** Chosen by John after listening to the M5 Pro samples (Session 164): he preferred its quality and expressiveness, but not the Ryan voice. It runs at about 2.5× realtime, so a 10-hour novel takes about 4 hours. The voice is chosen **per book** (see [Choosing a voice for each book](#choosing-a-voice-for-each-book)).
+- **Default on the MacBook Pro: Qwen3-TTS 1.7B (`qwen3-1.7b`).** Chosen by John after listening to the M5 Pro samples (Session 164): he preferred its quality and expressiveness, but not the Ryan voice. After hearing all 9 speakers he picked **Aiden**, which is now the engine's default voice for books without a saved choice. It runs at about 2.5× realtime, so a 10-hour novel takes about 4 hours. The voice is chosen **per book** (see [Choosing a voice for each book](#choosing-a-voice-for-each-book)).
 - **Default everywhere else: Kokoro.** It is permissively licensed end to end, light enough for either Mac, fast on CPU (about 8× realtime on the Pro), and has the largest choice of built-in voices. It stays the default on the Air and on any machine without Apple Silicon and 24 GB. The benchmark also runs `kokoro-mlx` (Apple GPU).
 - **Fallback engine: Pocket TTS.** It is a different architecture and CPU-friendly. Stick to CC-BY voices if the audio might ever be shared.
 - **Qwen3 sizes.** The 1.7B model is about 4.3 GB on disk and peaks at about 10 GB of GPU memory, so it needs a 24 GB Mac. On the 16 GB Air, the 0.6B model (`qwen3`) runs, but it does not take style instructions and the 1.7B model is skipped.

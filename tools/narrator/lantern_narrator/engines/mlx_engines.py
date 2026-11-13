@@ -126,6 +126,7 @@ class Qwen3MlxEngine(Engine):
 class Qwen3LargeMlxEngine(Qwen3MlxEngine):
     id = "qwen3-1.7b"
     label = "Qwen3-TTS 1.7B CustomVoice (MLX, bf16)"
+    default_voice = "Aiden"  # John's pick after hearing all 9 speakers (Session 164)
     supports_style = True  # Qwen: only the 1.7B CustomVoice model takes instructions
 
     def __init__(self, repo: str = "mlx-community/Qwen3-TTS-12Hz-1.7B-CustomVoice-bf16"):

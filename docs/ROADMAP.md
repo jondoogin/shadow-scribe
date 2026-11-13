@@ -15,7 +15,8 @@
 - [ ] Rerun `kokoro-mlx` on the M5 Pro after the `misaki` fix
 - [x] Listen to the M5 Pro samples: Qwen3 1.7B chosen as the Pro's default engine (Session 164)
 - [x] Voice chosen per book (`audition`, remembered choice, `--style`)
-- [ ] Audition the 9 Qwen3 voices on the Mac and pick one for the first book
+- [x] Audition the 9 Qwen3 voices on the Mac: Aiden is the default
+- [ ] Custom voice builder (Qwen3 VoiceDesign), pending a proof of concept
 - [ ] Optional: same benchmark on the M2 Air for the lower-spec numbers
 - [ ] iPhone verification: lock-screen playback, ambience in background, 7-day eviction behaviour
 - [ ] Optional: in-app progress UI for generation (currently CLI only)

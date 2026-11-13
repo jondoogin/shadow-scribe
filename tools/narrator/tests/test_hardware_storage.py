@@ -60,7 +60,7 @@ def test_recommend_flags_shared_caches_and_low_disk():
 def test_qwen_large_engine_is_registered_without_importing_mlx():
     assert "qwen3-1.7b" in ENGINE_IDS
     e = create_engine("qwen3-1.7b")
-    assert "1.7B" in e.repo and e.default_voice == "Ryan"
+    assert "1.7B" in e.repo and e.default_voice == "Aiden"
 
 
 # ── storage ─────────────────────────────────────────────────────────────────
