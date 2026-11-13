@@ -2,7 +2,7 @@
 
 Listen to your own EPUBs with natural neural voices, generated on your Mac, played in Lantern on any device. Nothing about the book leaves your devices unless you move the files yourself.
 
-**Status (Session 164):** built and tested on Linux and in headless Chromium. **Not yet run on an Apple Silicon Mac or an iPhone.** Every claim below says which of these it rests on.
+**Status (Session 164):** built and tested on Linux and in headless Chromium, and benchmarked on the M5 Pro MacBook Pro (speed and memory only). **Not yet run on the M2 Air or an iPhone, and no voice has been rated by ear.** Every claim below says which of these it rests on.
 
 **Hardware targets:** the main generation machine is now a **16-inch MacBook Pro, Apple M5 Pro, 48 GB** (a work machine). The **2022 MacBook Air, M2, 16 GB** stays supported as the lower-spec target. See [Hardware targets](#hardware-targets).
 
@@ -57,7 +57,25 @@ Same 20-segment passage (Pride and Prejudice ch. 1, public domain), same segment
 | Pocket TTS | — | not run | | | | | weights are on Hugging Face, which is blocked from this container |
 | Qwen3-TTS (MLX) | — | not run | | | | | needs Apple Silicon |
 
-"× realtime" means seconds of speech per second of compute. A 10-hour novel at 2.5× takes about 4 hours on this Xeon. Both Macs should be faster, but **neither is measured yet**.
+"× realtime" means seconds of speech per second of compute. A 10-hour novel at 2.5× takes about 4 hours on this Xeon.
+
+### Measured (MacBook Pro 16-inch, M5 Pro, 48 GB, macOS 27; 2026-11-13)
+
+Same passage and settings, run with `lantern-narrate benchmark` (Session 164 defaults). Samples are in the project files under `narration-benchmark/m5pro/`. Load time includes the first-run download, which is why the first voice of each engine is slower to load. "MLX MB" is peak Apple GPU memory reported by MLX.
+
+| Engine | Voice | Load s | First audio s | × realtime | Peak RSS MB | MLX MB |
+|---|---|---|---|---|---|---|
+| Kokoro (ONNX) | af_heart | 1.13 | 0.55 | 7.99 | 1207 | — |
+| Kokoro (ONNX) | bf_emma | 0.39 | 0.48 | 7.96 | 1157 | — |
+| Kokoro (ONNX) | am_michael | 0.41 | 0.68 | 8.04 | 1289 | — |
+| Kokoro (MLX) | — | failed | | | | `misaki` was missing from the `[mlx]` extra (fixed in Session 164; needs a rerun) |
+| Pocket TTS | alba | 38.15 | 1.39 | 10.58 | 1460 | — |
+| Pocket TTS | charles | 3.88 | 1.31 | 11.08 | 1255 | — |
+| Qwen3-TTS 0.6B (MLX) | Ryan | 69.95 | 4.59 | 4.07 | 2541 | 7361 |
+| Qwen3-TTS 0.6B (MLX) | Aiden | 3.57 | 0.30 | 4.67 | 2589 | 7273 |
+| Qwen3-TTS 1.7B (MLX) | Ryan | 148.12 | 0.80 | 2.55 | 6046 | 10120 |
+
+At these speeds a 10-hour novel takes roughly 75 minutes with Kokoro, 55 minutes with Pocket, 2 to 2.5 hours with Qwen3 0.6B and about 4 hours with Qwen3 1.7B. On disk the models took about 6.3 GB in total: Qwen3 0.6B about 1.9 GB, Qwen3 1.7B about 4.3 GB, and Pocket about 0.2 GB. (The benchmark's own "model MB" column double-counted Hugging Face's symlinked files in this run. That is fixed.) These are speed numbers only. **Nobody has listened to the samples and rated them yet.**
 
 Subjective quality (naturalness, prosody, pronunciation, consistency) is **left blank on purpose**. Listen to the samples and fill in `RESULTS.md` yourself. No scores are made up here.
 
@@ -68,9 +86,9 @@ Subjective quality (naturalness, prosody, pronunciation, consistency) is **left 
 | Code | MIT (kokoro-onnx), Apache-2.0 (model repo) | MIT | Apache-2.0 |
 | Weights | Apache-2.0 | CC-BY-4.0 | Apache-2.0 |
 | Voices | 54 built-in voices, Apache-2.0 | **Per-voice:** VCTK-derived voices are CC-BY-4.0; some (expresso/EARS-derived) are **non-commercial** | Built-in speakers (e.g. Ryan, Aiden for English) |
-| Size | 82M params, 310 MB fp32 / 88 MB int8 + 27 MB voices | 100M params | 0.6B (8-bit ≈ 1 GB) / 1.7B (≈ 4.5 GB) |
+| Size | 82M params, 310 MB fp32 / 88 MB int8 + 27 MB voices | 100M params | 0.6B (8-bit, about 1.9 GB on disk) / 1.7B (bf16, about 4.3 GB), measured on the M5 Pro |
 | Runs on | CPU anywhere (ONNX) and Apple GPU (MLX) | CPU (PyTorch) | Apple GPU (MLX); CUDA elsewhere |
-| Speed claim | measured above | Vendor reports about 6× realtime on an M4 MacBook Air (**unverified**) | Heavier than Kokoro; how much slower on the M5 Pro and M2 Air is **unmeasured** |
+| Speed claim | measured above | About 11× realtime on the M5 Pro CPU (measured) | M5 Pro: 0.6B about 4–4.7× realtime, 1.7B about 2.5× (measured); M2 Air **unmeasured** |
 | Voice cloning | none | supports cloning from a prompt; **Lantern uses only built-in voices** | supports it; **Lantern uses built-in speakers only** |
 | Watch out for | espeak-ng (GPL-3) is used *locally* for phonemes; it is never shipped in the web app | per-voice licences; check before sharing audio | 1.7B needs ~24 GB+ to run comfortably (skipped by default on the 16 GB Air); long load time |
 
@@ -78,9 +96,9 @@ Subjective quality (naturalness, prosody, pronunciation, consistency) is **left 
 
 - **Primary: Kokoro.** It is permissively licensed end to end, light enough for either Mac, fast on CPU, and has the largest choice of built-in voices. The default stays `kokoro` (ONNX, works everywhere); the benchmark also runs `kokoro-mlx` (Apple GPU), and you keep whichever is faster on your Mac.
 - **Fallback engine: Pocket TTS.** It is a different architecture and CPU-friendly. Stick to CC-BY voices if the audio might ever be shared.
-- **Qwen3-TTS: now worth testing on the M5 Pro, still not the default.** With 48 GB the 1.7B model (`qwen3-1.7b`, ~4.5 GB) fits easily, so the default benchmark includes it there. It only becomes the default if its samples sound clearly better *and* its speed makes a whole novel practical. Neither is known yet. On the 16 GB Air, the 0.6B model (`qwen3`) runs but is expected to be slow, and the 1.7B model is skipped.
+- **Qwen3-TTS: now worth testing on the M5 Pro, still not the default.** With 48 GB the 1.7B model (`qwen3-1.7b`, about 4.3 GB on disk, about 10 GB of GPU memory while running) fits easily, so the default benchmark includes it there. It ran at about 2.5× realtime, so a 10-hour novel takes about 4 hours. That is practical overnight. It only becomes the default if its samples sound clearly better, which nobody has judged yet. On the 16 GB Air, the 0.6B model (`qwen3`) runs but is expected to be slow, and the 1.7B model is skipped.
 
-**Pending on the Mac:** `lantern-narrate doctor` and `lantern-narrate benchmark` (which adds the MLX, Pocket and Qwen rows), then listening to the samples.
+**Pending:** listening to the M5 Pro samples, rerunning `kokoro-mlx` after the `misaki` fix, and (optionally) the same benchmark on the M2 Air.
 
 ### Hardware targets
 
@@ -91,7 +109,7 @@ Subjective quality (naturalness, prosody, pronunciation, consistency) is **left 
 | Engines run by the default benchmark | all: Kokoro ONNX + MLX, Pocket, Qwen3 0.6B, Qwen3 1.7B | all except Qwen3 1.7B (skipped with a reason; `--only qwen3-1.7b:Ryan` forces it) |
 | Default engine | `kokoro` | `kokoro` |
 | Free disk to keep | about 15 GB (all models plus one book in progress) | about 5 GB (Kokoro plus one book in progress) |
-| Measured speed | not yet | not yet |
+| Measured speed | Kokoro about 8×, Pocket about 11×, Qwen3 0.6B about 4–4.7×, Qwen3 1.7B about 2.5× realtime (2026-11-13) | not yet |
 
 Memory thresholds live in `ENGINE_MIN_MEMORY_GB` (`tools/narrator/lantern_narrator/engines/__init__.py`): Qwen3 0.6B needs about 12 GB and Qwen3 1.7B about 24 GB. Kokoro and Pocket fit on any Apple Silicon Mac. Machines below 12 GB (the `small` tier) use Kokoro or Pocket only.
 
@@ -111,7 +129,7 @@ lantern-narrate download kokoro     # ~340 MB into ~/.lantern-narrator/models (a
 lantern-narrate benchmark           # results in ~/.lantern-narrator/benchmarks/<timestamp>/
 ```
 
-On the M5 Pro the first full benchmark downloads about 6–7 GB of models (Kokoro ONNX and MLX, Pocket, both Qwen3 sizes). On the Air it is about 2 GB, because Qwen3 1.7B is skipped. These sizes are estimates from the published model files, not measured downloads.
+On the M5 Pro the first full benchmark stored about 6.3 GB of models (measured; Kokoro MLX was not downloaded in that run because it failed early, so expect a little more). On the Air expect about 2 GB, because Qwen3 1.7B is skipped (an estimate).
 
 AAC encoding uses macOS's built-in `afconvert`. Elsewhere it uses `ffmpeg`, and with neither tool installed it falls back to WAV, which is roughly 10× bigger. `ffmpeg` is also needed for `--m4b`.
 

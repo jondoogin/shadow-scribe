@@ -31,7 +31,9 @@ The companion is the star. Book data — characters, questions, themes, plot not
 - With 48 GB, Qwen3-TTS 1.7B is included in the benchmark. Kokoro stays the default until the samples have been compared.
 - Everything the narrator stores is in `~/.lantern-narrator/`, and `lantern-narrate clean` removes it.
 
-**Open:** run `lantern-narrate benchmark` on the MacBook Pro, then listen and pick a voice.
+- Benchmarked on the MacBook Pro (2026-11-13): Kokoro about 8× realtime (a 10-hour novel in about 75 min), Pocket about 11×, Qwen3 0.6B about 4–4.7×, Qwen3 1.7B about 2.5× (about 4 hours per novel). Speed only; nobody has rated the voices yet.
+
+**Open:** listen to the samples and pick a voice; rerun Kokoro MLX after the dependency fix.
 
 ### Session 163 — 2026-10-26 — Neural narration (feature branch, not merged)
 

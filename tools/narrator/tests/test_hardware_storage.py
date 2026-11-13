@@ -139,3 +139,16 @@ def test_benchmark_on_a_48gb_pro_runs_everything(narrator_home, monkeypatch):
     calls = _run_bench(monkeypatch, 48)
     assert ("qwen3-1.7b", "Ryan") in calls["combos"]
     assert calls["skipped"] == []
+
+
+def test_model_size_ignores_hf_symlinks(tmp_path):
+    from lantern_narrator.benchmark import _dir_size_mb
+
+    blobs = tmp_path / "blobs"
+    snap = tmp_path / "snapshots" / "abc"
+    blobs.mkdir()
+    snap.mkdir(parents=True)
+    blob = blobs / "deadbeef"
+    blob.write_bytes(b"\0" * (2 * 1024 ** 2))
+    (snap / "model.safetensors").symlink_to(blob)
+    assert _dir_size_mb([tmp_path]) == 2.0

@@ -17,8 +17,13 @@ Reverse-chronological log of what was built, fixed, and decided in each working 
 - 28 pytest tests pass (11 new: tiers, memory gating, cache redirection, clean safety, benchmark defaults for 16 GB and 48 GB).
 - `doctor`, `clean` and a Kokoro benchmark run worked on Linux.
 
+- **M5 Pro benchmark (2026-11-13, via Remote Control):** 8 of 9 engine/voice runs produced audio. Kokoro ONNX about 8× realtime, Pocket about 11×, Qwen3 0.6B about 4–4.7×, Qwen3 1.7B about 2.5× (peak about 10 GB GPU memory). Models took about 6.3 GB. Full table in `NARRATION.md`; samples in project files `narration-benchmark/m5pro/`.
+- Fixes from that run: `misaki[en]` added to the `[mlx]` extra (Kokoro MLX failed without it), and the benchmark's model-size column no longer double-counts Hugging Face symlinks.
+- On the Mac, the run used portable Python 3.12 and Node 22 inside `~/Lantern/toolchain`, and narrator data in `~/Lantern/narrator-data`; no Homebrew and no ffmpeg (`afconvert` handled AAC).
+
 **NOT YET VERIFIED**
-- Every Mac number. No Mac (M5 Pro or Air) has run the benchmark yet.
+- Kokoro MLX speed (needs a rerun after the fix), any M2 Air number, and subjective voice quality (nobody has rated the samples).
+- Pocket's `alba` voice licence is still unconfirmed; `charles` is CC-BY.
 
 ---
 

@@ -32,6 +32,8 @@ def _peak_rss_mb() -> float:
 
 
 def _dir_size_mb(paths) -> float | None:
+    """Size of real files only. Hugging Face snapshots are symlinks to blobs in
+    the same cache, so following links would count every model twice."""
     total = 0
     found = False
     for p in paths:
@@ -41,9 +43,10 @@ def _dir_size_mb(paths) -> float | None:
             found = True
         elif p.is_dir():
             for f in p.rglob("*"):
-                if f.is_file():
-                    total += f.stat().st_size
-                    found = True
+                if f.is_symlink() or not f.is_file():
+                    continue
+                total += f.lstat().st_size
+                found = True
     return round(total / 1024 ** 2, 1) if found else None
 
 

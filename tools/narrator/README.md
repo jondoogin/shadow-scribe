@@ -23,7 +23,7 @@ lantern-narrate clean                 # show (and with --yes, remove) everything
 | `kokoro-mlx` | mlx-audio | Apple Silicon, `[mlx]` |
 | `pocket` | pocket-tts (PyTorch CPU) | `[pocket]`; weights from Hugging Face on first use |
 | `qwen3` | mlx-audio, Qwen3-TTS 0.6B 8-bit | Apple Silicon, `[mlx]`, about 12 GB memory |
-| `qwen3-1.7b` | mlx-audio, Qwen3-TTS 1.7B bf16 (~4.5 GB) | Apple Silicon, `[mlx]`, about 24 GB memory (e.g. M5 Pro 48 GB; skipped by default on a 16 GB Air) |
+| `qwen3-1.7b` | mlx-audio, Qwen3-TTS 1.7B bf16 (~4.3 GB) | Apple Silicon, `[mlx]`, about 24 GB memory (e.g. M5 Pro 48 GB; skipped by default on a 16 GB Air) |
 | `fake` | test tone | nothing (tests and dry runs) |
 
 Ctrl-C stops after the current sentence; rerun the same command to resume.

@@ -11,7 +11,9 @@
 - [x] Listen player, mini-player, sleep timer, Media Session, ambience with ducking
 - [x] Reader view with shared position and live highlight
 - [x] Retarget for MacBook Pro M5 Pro 48 GB, keep M2 Air 16 GB supported (Session 164)
-- [ ] Mac benchmark on the M5 Pro (MLX, Pocket, Qwen3 0.6B + 1.7B) + subjective listening notes
+- [x] Mac benchmark on the M5 Pro (Kokoro, Pocket, Qwen3 0.6B + 1.7B; 2026-11-13)
+- [ ] Rerun `kokoro-mlx` on the M5 Pro after the `misaki` fix
+- [ ] Listen to the M5 Pro samples and pick the default voice
 - [ ] Optional: same benchmark on the M2 Air for the lower-spec numbers
 - [ ] iPhone verification: lock-screen playback, ambience in background, 7-day eviction behaviour
 - [ ] Optional: in-app progress UI for generation (currently CLI only)
