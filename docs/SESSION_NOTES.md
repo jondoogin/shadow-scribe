@@ -3,6 +3,25 @@ Reverse-chronological log of what was built, fixed, and decided in each working 
 
 ---
 
+## Session 164 — 2026-11-13
+**Theme:** Retarget the narrator for the new MacBook Pro (M5 Pro, 48 GB); keep the M2 Air (16 GB) supported
+
+**CHANGES**
+- `tools/narrator`: hardware tiers in `doctor` (`small` < 12 GB, `standard` < 24 GB, `large`).
+- New `qwen3-1.7b` engine (Qwen3-TTS 1.7B CustomVoice, bf16) with per-engine memory needs (`ENGINE_MIN_MEMORY_GB`). The default benchmark skips engines a machine can't fit and records why.
+- All narrator files now stay in `~/.lantern-narrator/`: Hugging Face and PyTorch caches are redirected there, and packages and benchmark runs default there.
+- New `lantern-narrate clean` command, which is a dry run unless given `--yes`.
+- Docs: hardware targets table and a work-machine storage section in `NARRATION.md`; CLAUDE.md and the narrator README updated.
+
+**VERIFIED**
+- 28 pytest tests pass (11 new: tiers, memory gating, cache redirection, clean safety, benchmark defaults for 16 GB and 48 GB).
+- `doctor`, `clean` and a Kokoro benchmark run worked on Linux.
+
+**NOT YET VERIFIED**
+- Every Mac number. No Mac (M5 Pro or Air) has run the benchmark yet.
+
+---
+
 ## Session 163 — 2026-10-26
 **Theme:** Neural narration: local audiobook generation, Listen player, Reader, ambience (branch `feature/lantern-neural-narration`)
 

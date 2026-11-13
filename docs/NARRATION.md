@@ -2,7 +2,9 @@
 
 Listen to your own EPUBs with natural neural voices, generated on your Mac, played in Lantern on any device. Nothing about the book leaves your devices unless you move the files yourself.
 
-**Status (Session 163):** built and tested on Linux and in headless Chromium. **Not yet run on an Apple Silicon Mac or an iPhone.** Every claim below says which of these it rests on.
+**Status (Session 164):** built and tested on Linux and in headless Chromium. **Not yet run on an Apple Silicon Mac or an iPhone.** Every claim below says which of these it rests on.
+
+**Hardware targets:** the main generation machine is now a **16-inch MacBook Pro, Apple M5 Pro, 48 GB** (a work machine). The **2022 MacBook Air, M2, 16 GB** stays supported as the lower-spec target. See [Hardware targets](#hardware-targets).
 
 ---
 
@@ -55,7 +57,7 @@ Same 20-segment passage (Pride and Prejudice ch. 1, public domain), same segment
 | Pocket TTS | — | not run | | | | | weights are on Hugging Face, which is blocked from this container |
 | Qwen3-TTS (MLX) | — | not run | | | | | needs Apple Silicon |
 
-"× realtime" means seconds of speech per second of compute. A 10-hour novel at 2.5× takes about 4 hours on this Xeon. An M2 should be faster, but **that is not measured yet**.
+"× realtime" means seconds of speech per second of compute. A 10-hour novel at 2.5× takes about 4 hours on this Xeon. Both Macs should be faster, but **neither is measured yet**.
 
 Subjective quality (naturalness, prosody, pronunciation, consistency) is **left blank on purpose**. Listen to the samples and fill in `RESULTS.md` yourself. No scores are made up here.
 
@@ -68,17 +70,30 @@ Subjective quality (naturalness, prosody, pronunciation, consistency) is **left 
 | Voices | 54 built-in voices, Apache-2.0 | **Per-voice:** VCTK-derived voices are CC-BY-4.0; some (expresso/EARS-derived) are **non-commercial** | Built-in speakers (e.g. Ryan, Aiden for English) |
 | Size | 82M params, 310 MB fp32 / 88 MB int8 + 27 MB voices | 100M params | 0.6B (8-bit ≈ 1 GB) / 1.7B (≈ 4.5 GB) |
 | Runs on | CPU anywhere (ONNX) and Apple GPU (MLX) | CPU (PyTorch) | Apple GPU (MLX); CUDA elsewhere |
-| Speed claim | measured above | Vendor reports about 6× realtime on an M4 MacBook Air (**unverified**) | Heavier; expect several times slower than Kokoro on an M2 (**unverified**) |
+| Speed claim | measured above | Vendor reports about 6× realtime on an M4 MacBook Air (**unverified**) | Heavier than Kokoro; how much slower on the M5 Pro and M2 Air is **unmeasured** |
 | Voice cloning | none | supports cloning from a prompt; **Lantern uses only built-in voices** | supports it; **Lantern uses built-in speakers only** |
-| Watch out for | espeak-ng (GPL-3) is used *locally* for phonemes; it is never shipped in the web app | per-voice licences; check before sharing audio | memory on 16 GB machines; long load time |
+| Watch out for | espeak-ng (GPL-3) is used *locally* for phonemes; it is never shipped in the web app | per-voice licences; check before sharing audio | 1.7B needs ~24 GB+ to run comfortably (skipped by default on the 16 GB Air); long load time |
 
 ### Recommendation
 
-- **Primary: Kokoro.** It is permissively licensed end to end, light enough for a 16 GB M2 Air, fast on CPU, and has the largest choice of built-in voices. On a Mac, try `kokoro-mlx` first; if MLX gives any trouble, `kokoro` (ONNX) works everywhere.
+- **Primary: Kokoro.** It is permissively licensed end to end, light enough for either Mac, fast on CPU, and has the largest choice of built-in voices. The default stays `kokoro` (ONNX, works everywhere); the benchmark also runs `kokoro-mlx` (Apple GPU), and you keep whichever is faster on your Mac.
 - **Fallback engine: Pocket TTS.** It is a different architecture and CPU-friendly. Stick to CC-BY voices if the audio might ever be shared.
-- **Qwen3-TTS: evaluated, not the default.** It is supported for experiments. Its size and speed on a 16 GB M2 make whole-novel generation impractical until measured otherwise.
+- **Qwen3-TTS: now worth testing on the M5 Pro, still not the default.** With 48 GB the 1.7B model (`qwen3-1.7b`, ~4.5 GB) fits easily, so the default benchmark includes it there. It only becomes the default if its samples sound clearly better *and* its speed makes a whole novel practical. Neither is known yet. On the 16 GB Air, the 0.6B model (`qwen3`) runs but is expected to be slow, and the 1.7B model is skipped.
 
-**Pending on the Mac:** `lantern-narrate doctor` and `lantern-narrate benchmark` (which adds MLX, Pocket and Qwen rows), then listening to the samples.
+**Pending on the Mac:** `lantern-narrate doctor` and `lantern-narrate benchmark` (which adds the MLX, Pocket and Qwen rows), then listening to the samples.
+
+### Hardware targets
+
+| | MacBook Pro 16-inch, M5 Pro, 48 GB | MacBook Air 2022, M2, 16 GB |
+|---|---|---|
+| Role | Main generation machine (work-issued) | Supported lower-spec target |
+| `doctor` tier | `large` (24 GB or more) | `standard` (12 to under 24 GB) |
+| Engines run by the default benchmark | all: Kokoro ONNX + MLX, Pocket, Qwen3 0.6B, Qwen3 1.7B | all except Qwen3 1.7B (skipped with a reason; `--only qwen3-1.7b:Ryan` forces it) |
+| Default engine | `kokoro` | `kokoro` |
+| Free disk to keep | about 15 GB (all models plus one book in progress) | about 5 GB (Kokoro plus one book in progress) |
+| Measured speed | not yet | not yet |
+
+Memory thresholds live in `ENGINE_MIN_MEMORY_GB` (`tools/narrator/lantern_narrator/engines/__init__.py`): Qwen3 0.6B needs about 12 GB and Qwen3 1.7B about 24 GB. Kokoro and Pocket fit on any Apple Silicon Mac. Machines below 12 GB (the `small` tier) use Kokoro or Pocket only.
 
 ---
 
@@ -90,14 +105,36 @@ brew install python@3.12            # 3.10–3.13 work
 cd shadow-scribe && npm install     # the narrator uses Lantern's own EPUB parser (Node ≥ 20)
 cd tools/narrator
 python3.12 -m venv .venv && source .venv/bin/activate
-pip install -e '.[kokoro]'          # add ,mlx for Apple GPU engines and ,pocket for Pocket TTS
-lantern-narrate doctor              # hardware, engines, tools, and a recommendation
+pip install -e '.[kokoro,mlx,pocket]'   # just '.[kokoro]' for the smallest install
+lantern-narrate doctor              # hardware tier, engines, tools, storage, and a recommendation
 lantern-narrate download kokoro     # ~340 MB into ~/.lantern-narrator/models (add --int8 for ~115 MB)
+lantern-narrate benchmark           # results in ~/.lantern-narrator/benchmarks/<timestamp>/
 ```
+
+On the M5 Pro the first full benchmark downloads about 6–7 GB of models (Kokoro ONNX and MLX, Pocket, both Qwen3 sizes). On the Air it is about 2 GB, because Qwen3 1.7B is skipped. These sizes are estimates from the published model files, not measured downloads.
 
 AAC encoding uses macOS's built-in `afconvert`. Elsewhere it uses `ffmpeg`, and with neither tool installed it falls back to WAV, which is roughly 10× bigger. `ffmpeg` is also needed for `--m4b`.
 
-Models, jobs and caches live in `~/.lantern-narrator/` (override with `LANTERN_NARRATOR_HOME`). **Never commit them.**
+### Where files go (work-machine friendly)
+
+Everything the narrator downloads or writes goes in **one folder**, `~/.lantern-narrator/` (override with `LANTERN_NARRATOR_HOME`):
+
+| Folder | Holds |
+|---|---|
+| `models/` | Kokoro ONNX weights |
+| `hf-cache/` | Hugging Face downloads (Pocket, MLX Kokoro, Qwen3). The narrator points `HF_HOME` here, so nothing lands in the shared `~/.cache/huggingface` |
+| `torch-cache/` | PyTorch hub files, if an engine asks for them |
+| `jobs/` | resumable per-book job folders (sentence cache, chapter audio) |
+| `output/` | finished `.lantern-audio` / `.m4b` packages (the default for `generate`) |
+| `benchmarks/` | one timestamped folder per benchmark run |
+
+- `lantern-narrate clean` shows what is stored and how big each folder is. `clean --jobs --yes`, `clean --models --yes` and so on remove one kind, and `clean --all --yes` removes everything. Without `--yes` it only lists what it would delete.
+- Deleting `~/.lantern-narrator/` by hand is also safe; the next run re-downloads what it needs.
+- If you already export `HF_HOME` or `TORCH_HOME`, your setting wins. `doctor` then reports it as a shared cache, and `clean` leaves it alone.
+- The virtualenv is `tools/narrator/.venv` inside the repo; delete that folder to remove the Python packages.
+- On a work machine, check your employer's policy before putting personal ebooks or generated audio on it. Nothing here uploads anything, but the files do sit on that disk until you clean them.
+
+**Never commit any of these.**
 
 ## 4. Generating an audiobook
 
@@ -105,7 +142,7 @@ Models, jobs and caches live in `~/.lantern-narrator/` (override with `LANTERN_N
 lantern-narrate voices kokoro
 lantern-narrate generate ~/Books/emma.epub --engine kokoro --voice bf_emma
 #   [3/55] Chapter III        12/48 · 2.4x realtime · ETA 1h12m
-# → ./emma-bf-emma.lantern-audio
+# → ~/.lantern-narrator/output/emma-bf-emma.lantern-audio   (or pass -o)
 ```
 
 - **Cancel:** press Ctrl-C once to stop after the current sentence; progress is saved and the exit code is 130. Press it twice to abort immediately.
@@ -231,4 +268,6 @@ A ZIP with **STORED** (uncompressed) entries, which lets the browser slice audio
 | Narration disappeared on iPhone | Safari evicted it after 7 days unused. Re-import, and use Add to Home Screen. |
 | Generation stops with "Segment … failed" | Rerun the command; if it fails at the same place, report the quoted sentence. |
 | `kokoro-mlx`/`qwen3` "need an Apple Silicon Mac" | Use `--engine kokoro` (ONNX), or check you are in an arm64 Python (`python -c "import platform;print(platform.machine())"`). |
+| Benchmark row says "needs about 24 GB of memory" | Expected on the 16 GB Air: Qwen3 1.7B is skipped there. Use `--only qwen3-1.7b:Ryan` to try it anyway. |
+| Disk filling up | `lantern-narrate clean` shows what is stored; `clean --jobs --yes` removes finished-book caches, `clean --models --yes` removes downloads. |
 | Package is WAV and huge | Install ffmpeg, or run on macOS where `afconvert` is built in. |

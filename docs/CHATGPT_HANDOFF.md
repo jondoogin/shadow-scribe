@@ -25,6 +25,14 @@ The companion is the star. Book data — characters, questions, themes, plot not
 
 ## RECENT SESSIONS
 
+### Session 164 — 2026-11-13 — Narrator retargeted to the M5 Pro (same branch, not merged)
+
+- The main generation machine is now John's work MacBook Pro (M5 Pro, 48 GB). The M2 Air stays supported.
+- With 48 GB, Qwen3-TTS 1.7B is included in the benchmark. Kokoro stays the default until the samples have been compared.
+- Everything the narrator stores is in `~/.lantern-narrator/`, and `lantern-narrate clean` removes it.
+
+**Open:** run `lantern-narrate benchmark` on the MacBook Pro, then listen and pick a voice.
+
 ### Session 163 — 2026-10-26 — Neural narration (feature branch, not merged)
 
 **What shipped (on branch `feature/lantern-neural-narration`, awaiting review):**

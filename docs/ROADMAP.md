@@ -10,7 +10,9 @@
 - [x] IndexedDB content + audio storage, stable locators
 - [x] Listen player, mini-player, sleep timer, Media Session, ambience with ducking
 - [x] Reader view with shared position and live highlight
-- [ ] Mac benchmark (MLX, Pocket, Qwen) + subjective listening notes
+- [x] Retarget for MacBook Pro M5 Pro 48 GB, keep M2 Air 16 GB supported (Session 164)
+- [ ] Mac benchmark on the M5 Pro (MLX, Pocket, Qwen3 0.6B + 1.7B) + subjective listening notes
+- [ ] Optional: same benchmark on the M2 Air for the lower-spec numbers
 - [ ] iPhone verification: lock-screen playback, ambience in background, 7-day eviction behaviour
 - [ ] Optional: in-app progress UI for generation (currently CLI only)
 
