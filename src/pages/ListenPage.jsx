@@ -288,7 +288,8 @@ export default function ListenPage() {
               return (
                 <li key={ab.id} className={active ? 'active' : ''}>
                   <button onClick={() => chooseSource({ type: 'audio', audiobookId: ab.id })} aria-pressed={active}>
-                    <span className="font-serif">{n.voice} · {n.engineLabel || n.engine}</span>
+                    <span className="font-serif">{String(n.voice || '').replace(/_/g, ' ')} · {n.engineLabel || n.engine}</span>
+                    {n.style && <span className="listen-dim">“{n.style}”</span>}
                     <span className="listen-dim">
                       Neural · {formatDuration(ab.manifest.totalDurationSec)} · {ab.manifest.sections.length} chapters · {formatBytes(ab.totalBytes)}
                       {!ab.manifest.complete && ' · partial'}

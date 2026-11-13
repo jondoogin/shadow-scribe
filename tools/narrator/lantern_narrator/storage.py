@@ -14,6 +14,7 @@ CATEGORIES = {
     "jobs": "resumable job folders: sentence cache and chapter audio (interrupted books restart)",
     "output": "finished .lantern-audio / .m4b packages",
     "benchmarks": "benchmark runs and samples",
+    "choices": "remembered engine and voice per book (books.json; no book text)",
 }
 
 
@@ -26,7 +27,8 @@ def _folders(category: str) -> list[Path]:
             if v and is_inside_home(Path(v)) and Path(v) not in dirs:
                 dirs.append(Path(v))
         return dirs
-    return {"jobs": [jobs_dir()], "output": [output_dir()], "benchmarks": [benchmarks_dir()]}[category]
+    return {"jobs": [jobs_dir()], "output": [output_dir()], "benchmarks": [benchmarks_dir()],
+            "choices": [home() / "books.json"]}[category]
 
 
 def dir_bytes(p: Path) -> int:
@@ -68,7 +70,10 @@ def clean(categories: list[str]) -> list[str]:
             raise ValueError(f"Unknown category '{c}'. Choose from: {', '.join(CATEGORIES)}")
         for d in _folders(c):
             if d.exists() and is_inside_home(d) and d.resolve() != root:
-                shutil.rmtree(d)
+                if d.is_dir() and not d.is_symlink():
+                    shutil.rmtree(d)
+                else:
+                    d.unlink()
                 removed.append(str(d))
     return removed
 

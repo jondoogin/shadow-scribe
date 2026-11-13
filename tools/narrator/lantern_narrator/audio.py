@@ -193,7 +193,8 @@ def encode_aac(wav: Path, out: Path, bitrate: int = 64000) -> Path:
     out.parent.mkdir(parents=True, exist_ok=True)
     if enc is None:
         target = out.with_suffix(".wav")
-        shutil.copyfile(wav, target)
+        if target.resolve() != Path(wav).resolve():
+            shutil.copyfile(wav, target)
         return target
     tmp = out.with_name(out.stem + ".partial.m4a")
     if enc == "afconvert":

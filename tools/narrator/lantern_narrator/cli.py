@@ -9,9 +9,11 @@ import urllib.request
 from pathlib import Path
 
 from . import benchmark
+from . import books
+from . import audio as A
 from .engines import ENGINE_IDS, EngineUnavailable, create_engine, memory_shortfall
-from .generate import GenerationInterrupted, Generator, SegmentFailed, StopFlag
-from .hardware import recommend, report
+from .generate import GenerationInterrupted, Generator, SegmentFailed, StopFlag, _spoken, assemble, slug
+from .hardware import default_engine, recommend, report
 from .package import write_m4b, write_package
 from . import storage
 from .paths import benchmarks_dir, isolate_caches, models_dir, output_dir
@@ -90,8 +92,24 @@ def cmd_download(args) -> int:
     return 0
 
 
+def resolve_choice(content_id: str, engine: str | None, voice: str | None, style: str | None,
+                   speed: float | None, hw: dict | None = None) -> dict:
+    """Flags win, then the book's remembered choice, then the machine default.
+    A remembered voice or style only carries over when the engine is the same."""
+    saved = books.get(content_id)
+    eng = engine or saved.get("engine") or default_engine(hw if hw is not None else report())
+    same = saved.get("engine") == eng
+    return {
+        "engine": eng,
+        "voice": voice if voice else (saved.get("voice", "") if same else ""),
+        "style": style if style is not None else (saved.get("style", "") if same else ""),
+        "speed": speed if speed is not None else (saved.get("speed", 1.0) if same else 1.0),
+        "remembered": bool(saved) and not engine and not voice,
+    }
+
+
 def cmd_voices(args) -> int:
-    eng = create_engine(args.engine)
+    eng = create_engine(args.engine or default_engine(report()))
     for v in eng.voices():
         print(f"{v.id:<14} {v.label:<32} {v.language:<6} {v.license or '':<28} {v.notes or ''}")
     return 0
@@ -124,13 +142,23 @@ def _progress_printer():
 
 def cmd_generate(args) -> int:
     script = script_from_source(Path(args.source), include_all=args.include_all)
-    engine = create_engine(args.engine)
-    stop = StopFlag().install()
-    gen = Generator(script, engine, args.voice, args.speed, bitrate=args.bitrate * 1000,
-                    on_progress=_progress_printer(), stop=stop, selection=args.sections,
-                    job_dir=Path(args.job_dir) if args.job_dir else None)
-    print(f"Book: {script['book'].get('title')} — {script['book'].get('author')}")
-    print(f"Engine: {engine.label} · voice {gen.voice} · speed {args.speed}")
+    book = script["book"]
+    c = resolve_choice(book["contentId"], args.engine, args.voice, args.style, args.speed)
+    engine = create_engine(c["engine"])
+    try:
+        gen = Generator(script, engine, c["voice"], c["speed"], bitrate=args.bitrate * 1000,
+                        on_progress=_progress_printer(), selection=args.sections, style=c["style"],
+                        job_dir=Path(args.job_dir) if args.job_dir else None)
+    except ValueError as e:
+        print(f"✗ {e}")
+        return 2
+    books.remember(book["contentId"], book.get("title"), engine=engine.id, voice=gen.voice,
+                   style=gen.style, speed=c["speed"])
+    stop = gen.stop.install()
+    print(f"Book: {book.get('title')} — {book.get('author')}")
+    print(f"Engine: {engine.label} · voice {gen.voice} · speed {c['speed']}"
+          + (f" · style \"{gen.style}\"" if gen.style else "")
+          + (" (this book's saved choice)" if c["remembered"] else ""))
     print(f"Job folder: {gen.job_dir}")
     try:
         state = gen.run()
@@ -154,6 +182,72 @@ def cmd_generate(args) -> int:
     if args.m4b:
         m4b = write_m4b(script, state, gen.job_dir, out.with_suffix(".m4b"))
         print(f"✓ M4B: {m4b}")
+    return 0
+
+
+def audition_text(script: dict, max_chars: int = 400) -> list[dict]:
+    """The opening sentences of the first narrated chapter, about 25 seconds of speech."""
+    picked, n = [], 0
+    for sec in narrated_sections(script):
+        for seg in sec["segments"]:
+            picked.append(seg)
+            n += len(_spoken(seg))
+            if n >= max_chars:
+                return picked
+        if picked:
+            return picked
+    return picked
+
+
+def cmd_audition(args) -> int:
+    script = script_from_source(Path(args.source), include_all=args.include_all)
+    book = script["book"]
+    c = resolve_choice(book["contentId"], args.engine, None, args.style, args.speed)
+    engine = create_engine(c["engine"])
+    style = (c["style"] or "").strip()
+    if style and not engine.supports_style:
+        print(f"✗ {engine.label} does not take a style instruction; use qwen3-1.7b or drop --style.")
+        return 2
+    engine.style = style
+    wanted = [v.strip() for v in args.voices.split(",")] if args.voices else [v.id for v in engine.voices()]
+    segments = audition_text(script, args.chars)
+    if not segments:
+        print("✗ No narrated text found in this book.")
+        return 2
+    out = Path(args.output) if args.output else output_dir() / "auditions" / slug(book.get("title") or "book")
+    out.mkdir(parents=True, exist_ok=True)
+    print(f"Book: {book.get('title')} — {book.get('author')}")
+    print(f"Engine: {engine.label}" + (f" · style \"{style}\"" if style else ""))
+    print(f"Reading the opening ({sum(len(_spoken(s)) for s in segments)} characters) in {len(wanted)} voices…")
+    try:
+        engine.load()
+    except EngineUnavailable as e:
+        print(f"✗ {e}")
+        return 2
+    sr = engine.info().sample_rate
+    made = []
+    for v in wanted:
+        t = time.perf_counter()
+        try:
+            pieces = [engine.synthesize(_spoken(seg), v, c["speed"]) for seg in segments]
+        except Exception as e:  # one bad voice should not stop the rest
+            print(f"  ✗ {v}: {e}")
+            continue
+        _timings, pcm = assemble(segments, pieces, sr)
+        pcm, _gain = A.normalize(pcm, sr)
+        stem = f"{engine.id}-{v}" + ("-styled" if style else "")
+        wav = out / f"{stem}.wav"
+        A.write_wav_atomic(wav, pcm, sr)
+        f = A.encode_aac(wav, out / f"{stem}.m4a")
+        if f != wav:
+            wav.unlink(missing_ok=True)
+        made.append(f)
+        print(f"  ✓ {v:<10} {f.name}  ({len(pcm) / sr:.0f} s of audio in {time.perf_counter() - t:.0f} s)")
+    if not made:
+        return 1
+    print(f"Samples in {out}")
+    print(f"Pick one: lantern-narrate generate {args.source} --engine {engine.id} --voice <name>"
+          + (f" --style \"{style}\"" if style else "") + "  (remembered for this book)")
     return 0
 
 
@@ -203,7 +297,7 @@ def main(argv=None) -> int:
     s.set_defaults(fn=cmd_download)
 
     s = sub.add_parser("voices", help="list voices for an engine")
-    s.add_argument("--engine", default="kokoro", choices=ENGINE_IDS)
+    s.add_argument("--engine", choices=ENGINE_IDS, help="default: this machine's default engine")
     s.set_defaults(fn=cmd_voices)
 
     s = sub.add_parser("script", help="EPUB/TXT → narration script JSON (uses Lantern's own parser)")
@@ -214,9 +308,12 @@ def main(argv=None) -> int:
 
     s = sub.add_parser("generate", help="generate chapter audio and a .lantern-audio package")
     s.add_argument("source", help=".epub, .txt or narration script .json")
-    s.add_argument("--engine", default="kokoro", choices=ENGINE_IDS)
-    s.add_argument("--voice", default="")
-    s.add_argument("--speed", type=float, default=1.0)
+    s.add_argument("--engine", choices=ENGINE_IDS,
+                   help="default: this book's saved choice, else qwen3-1.7b on Apple Silicon with 24 GB+, else kokoro")
+    s.add_argument("--voice", default="", help="default: this book's saved voice, else the engine's default")
+    s.add_argument("--style", default=None,
+                   help='qwen3-1.7b only: delivery instruction, e.g. "warm, unhurried audiobook narration" ("" clears)')
+    s.add_argument("--speed", type=float, default=None)
     s.add_argument("--sections", help="narrated sections to generate, e.g. 1-3,7 (default: all)")
     s.add_argument("--bitrate", type=int, default=64, help="AAC kbps (default 64)")
     s.add_argument("-o", "--output", help=f"package path (default {output_dir()}/<title>-<voice>.lantern-audio)")
@@ -225,6 +322,17 @@ def main(argv=None) -> int:
     s.add_argument("--no-text", action="store_true", help="omit caption text from the package")
     s.add_argument("--m4b", action="store_true", help="also write a single .m4b with chapters (ffmpeg)")
     s.set_defaults(fn=cmd_generate)
+
+    s = sub.add_parser("audition", help="read a book's opening in every voice, to choose one for that book")
+    s.add_argument("source", help=".epub, .txt or narration script .json")
+    s.add_argument("--engine", choices=ENGINE_IDS, help="default: as for generate")
+    s.add_argument("--voices", help="comma-separated voices (default: all for the engine)")
+    s.add_argument("--style", default=None, help="qwen3-1.7b only: delivery instruction to try")
+    s.add_argument("--speed", type=float, default=None)
+    s.add_argument("--chars", type=int, default=400, help="how much of the opening to read (default 400 characters)")
+    s.add_argument("-o", "--output", help=f"folder (default {output_dir()}/auditions/<title>/)")
+    s.add_argument("--include-all", action="store_true")
+    s.set_defaults(fn=cmd_audition)
 
     s = sub.add_parser("benchmark", help="compare engines on the same passage")
     s.add_argument("--script", default=str(Path(__file__).resolve().parents[1] / "benchmark" / "passage.script.json"))

@@ -95,11 +95,18 @@ def tier(r: dict) -> str:
     return "large"           # e.g. M5 Pro 48 GB (also used when memory is unknown)
 
 
+def default_engine(r: dict) -> str:
+    """Engine `generate` and `audition` use when neither --engine nor a remembered
+    per-book choice says otherwise. Qwen3 1.7B on an Apple Silicon Mac with 24 GB
+    or more (John's M5 Pro, chosen by ear in Session 164); Kokoro everywhere else."""
+    return "qwen3-1.7b" if r.get("apple_silicon") and tier(r) == "large" else "kokoro"
+
+
 def recommend(r: dict) -> list[str]:
     tips = []
     mem = r.get("memory_gb") or 0
     t = tier(r)
-    if r["apple_silicon"]:
+    if r["apple_silicon"] and t != "large":
         tips.append("Apple Silicon detected: 'kokoro' (ONNX/CPU) is the default; the benchmark also runs "
                     "'kokoro-mlx' (GPU). Keep whichever is faster.")
     if t == "small":
@@ -108,8 +115,13 @@ def recommend(r: dict) -> list[str]:
         tips.append(f"{mem:g} GB memory: qwen3 0.6B fits but will be several times slower than Kokoro for a "
                     "whole novel; qwen3-1.7b is skipped by default.")
     elif mem:
-        tips.append(f"{mem:g} GB memory: every engine fits, including qwen3-1.7b (~4.5 GB download). The default "
-                    "benchmark includes it; Kokoro stays the default engine until the samples have been compared.")
+        if r["apple_silicon"]:
+            tips.append(f"{mem:g} GB memory: the default engine is qwen3-1.7b (~4.3 GB download, about 2.5x "
+                        "realtime on an M5 Pro, so a 10-hour book takes about 4 hours). Run `lantern-narrate "
+                        "audition book.epub` to hear every voice read that book's opening, then pick one with "
+                        "--voice; the choice is remembered for that book. Use --engine kokoro for speed.")
+        else:
+            tips.append(f"{mem:g} GB memory, but qwen3 needs Apple Silicon (MLX): kokoro stays the default.")
     if not r["tools"]["afconvert"] and not r["tools"]["ffmpeg"]:
         tips.append("No AAC encoder found (afconvert/ffmpeg). Chapters will be stored as large WAV files.")
     if not r["tools"]["node"]:

@@ -76,6 +76,13 @@ def slug(s: str, n: int = 40) -> str:
     return s[:n] or "book"
 
 
+def voice_key(voice: str, style: str = "") -> str:
+    """Voice plus delivery style, as used in cache keys and job folder names."""
+    if not style:
+        return voice
+    return f"{voice}~{hashlib.sha1(style.encode('utf-8')).hexdigest()[:8]}"
+
+
 def job_dir_for(content_id: str, engine_id: str, voice: str, speed: float) -> Path:
     cid = content_id.split(":")[-1][:16]
     return jobs_dir() / f"{cid}__{engine_id}__{slug(voice, 24)}__{speed:.2f}"
@@ -136,17 +143,22 @@ class Generator:
     def __init__(self, script: dict, engine: Engine, voice: str, speed: float = 1.0,
                  job_dir: Path | None = None, bitrate: int = 64000,
                  on_progress: Callable[[Progress], None] | None = None,
-                 stop: StopFlag | None = None, selection: str | None = None):
+                 stop: StopFlag | None = None, selection: str | None = None, style: str = ""):
         self.script = script
         self.engine = engine
         self.voice = voice or engine.default_voice
+        self.style = (style or "").strip()
+        if self.style and not engine.supports_style:
+            raise ValueError(f"{engine.label} does not take a style instruction; use qwen3-1.7b or drop --style.")
+        engine.style = self.style
+        self.voice_key = voice_key(self.voice, self.style)
         self.speed = speed
         self.bitrate = bitrate
         self.on_progress = on_progress
         self.stop = stop or StopFlag()
         self.selection = selection
         book = script["book"]
-        self.job_dir = Path(job_dir) if job_dir else job_dir_for(book["contentId"], engine.id, self.voice, speed)
+        self.job_dir = Path(job_dir) if job_dir else job_dir_for(book["contentId"], engine.id, self.voice_key, speed)
         self.state_path = self.job_dir / "job.json"
         self.state = self._load_state()
         self._compute = 0.0
@@ -177,7 +189,7 @@ class Generator:
         fp = self.engine_fingerprint()
         h = hashlib.sha1(f"{GENERATOR_VERSION}|{self.bitrate}".encode())
         for seg in section["segments"]:
-            h.update(segment_key(fp, self.voice, self.speed, _spoken(seg)).encode())
+            h.update(segment_key(fp, self.voice_key, self.speed, _spoken(seg)).encode())
             h.update(str(pause_after(seg)).encode())
         return h.hexdigest()[:20]
 
@@ -193,6 +205,7 @@ class Generator:
         self.engine.load()
         self.state["engine"] = _info_dict(self.engine.info())
         self.state["voice"] = self.voice
+        self.state["style"] = self.style
         self.state["speed"] = self.speed
         sections = narrated_sections(self.script, self.selection)
         pending = [s for s in sections if not self.section_is_current(s)]
@@ -219,7 +232,7 @@ class Generator:
                 self._save_state()
                 raise GenerationInterrupted()
             spoken = _spoken(seg)
-            key = segment_key(fp, self.voice, self.speed, spoken)
+            key = segment_key(fp, self.voice_key, self.speed, spoken)
             cache = seg_dir / f"{key}.npy"
             if cache.exists():
                 try:

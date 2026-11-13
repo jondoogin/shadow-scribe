@@ -60,7 +60,7 @@ export default function ImportNarration({ book, onUpdateBook, onImported }) {
         <div role="alertdialog" aria-label="Confirm narration import" style={{ fontSize: 13, color: 'var(--color-text-secondary)', lineHeight: 1.6 }}>
           <p style={{ marginBottom: 6 }}>{pending.reason}</p>
           <p style={{ marginBottom: 10, fontSize: 12, color: 'var(--color-text-dim)' }}>
-            {pending.pkg.manifest.narration?.engineLabel} · {pending.pkg.manifest.narration?.voice} · {formatDuration(pending.pkg.manifest.totalDurationSec)}
+            {pending.pkg.manifest.narration?.engineLabel} · {String(pending.pkg.manifest.narration?.voice || '').replace(/_/g, ' ')}{pending.pkg.manifest.narration?.style ? ` (“${pending.pkg.manifest.narration.style}”)` : ''} · {formatDuration(pending.pkg.manifest.totalDurationSec)}
           </p>
           <div className="flex gap-3">
             <button className="listen-btn" onClick={() => run(pending.pkg)}>Import</button>

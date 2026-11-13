@@ -66,11 +66,19 @@ class KokoroMlxEngine(Engine):
         return _collect(self._model.generate(text=text, voice=voice, speed=speed, lang_code=lang))
 
 
+# The nine built-in CustomVoice speakers (Qwen3-TTS README). Every speaker can
+# speak English; only Ryan and Aiden are native English speakers, so the others
+# carry an accent. Descriptions are Qwen's own, not our judgement.
 QWEN_VOICES = [
-    Voice("Ryan", "Ryan (male, dynamic)", "en", "male", "Apache-2.0"),
-    Voice("Aiden", "Aiden (male, sunny US)", "en", "male", "Apache-2.0"),
-    Voice("Vivian", "Vivian (female)", "zh", "female", "Apache-2.0", "native Chinese speaker"),
-    Voice("Serena", "Serena (female)", "zh", "female", "Apache-2.0", "native Chinese speaker"),
+    Voice("Ryan", "Ryan (male)", "en", "male", "Apache-2.0", "dynamic, strong rhythmic drive; native English"),
+    Voice("Aiden", "Aiden (male)", "en", "male", "Apache-2.0", "sunny American, clear midrange; native English"),
+    Voice("Serena", "Serena (female)", "zh", "female", "Apache-2.0", "warm, gentle, young; native Chinese"),
+    Voice("Vivian", "Vivian (female)", "zh", "female", "Apache-2.0", "bright, slightly edgy, young; native Chinese"),
+    Voice("Sohee", "Sohee (female)", "ko", "female", "Apache-2.0", "warm, rich emotion; native Korean"),
+    Voice("Ono_Anna", "Ono Anna (female)", "ja", "female", "Apache-2.0", "playful, light; native Japanese"),
+    Voice("Uncle_Fu", "Uncle Fu (male)", "zh", "male", "Apache-2.0", "seasoned, low, mellow; native Chinese"),
+    Voice("Dylan", "Dylan (male)", "zh", "male", "Apache-2.0", "youthful, clear; native Beijing Chinese"),
+    Voice("Eric", "Eric (male)", "zh", "male", "Apache-2.0", "lively, slightly husky; native Sichuan Chinese"),
 ]
 
 
@@ -99,7 +107,17 @@ class Qwen3MlxEngine(Engine):
             self.load()
         gen = getattr(self._model, "generate_custom_voice", None)
         if gen is not None:
-            results = gen(text=text, speaker=voice or self.default_voice, language="English")
+            kwargs = {"text": text, "speaker": voice or self.default_voice, "language": "English"}
+            if self.style:
+                kwargs["instruct"] = self.style
+            try:
+                results = gen(**kwargs)
+            except TypeError as e:
+                if "instruct" in kwargs:
+                    raise EngineUnavailable(
+                        "This mlx-audio version does not accept a style instruction for Qwen3-TTS. "
+                        "Upgrade mlx-audio or drop --style.") from e
+                raise
         else:
             results = self._model.generate(text, voice=voice or self.default_voice, lang_code="English")
         return _collect(results)
@@ -108,6 +126,7 @@ class Qwen3MlxEngine(Engine):
 class Qwen3LargeMlxEngine(Qwen3MlxEngine):
     id = "qwen3-1.7b"
     label = "Qwen3-TTS 1.7B CustomVoice (MLX, bf16)"
+    supports_style = True  # Qwen: only the 1.7B CustomVoice model takes instructions
 
     def __init__(self, repo: str = "mlx-community/Qwen3-TTS-12Hz-1.7B-CustomVoice-bf16"):
         super().__init__(repo)

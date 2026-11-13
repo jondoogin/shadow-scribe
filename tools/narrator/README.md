@@ -12,7 +12,8 @@ pip install -e '.[kokoro,mlx,pocket]' # extras: kokoro, mlx (Apple Silicon), poc
 
 lantern-narrate doctor                # what this machine can run
 lantern-narrate download kokoro       # ~340 MB (or --int8 for ~115 MB)
-lantern-narrate generate book.epub --engine kokoro --voice af_heart
+lantern-narrate audition book.epub      # hear the book's opening in every voice
+lantern-narrate generate book.epub --voice Aiden   # voice (and engine/style/speed) remembered per book
 lantern-narrate benchmark             # compare engines on a public-domain passage
 lantern-narrate clean                 # show (and with --yes, remove) everything it stored
 ```
@@ -23,7 +24,7 @@ lantern-narrate clean                 # show (and with --yes, remove) everything
 | `kokoro-mlx` | mlx-audio | Apple Silicon, `[mlx]` |
 | `pocket` | pocket-tts (PyTorch CPU) | `[pocket]`; weights from Hugging Face on first use |
 | `qwen3` | mlx-audio, Qwen3-TTS 0.6B 8-bit | Apple Silicon, `[mlx]`, about 12 GB memory |
-| `qwen3-1.7b` | mlx-audio, Qwen3-TTS 1.7B bf16 (~4.3 GB) | Apple Silicon, `[mlx]`, about 24 GB memory (e.g. M5 Pro 48 GB; skipped by default on a 16 GB Air) |
+| `qwen3-1.7b` | mlx-audio, Qwen3-TTS 1.7B bf16 (~4.3 GB); takes `--style` | Apple Silicon, `[mlx]`, about 24 GB memory. **Default engine on the M5 Pro**; skipped by default on a 16 GB Air |
 | `fake` | test tone | nothing (tests and dry runs) |
 
 Ctrl-C stops after the current sentence; rerun the same command to resume.
@@ -32,4 +33,4 @@ Tests: `pip install -e '.[dev]' && pytest` (they use the `fake` engine, so no mo
 
 Everything (models, Hugging Face downloads, jobs, packages, benchmark runs) lives in one folder, `~/.lantern-narrator/` (`LANTERN_NARRATOR_HOME`). The narrator points `HF_HOME` and `TORCH_HOME` inside it unless you set them yourself. Delete the folder, or use `lantern-narrate clean`, to remove it all. Model weights, job folders and generated audio must never be committed.
 
-Hardware targets: the main machine is a MacBook Pro M5 Pro with 48 GB; a MacBook Air M2 with 16 GB stays supported. `doctor` reports the tier and what fits.
+Hardware targets: the main machine is a MacBook Pro M5 Pro with 48 GB; a MacBook Air M2 with 16 GB stays supported. `doctor` reports the tier and what fits. Without `--engine`, `generate` uses the book's saved choice, else `qwen3-1.7b` on Apple Silicon with 24 GB or more, else `kokoro`.

@@ -94,9 +94,10 @@ Subjective quality (naturalness, prosody, pronunciation, consistency) is **left 
 
 ### Recommendation
 
-- **Primary: Kokoro.** It is permissively licensed end to end, light enough for either Mac, fast on CPU, and has the largest choice of built-in voices. The default stays `kokoro` (ONNX, works everywhere); the benchmark also runs `kokoro-mlx` (Apple GPU), and you keep whichever is faster on your Mac.
+- **Default on the MacBook Pro: Qwen3-TTS 1.7B (`qwen3-1.7b`).** Chosen by John after listening to the M5 Pro samples (Session 164): he preferred its quality and expressiveness, but not the Ryan voice. It runs at about 2.5× realtime, so a 10-hour novel takes about 4 hours. The voice is chosen **per book** (see [Choosing a voice for each book](#choosing-a-voice-for-each-book)).
+- **Default everywhere else: Kokoro.** It is permissively licensed end to end, light enough for either Mac, fast on CPU (about 8× realtime on the Pro), and has the largest choice of built-in voices. It stays the default on the Air and on any machine without Apple Silicon and 24 GB. The benchmark also runs `kokoro-mlx` (Apple GPU).
 - **Fallback engine: Pocket TTS.** It is a different architecture and CPU-friendly. Stick to CC-BY voices if the audio might ever be shared.
-- **Qwen3-TTS: now worth testing on the M5 Pro, still not the default.** With 48 GB the 1.7B model (`qwen3-1.7b`, about 4.3 GB on disk, about 10 GB of GPU memory while running) fits easily, so the default benchmark includes it there. It ran at about 2.5× realtime, so a 10-hour novel takes about 4 hours. That is practical overnight. It only becomes the default if its samples sound clearly better, which nobody has judged yet. On the 16 GB Air, the 0.6B model (`qwen3`) runs but is expected to be slow, and the 1.7B model is skipped.
+- **Qwen3 sizes.** The 1.7B model is about 4.3 GB on disk and peaks at about 10 GB of GPU memory, so it needs a 24 GB Mac. On the 16 GB Air, the 0.6B model (`qwen3`) runs, but it does not take style instructions and the 1.7B model is skipped.
 
 **Pending:** listening to the M5 Pro samples, rerunning `kokoro-mlx` after the `misaki` fix, and (optionally) the same benchmark on the M2 Air.
 
@@ -107,7 +108,7 @@ Subjective quality (naturalness, prosody, pronunciation, consistency) is **left 
 | Role | Main generation machine (work-issued) | Supported lower-spec target |
 | `doctor` tier | `large` (24 GB or more) | `standard` (12 to under 24 GB) |
 | Engines run by the default benchmark | all: Kokoro ONNX + MLX, Pocket, Qwen3 0.6B, Qwen3 1.7B | all except Qwen3 1.7B (skipped with a reason; `--only qwen3-1.7b:Ryan` forces it) |
-| Default engine | `kokoro` | `kokoro` |
+| Default engine | `qwen3-1.7b` (voice chosen per book) | `kokoro` |
 | Free disk to keep | about 15 GB (all models plus one book in progress) | about 5 GB (Kokoro plus one book in progress) |
 | Measured speed | Kokoro about 8×, Pocket about 11×, Qwen3 0.6B about 4–4.7×, Qwen3 1.7B about 2.5× realtime (2026-11-13) | not yet |
 
@@ -145,6 +146,8 @@ Everything the narrator downloads or writes goes in **one folder**, `~/.lantern-
 | `jobs/` | resumable per-book job folders (sentence cache, chapter audio) |
 | `output/` | finished `.lantern-audio` / `.m4b` packages (the default for `generate`) |
 | `benchmarks/` | one timestamped folder per benchmark run |
+| `books.json` | the engine, voice, style and speed saved for each book (titles and settings only) |
+| `output/auditions/` | voice auditions, one folder per book |
 
 - `lantern-narrate clean` shows what is stored and how big each folder is. `clean --jobs --yes`, `clean --models --yes` and so on remove one kind, and `clean --all --yes` removes everything. Without `--yes` it only lists what it would delete.
 - Deleting `~/.lantern-narrator/` by hand is also safe; the next run re-downloads what it needs.
@@ -156,8 +159,25 @@ Everything the narrator downloads or writes goes in **one folder**, `~/.lantern-
 
 ## 4. Generating an audiobook
 
+### Choosing a voice for each book
+
 ```bash
-lantern-narrate voices kokoro
+lantern-narrate voices                          # the 9 Qwen3 speakers on the Pro (Kokoro's on the Air)
+lantern-narrate audition ~/Books/emma.epub      # the book's opening (~25 s) in every voice
+# → ~/.lantern-narrator/output/auditions/emma/qwen3-1.7b-Aiden.m4a, …-Serena.m4a, …
+lantern-narrate audition ~/Books/emma.epub --voices Aiden,Serena --style "warm, unhurried audiobook narration"
+lantern-narrate generate ~/Books/emma.epub --voice Serena --style "warm, unhurried audiobook narration"
+lantern-narrate generate ~/Books/emma.epub      # later runs reuse this book's saved engine, voice, style and speed
+```
+
+- **Saved per book.** `generate` remembers the engine, voice, style and speed for that EPUB (by its content hash) in `~/.lantern-narrator/books.json`, which holds only the title and the settings. Any flag you pass overrides the saved value and becomes the new saved choice. `clean --choices --yes` forgets them all.
+- **Qwen3 speakers.** Qwen3-TTS has 9 built-in speakers. Only **Ryan** and **Aiden** (both male) are native English speakers. **Serena**, **Vivian**, **Sohee** and **Ono_Anna** (female) and **Uncle_Fu**, **Dylan** and **Eric** (male) can all read English, but with an accent from their native language. The descriptions in `voices` are Qwen's own. Audition before committing to a 4-hour run.
+- **Style (Qwen3 1.7B only).** `--style` passes a plain-language delivery instruction to the model (for example "calm and low", "warm, unhurried audiobook narration"). It changes the delivery, not who the speaker is. It is part of the cache key, so changing it regenerates the audio. Whether the Mac's mlx-audio version accepts it is **not yet verified**; if it doesn't, the narrator stops with a clear message.
+- **In Lantern.** One book can hold several narrations. Listen lists each one by voice, engine and style, so you can keep two voices and switch between them.
+- **Not offered:** Qwen's VoiceDesign model (a voice made from a text description) and voice cloning. A designed voice drifts between sentences unless it is then cloned, and Lantern does not clone voices.
+
+```bash
+lantern-narrate voices --engine kokoro
 lantern-narrate generate ~/Books/emma.epub --engine kokoro --voice bf_emma
 #   [3/55] Chapter III        12/48 · 2.4x realtime · ETA 1h12m
 # → ~/.lantern-narrator/output/emma-bf-emma.lantern-audio   (or pass -o)
@@ -166,7 +186,7 @@ lantern-narrate generate ~/Books/emma.epub --engine kokoro --voice bf_emma
 - **Cancel:** press Ctrl-C once to stop after the current sentence; progress is saved and the exit code is 130. Press it twice to abort immediately.
 - **Resume:** run the same command again. Finished chapters are skipped and finished sentences come from the cache. Verified: an interrupted run resumed by reusing its cached sentences.
 - **Retries:** a failing sentence is retried 3 times, then the run stops with the chapter and sentence id. Fix the cause and rerun; nothing finished is redone.
-- **Edits:** if the text of a chapter changes, only that chapter is regenerated. Engine, voice, speed and bitrate are part of the job key.
+- **Edits:** if the text of a chapter changes, only that chapter is regenerated. Engine, voice, style, speed and bitrate are part of the job key.
 - **Partial books:** `--sections 1-3` builds a package of the first three narrated sections. Lantern shows it as incomplete.
 - **Front and back matter:** copyright, table of contents and similar pages are skipped by default. Use `--include-all` to narrate everything.
 - **Captions:** `--no-text` leaves sentence text out of the package. The player still works, and the captions come from the book on the device.

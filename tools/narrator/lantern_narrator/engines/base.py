@@ -43,6 +43,10 @@ class Engine:
     id = "base"
     label = "Base engine"
     default_voice = ""
+    # Engines that accept a plain-language delivery instruction ("warm, unhurried
+    # narration") set this to True and read self.style inside synthesize().
+    supports_style = False
+    style = ""
 
     def load(self) -> None:
         raise NotImplementedError

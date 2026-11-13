@@ -47,7 +47,7 @@ def test_recommendations_name_the_right_engines():
     air = " ".join(recommend(hw(16)))
     pro = " ".join(recommend(hw(48)))
     assert "qwen3-1.7b is skipped" in air
-    assert "including qwen3-1.7b" in pro and "Kokoro stays the default" in pro
+    assert "default engine is qwen3-1.7b" in pro and "audition" in pro
     assert "lantern-narrate clean" in pro
 
 
