@@ -29,6 +29,14 @@ The companion is the star. Book data — characters, questions, themes, plot not
 
 ## RECENT SESSIONS
 
+### Session 165 — 2026-11-15 — Follow-along transcript designed (not built)
+
+- John asked for a transcript that follows the narration, like Spotify lyrics but more elegant. The design is in `docs/TRANSCRIPT.md`.
+- Sentence-level follow-along can ship first with no narrator changes, because every narration package already has exact sentence times.
+- Word-level timing comes from a local forced aligner on the Mac, run on each sentence after it is spoken. Existing narrations can be upgraded without regenerating audio. Words only animate where the alignment is measured and confident.
+- The look: a pool of lantern light glides behind the sentence being read, and each word fills with ink as it's spoken. Spoilers: only the current chapter is ever shown; progress never changes on its own.
+- Open for John: a motion-system exception for this view, word vs sentence as default, an optional "reveal as spoken" veil, and placement inside Listen.
+
 ### Session 164 — 2026-11-13 — Narrator retargeted to the M5 Pro (same branch, not merged)
 
 - The main generation machine is now John's work MacBook Pro (M5 Pro, 48 GB). The M2 Air stays supported.

@@ -3,6 +3,22 @@ Reverse-chronological log of what was built, fixed, and decided in each working 
 
 ---
 
+## Session 165 — 2026-11-15 — Follow-along transcript (design)
+**Theme:** Architecture for a transcript that follows the narration sentence by sentence and word by word
+
+**DECISIONS (proposed, awaiting John's review)**
+- Sentence timings already exist in every package (segment `t0`/`t1`), so a sentence-level transcript needs no narrator change.
+- Word timings: forced alignment per sentence clip on the Mac, after synthesis, for every engine (Qwen3 1.7B has no native timings). Candidates: Qwen3-ForcedAligner-0.6B or wav2vec2 CTC; a spike picks one. `lantern-narrate align` upgrades existing packages without re-synthesis.
+- Words are defined by Lantern's JS segmenter (`words` per segment, display offsets + spoken forms). Timings ship as per-chapter sidecars with offsets and milliseconds only, no text; IndexedDB gets a `timings` store.
+- Sync: a frame clock over `audio.currentTime` plus a user sync offset; React renders once, a small conductor moves classes and one CSS variable.
+- Look: a lantern-light pool glides behind the current sentence; the spoken word fills with ink. Word animation only where alignment passed its confidence check.
+- Needs John's OK: a "listening register" exception to the motion system (520 ms glide, fill while a word is spoken).
+
+**FILES**
+- New `docs/TRANSCRIPT.md`. ROADMAP milestone added. No code changed.
+
+---
+
 ## Session 164 — 2026-11-13
 **Theme:** Retarget the narrator for the new MacBook Pro (M5 Pro, 48 GB); keep the M2 Air (16 GB) supported
 

@@ -23,6 +23,16 @@
 - [ ] iPhone verification: lock-screen playback, ambience in background, 7-day eviction behaviour
 - [ ] Optional: in-app progress UI for generation (currently CLI only)
 
+### Milestone: Follow-along transcript — Session 165 — designed, not built
+Design: `docs/TRANSCRIPT.md`.
+- [x] Design doc: timing sources, package sidecar, playback sync, animation, spoilers
+- [ ] John's answers to the 4 open questions (motion exception, default level, reveal-as-spoken, placement)
+- [ ] Phase 1: sentence-level transcript in Listen (front end only)
+- [ ] Phase 2: aligner spike on the M5 Pro (Qwen3-ForcedAligner vs wav2vec2 CTC)
+- [ ] Phase 3: word timings in the narrator (`words` in the script, `align` step and command, sidecars)
+- [ ] Phase 4: word animation in Lantern (IndexedDB `timings`, ink fill, sync offset)
+- [ ] Phase 5: Reader "Read along" uses the shared renderer
+
 ### Milestone: LibraryCompanion Atmosphere Pass — ✓ Session 147 — complete
 
 Visual and language pass on the cross-book companion surface at the library entrance.
