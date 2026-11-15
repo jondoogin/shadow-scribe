@@ -29,6 +29,15 @@ The companion is the star. Book data — characters, questions, themes, plot not
 
 ## RECENT SESSIONS
 
+### Session 165 — 2026-11-15 — Visual journey design (doc only, not merged)
+
+- Design for ambient imagery that follows the book: `docs/VISUAL_JOURNEY.md`.
+- Images are made on the Mac with a free local model (FLUX.2 klein 4B) from short windows of text, packaged, and imported on any device like narration. Estimated 10 to 20 minutes per novel on the MacBook Pro, 1.5 to 2.5 hours on the Air (not measured). Hosted would cost about $0.50 to $4 per novel but sends scene prompts out, so it stays opt-in.
+- Spoiler rule: an image appears only after you have passed every word it was made from.
+- Slow pan and zoom, 14-second dissolves, 90 to 240 seconds per image, off with Reduced Motion.
+
+**Open:** John to choose painterly or photographic, whether distant figures are allowed, and the pace.
+
 ### Session 164 — 2026-11-13 — Narrator retargeted to the M5 Pro (same branch, not merged)
 
 - The main generation machine is now John's work MacBook Pro (M5 Pro, 48 GB). The M2 Air stays supported.

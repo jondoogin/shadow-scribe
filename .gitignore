@@ -44,6 +44,7 @@ public/fonts/
 
 # Narration — generated audio, packages, models and caches never go in git
 *.lantern-audio
+*.lantern-visuals
 *.lantern-audio.partial
 *.m4b
 *.onnx

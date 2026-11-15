@@ -3,6 +3,22 @@ Reverse-chronological log of what was built, fixed, and decided in each working 
 
 ---
 
+## Session 165 — 2026-11-15
+**Theme:** Visual journey architecture (design doc only, branch off `feature/lantern-neural-narration`)
+
+**CHANGES**
+- New `docs/VISUAL_JOURNEY.md`: local versus hosted image generation (cost, quality, speed), scene planning and description from the text at the current position, spoiler gate (`visibleAfter`), queueing and prefetch, caching and storage, Ken Burns and crossfade timing tokens, `.lantern-visuals` package format, CLI and web code map, build order.
+- CLAUDE.md: short visual journey section with the spoiler invariants.
+
+**DECISIONS (proposed, awaiting John)**
+- Local generation on the Mac with FLUX.2 [klein] 4B (Apache-2.0); Z-Image Turbo to audition. Hosted (about $0.005 to $0.04 per image) only as an opt-in fallback.
+- Images shown only after the current position passes the end of their source window.
+
+**NOT YET VERIFIED**
+- Everything. Speeds in the doc are estimates scaled from one published M1 Max number; no image model has run on either Mac.
+
+---
+
 ## Session 164 — 2026-11-13
 **Theme:** Retarget the narrator for the new MacBook Pro (M5 Pro, 48 GB); keep the M2 Air (16 GB) supported
 
