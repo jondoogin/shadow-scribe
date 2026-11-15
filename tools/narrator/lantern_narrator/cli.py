@@ -10,6 +10,7 @@ from pathlib import Path
 
 from . import benchmark
 from . import books
+from . import voice_design as VD
 from . import audio as A
 from .engines import ENGINE_IDS, EngineUnavailable, create_engine, memory_shortfall
 from .generate import GenerationInterrupted, Generator, SegmentFailed, StopFlag, _spoken, assemble, slug
@@ -110,7 +111,10 @@ def resolve_choice(content_id: str, engine: str | None, voice: str | None, style
 
 def cmd_voices(args) -> int:
     eng = create_engine(args.engine or default_engine(report()))
-    for v in eng.voices():
+    voices = eng.voices()
+    if not voices and eng.id == "qwen3-designed":
+        print('No designed voices yet. Create one: lantern-narrate design "calm, low American man" --name Walter')
+    for v in voices:
         print(f"{v.id:<14} {v.label:<32} {v.language:<6} {v.license or '':<28} {v.notes or ''}")
     return 0
 
@@ -149,7 +153,7 @@ def cmd_generate(args) -> int:
         gen = Generator(script, engine, c["voice"], c["speed"], bitrate=args.bitrate * 1000,
                         on_progress=_progress_printer(), selection=args.sections, style=c["style"],
                         job_dir=Path(args.job_dir) if args.job_dir else None)
-    except ValueError as e:
+    except (ValueError, EngineUnavailable) as e:
         print(f"✗ {e}")
         return 2
     books.remember(book["contentId"], book.get("title"), engine=engine.id, voice=gen.voice,
@@ -251,6 +255,48 @@ def cmd_audition(args) -> int:
     return 0
 
 
+def cmd_design(args) -> int:
+    if args.list:
+        rows = VD.list_all()
+        if not rows:
+            print('No designed voices yet. Try: lantern-narrate design "warm, low British woman in her fifties" --name Margaret')
+        for r in rows:
+            kept = f" · take {r['keptTake']}" if r.get("keptTake") else ""
+            print(f"{r['name']:<16} {r['status']:<8}{kept}  {r['description']}")
+        return 0
+    if not args.name:
+        print("✗ Give the voice a name with --name.")
+        return 2
+    try:
+        if args.keep is not None:
+            v = VD.keep(args.name, args.keep)
+            print(f"✓ '{v.name}' now uses take {args.keep}. Narrate with it:")
+            print(f"  lantern-narrate generate book.epub --engine qwen3-designed --voice \"{v.name}\"")
+            return 0
+        if not args.description:
+            print('✗ Describe the voice, e.g. lantern-narrate design "calm, low American man, dry humour" --name Walter')
+            return 2
+        reason = memory_shortfall("qwen3-designed", report().get("memory_gb"))
+        if reason and not args.force:
+            print(f"✗ Voice design {reason.split(' (use')[0]}. Add --force to try anyway.")
+            return 2
+        print(f"Designing '{args.name}': {args.description}")
+        print(f"Rendering {args.takes} takes with {VD.DESIGN_MODEL} (first run downloads about 4.5 GB)…")
+        try:
+            designer = VD.mlx_designer()
+        except EngineUnavailable as e:
+            print(f"✗ {e}")
+            return 2
+        takes = VD.design(args.name, args.description, designer, takes=args.takes, seed=args.seed)
+    except VD.VoiceError as e:
+        print(f"✗ {e}")
+        return 2
+    for i, t in enumerate(takes, 1):
+        print(f"  take {i}: {t}")
+    print(f"Listen, then keep one: lantern-narrate design --name \"{args.name}\" --keep <1-{len(takes)}>")
+    return 0
+
+
 def cmd_benchmark(args) -> int:
     skipped = []
     if args.only:
@@ -333,6 +379,16 @@ def main(argv=None) -> int:
     s.add_argument("-o", "--output", help=f"folder (default {output_dir()}/auditions/<title>/)")
     s.add_argument("--include-all", action="store_true")
     s.set_defaults(fn=cmd_audition)
+
+    s = sub.add_parser("design", help="design a voice from a description, then keep the take you like")
+    s.add_argument("description", nargs="?", help='e.g. "warm, low British woman in her fifties, measured"')
+    s.add_argument("--name", help="what to call the voice (used with --voice)")
+    s.add_argument("--takes", type=int, default=3, help="how many versions to render (default 3)")
+    s.add_argument("--seed", type=int, help="make takes reproducible")
+    s.add_argument("--keep", type=int, help="make take N this voice's reference clip")
+    s.add_argument("--list", action="store_true", help="list designed voices")
+    s.add_argument("--force", action="store_true", help="try even if this Mac has less than 24 GB")
+    s.set_defaults(fn=cmd_design)
 
     s = sub.add_parser("benchmark", help="compare engines on the same passage")
     s.add_argument("--script", default=str(Path(__file__).resolve().parents[1] / "benchmark" / "passage.script.json"))

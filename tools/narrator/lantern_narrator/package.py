@@ -77,6 +77,7 @@ def build_manifest(script: dict, state: dict, include_text: bool = True) -> dict
             "licenseWeights": engine.get("license_weights"),
             "voice": state.get("voice"),
             "style": state.get("style") or None,
+            "voiceInfo": state.get("voiceInfo") or None,
             "speed": state.get("speed"),
             "sampleRate": engine.get("sample_rate"),
             "generator": f"lantern-narrator {GENERATOR_VERSION}",

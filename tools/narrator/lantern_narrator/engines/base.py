@@ -61,6 +61,15 @@ class Engine:
         """Return mono float32 PCM in [-1, 1] at info().sample_rate."""
         raise NotImplementedError
 
+    def voice_cache_key(self, voice: str) -> str:
+        """What identifies this voice in cache keys. Engines whose voices can
+        change under the same name (designed voices) include a content hash."""
+        return voice
+
+    def voice_info(self, voice: str) -> dict | None:
+        """Extra facts about the voice for the package manifest, if any."""
+        return None
+
     def close(self) -> None:
         pass
 

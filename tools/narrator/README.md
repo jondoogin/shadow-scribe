@@ -14,6 +14,7 @@ lantern-narrate doctor                # what this machine can run
 lantern-narrate download kokoro       # ~340 MB (or --int8 for ~115 MB)
 lantern-narrate audition book.epub      # hear the book's opening in every voice
 lantern-narrate generate book.epub --voice Aiden   # voice (and engine/style/speed) remembered per book
+lantern-narrate design "calm, low American man" --name Walter   # design a voice, then --keep a take
 lantern-narrate benchmark             # compare engines on a public-domain passage
 lantern-narrate clean                 # show (and with --yes, remove) everything it stored
 ```
@@ -25,6 +26,7 @@ lantern-narrate clean                 # show (and with --yes, remove) everything
 | `pocket` | pocket-tts (PyTorch CPU) | `[pocket]`; weights from Hugging Face on first use |
 | `qwen3` | mlx-audio, Qwen3-TTS 0.6B 8-bit | Apple Silicon, `[mlx]`, about 12 GB memory |
 | `qwen3-1.7b` | mlx-audio, Qwen3-TTS 1.7B bf16 (~4.3 GB); takes `--style` | Apple Silicon, `[mlx]`, about 24 GB memory. **Default engine on the M5 Pro**; skipped by default on a 16 GB Air |
+| `qwen3-designed` | mlx-audio, Qwen3-TTS 1.7B Base cloning a voice made by `lantern-narrate design` (VoiceDesign) | Apple Silicon, `[mlx]`, about 24 GB; ~9 GB of downloads. Clones only Lantern-designed voices |
 | `fake` | test tone | nothing (tests and dry runs) |
 
 Ctrl-C stops after the current sentence; rerun the same command to resume.

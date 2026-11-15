@@ -37,7 +37,10 @@ The companion is the star. Book data — characters, questions, themes, plot not
 
 - John heard all 9 voices and picked **Aiden** as the default. He wants to explore a custom voice builder next (Qwen3 VoiceDesign).
 
-**Open:** decide how a designed voice stays consistent across a book (see NARRATION.md); check that `--style` works with the Mac's mlx-audio; rerun Kokoro MLX after the dependency fix.
+- **Voice designer (built, not yet run on the Mac):** John chose "design, then lock it in". `lantern-narrate design "<description>" --name X` makes a few takes of a short passage with Qwen3 VoiceDesign; `--keep N` locks one in; the `qwen3-designed` engine clones that take for the whole book so the voice doesn't drift. Lantern clones only voices it designed itself, never real recordings.
+- iPhone: fixed the Files picker greying out `.lantern-audio` packages.
+
+**Open:** run the queued Mac steps (SESSION_NOTES), listen to 3 designed voices; iPhone test of Listen on the preview; check that `--style` works with the Mac's mlx-audio; rerun Kokoro MLX after the dependency fix.
 
 ### Session 163 — 2026-10-26 — Neural narration (feature branch, not merged)
 

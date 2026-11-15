@@ -89,7 +89,7 @@ Subjective quality (naturalness, prosody, pronunciation, consistency) is **left 
 | Size | 82M params, 310 MB fp32 / 88 MB int8 + 27 MB voices | 100M params | 0.6B (8-bit, about 1.9 GB on disk) / 1.7B (bf16, about 4.3 GB), measured on the M5 Pro |
 | Runs on | CPU anywhere (ONNX) and Apple GPU (MLX) | CPU (PyTorch) | Apple GPU (MLX); CUDA elsewhere |
 | Speed claim | measured above | About 11× realtime on the M5 Pro CPU (measured) | M5 Pro: 0.6B about 4–4.7× realtime, 1.7B about 2.5× (measured); M2 Air **unmeasured** |
-| Voice cloning | none | supports cloning from a prompt; **Lantern uses only built-in voices** | supports it; **Lantern uses built-in speakers only** |
+| Voice cloning | none | supports cloning from a prompt; **Lantern uses only built-in voices** | supports it; **Lantern uses built-in speakers, plus voices designed in Lantern (cloned from their own reference take); never real recordings** |
 | Watch out for | espeak-ng (GPL-3) is used *locally* for phonemes; it is never shipped in the web app | per-voice licences; check before sharing audio | 1.7B needs ~24 GB+ to run comfortably (skipped by default on the 16 GB Air); long load time |
 
 ### Recommendation
@@ -148,6 +148,7 @@ Everything the narrator downloads or writes goes in **one folder**, `~/.lantern-
 | `benchmarks/` | one timestamped folder per benchmark run |
 | `books.json` | the engine, voice, style and speed saved for each book (titles and settings only) |
 | `output/auditions/` | voice auditions, one folder per book |
+| `voices/` | voices you designed: description, takes, kept reference clip |
 
 - `lantern-narrate clean` shows what is stored and how big each folder is. `clean --jobs --yes`, `clean --models --yes` and so on remove one kind, and `clean --all --yes` removes everything. Without `--yes` it only lists what it would delete.
 - Deleting `~/.lantern-narrator/` by hand is also safe; the next run re-downloads what it needs.
@@ -174,7 +175,25 @@ lantern-narrate generate ~/Books/emma.epub      # later runs reuse this book's s
 - **Qwen3 speakers.** Qwen3-TTS has 9 built-in speakers. Only **Ryan** and **Aiden** (both male) are native English speakers. **Serena**, **Vivian**, **Sohee** and **Ono_Anna** (female) and **Uncle_Fu**, **Dylan** and **Eric** (male) can all read English, but with an accent from their native language. The descriptions in `voices` are Qwen's own. Audition before committing to a 4-hour run.
 - **Style (Qwen3 1.7B only).** `--style` passes a plain-language delivery instruction to the model (for example "calm and low", "warm, unhurried audiobook narration"). It changes the delivery, not who the speaker is. It is part of the cache key, so changing it regenerates the audio. Whether the Mac's mlx-audio version accepts it is **not yet verified**; if it doesn't, the narrator stops with a clear message.
 - **In Lantern.** One book can hold several narrations. Listen lists each one by voice, engine and style, so you can keep two voices and switch between them.
-- **Not offered:** Qwen's VoiceDesign model (a voice made from a text description) and voice cloning. A designed voice drifts between sentences unless it is then cloned, and Lantern does not clone voices.
+
+### Designing your own voice (Qwen3 1.7B, Mac with 24 GB or more)
+
+```bash
+lantern-narrate design "warm, low-pitched British woman in her fifties, measured, a little wry" --name Margaret
+# → ~/.lantern-narrator/voices/margaret/takes/take-1.m4a … take-3.m4a  (the same short passage, 3 versions)
+lantern-narrate design --name Margaret --keep 2      # this take becomes the voice
+lantern-narrate audition ~/Books/emma.epub --engine qwen3-designed --voices Margaret
+lantern-narrate generate ~/Books/emma.epub --engine qwen3-designed --voice Margaret
+lantern-narrate design --list
+```
+
+- **Why two models.** Qwen3-TTS **VoiceDesign** turns a description into a voice, but it invents the voice again on every call, so a book read with it alone would drift from sentence to sentence. So `design` uses VoiceDesign only to render a short reference passage, you keep the take you like, and the `qwen3-designed` engine uses Qwen3-TTS **Base** to clone that one clip for every sentence. This is Qwen's own recommended "design, then clone" workflow.
+- **What gets cloned (John's decision, Session 164).** Only voices Lantern designed. No command accepts a recording, and the engine refuses a voice unless its folder says it came from `design` and the reference clip's SHA-256 matches the take that was kept. This catches mistakes such as a stray recording dropped into the folder; it is not tamper-proofing.
+- **Changing a voice.** Running `design` again for the same name renders new takes, but books keep using the kept reference until you `--keep` a new take. Keeping a different take changes the voice's cache key, so the next `generate` re-records the book rather than mixing two voices.
+- **Downloads.** VoiceDesign 1.7B and Base 1.7B (bf16) are about 4.5 GB each, from `mlx-community`, Apache-2.0, no login. Both stay in the narrator folder.
+- **Where.** `~/.lantern-narrator/voices/<name>/`: `voice.json` (name, description, takes, kept take, hash), `takes/`, and `reference.wav`. `clean --voices --yes` removes them.
+- **The package** records the voice's name, its description and the reference hash (`narration.voiceInfo`), never the reference audio.
+- **Verified:** with a stand-in engine only. The real models have not run yet; quality, consistency over a long book, and speed are unknown.
 
 ```bash
 lantern-narrate voices --engine kokoro
@@ -306,6 +325,7 @@ A ZIP with **STORED** (uncompressed) entries, which lets the browser slice audio
 | Narration disappeared on iPhone | Safari evicted it after 7 days unused. Re-import, and use Add to Home Screen. |
 | Generation stops with "Segment … failed" | Rerun the command; if it fails at the same place, report the quoted sentence. |
 | `kokoro-mlx`/`qwen3` "need an Apple Silicon Mac" | Use `--engine kokoro` (ONNX), or check you are in an arm64 Python (`python -c "import platform;print(platform.machine())"`). |
+| `design` or `qwen3-designed` says a voice "doesn't match the take Lantern kept" | The reference clip was replaced or edited. Run `design` again and `--keep` a take. |
 | Benchmark row says "needs about 24 GB of memory" | Expected on the 16 GB Air: Qwen3 1.7B is skipped there. Use `--only qwen3-1.7b:Ryan` to try it anyway. |
 | Disk filling up | `lantern-narrate clean` shows what is stored; `clean --jobs --yes` removes finished-book caches, `clean --models --yes` removes downloads. |
 | Package is WAV and huge | Install ffmpeg, or run on macOS where `afconvert` is built in. |

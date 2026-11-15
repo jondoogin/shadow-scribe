@@ -151,7 +151,7 @@ class Generator:
         if self.style and not engine.supports_style:
             raise ValueError(f"{engine.label} does not take a style instruction; use qwen3-1.7b or drop --style.")
         engine.style = self.style
-        self.voice_key = voice_key(self.voice, self.style)
+        self.voice_key = voice_key(engine.voice_cache_key(self.voice), self.style)
         self.speed = speed
         self.bitrate = bitrate
         self.on_progress = on_progress
@@ -206,6 +206,7 @@ class Generator:
         self.state["engine"] = _info_dict(self.engine.info())
         self.state["voice"] = self.voice
         self.state["style"] = self.style
+        self.state["voiceInfo"] = self.engine.voice_info(self.voice)
         self.state["speed"] = self.speed
         sections = narrated_sections(self.script, self.selection)
         pending = [s for s in sections if not self.section_is_current(s)]

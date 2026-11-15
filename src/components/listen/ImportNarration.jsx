@@ -7,6 +7,13 @@ import { formatBytes, formatDuration } from '../../narration/sectionLabels.js'
  * Import a `.lantern-audio` package produced by the Mac narrator. Works the
  * same on desktop and iPhone (Files app, AirDrop, iCloud Drive).
  */
+// iOS maps `accept` entries to registered file types. `.lantern-audio` is not
+// one, so with a filter the Files picker greys the package out. On iPhone and
+// iPad we accept any file and let openAudiobookPackage reject the wrong ones.
+const IS_IOS = typeof navigator !== 'undefined' &&
+  (/iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1))
+const NARRATION_ACCEPT = IS_IOS ? undefined : '.lantern-audio,.zip,application/zip'
+
 export default function ImportNarration({ book, onUpdateBook, onImported }) {
   const input = useRef(null)
   const [busy, setBusy] = useState(null)        // { done, total, bytes }
@@ -51,7 +58,7 @@ export default function ImportNarration({ book, onUpdateBook, onImported }) {
 
   return (
     <div>
-      <input ref={input} type="file" accept=".lantern-audio,.zip,application/zip" hidden onChange={e => handleFile(e.target.files?.[0])} />
+      <input ref={input} type="file" accept={NARRATION_ACCEPT} hidden onChange={e => handleFile(e.target.files?.[0])} />
       {busy ? (
         <p role="status" style={{ fontSize: 13, color: 'var(--color-text-secondary)' }}>
           Importing chapter {busy.done} of {busy.total} · {formatBytes(busy.bytes)}…

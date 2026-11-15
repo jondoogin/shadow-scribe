@@ -23,7 +23,19 @@ Reverse-chronological log of what was built, fixed, and decided in each working 
 
 - **Voice per book (after John listened):** John liked Qwen3 1.7B's quality and expressiveness but not the Ryan voice, and wants the voice chosen per book. So `qwen3-1.7b` is now the default engine on Apple Silicon with 24 GB or more (Kokoro elsewhere). New `audition` command reads a book's opening in every voice. `generate` remembers engine, voice, style and speed per book in `books.json`. New `--style` passes Qwen3 1.7B a delivery instruction. Qwen3's full 9-speaker list is in `voices`. After hearing all 9 on the Mac, John picked **Aiden** as the default voice. Listen shows the style next to each narration. Also fixed: WAV fallback copied a file onto itself when no AAC encoder was installed. 36 pytest tests pass.
 
+- **Designed voices (Session 164, after John chose "design, then lock it in"):** new `lantern-narrate design` (VoiceDesign takes, `--keep`, `--list`) and the `qwen3-designed` engine (Qwen3 1.7B Base cloning the kept take). Clones only Lantern-designed voices, checked by provenance and SHA-256. Package manifest gains `narration.voiceInfo`. `clean --voices`. 8 new tests (44 in total), stand-in engine only.
+- **iPhone:** the narration import no longer filters by file type on iPhone/iPad, because iOS greys out `.lantern-audio` (an unregistered extension) when `accept` is set. The package reader still rejects wrong files.
+
+**QUEUED FOR THE MAC (it was offline)**
+1. `git pull`, then `uv pip install -e '.[kokoro,mlx,pocket,dev]'` in `tools/narrator` (adds `misaki` for Kokoro MLX).
+2. `lantern-narrate benchmark --only kokoro-mlx:af_heart` (the run that failed).
+3. `--style` check: audition Aiden with and without `--style "warm, unhurried audiobook narration"`.
+4. Design 3 voices, 3 takes each (VoiceDesign, ~4.5 GB): Margaret ("warm, low-pitched British woman in her fifties, measured pace, a hint of dry humour"), Walter ("calm, deep American man in his forties, unhurried and intimate, slightly gravelly"), Niamh ("bright, clear young Irish woman with a gentle lilt, expressive but steady").
+5. Keep take 1 of each provisionally, then narrate the benchmark passage with `qwen3-designed` (Base, ~4.5 GB) and record speed. Also render the same passage with VoiceDesign alone, sentence by sentence, to hear the drift.
+6. Copy every sample to `~/Lantern/benchmark-results-m5pro/designed-voices/` for John.
+
 **NOT YET VERIFIED**
+- The designed-voice path with real models (quality, consistency across a book, speed).
 - Whether the Mac's mlx-audio accepts the `instruct` style argument, and how the non-English-native Qwen3 speakers sound reading English.
 - Kokoro MLX speed (needs a rerun after the fix), any M2 Air number, and subjective voice quality (nobody has rated the samples).
 - Pocket's `alba` voice licence is still unconfirmed; `charles` is CC-BY.

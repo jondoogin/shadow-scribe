@@ -15,6 +15,7 @@ CATEGORIES = {
     "output": "finished .lantern-audio / .m4b packages",
     "benchmarks": "benchmark runs and samples",
     "choices": "remembered engine and voice per book (books.json; no book text)",
+    "voices": "voices you designed (descriptions, takes and kept reference clips)",
 }
 
 
@@ -28,7 +29,7 @@ def _folders(category: str) -> list[Path]:
                 dirs.append(Path(v))
         return dirs
     return {"jobs": [jobs_dir()], "output": [output_dir()], "benchmarks": [benchmarks_dir()],
-            "choices": [home() / "books.json"]}[category]
+            "choices": [home() / "books.json"], "voices": [home() / "voices"]}[category]
 
 
 def dir_bytes(p: Path) -> int:
