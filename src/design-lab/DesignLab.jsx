@@ -8,7 +8,7 @@ import * as scope from './dirs/scope.jsx'
 import * as catalogue from './dirs/catalogue.jsx'
 import * as elements from './dirs/elements.jsx'
 import * as sketchbook from './dirs/sketchbook.jsx'
-import * as spectrum from './dirs/spectrum.jsx'
+import * as spectrum from './dirs/spectrum/index.jsx'
 import './lab.css'
 
 // Design lab, round three: five explorations grown from Specimen (John's pick
@@ -17,7 +17,7 @@ import './lab.css'
 // spoiler-safe content.
 // Self-contained: it reads and writes no app data and is not linked from the app.
 
-const DIRS = [scope, catalogue, elements, sketchbook, spectrum, fieldlab]
+const DIRS = [spectrum, scope, catalogue, elements, sketchbook, fieldlab]
 const SCREENS = [
   { id: 'library', label: 'Library' },
   { id: 'companion', label: 'Companion' },
@@ -59,9 +59,10 @@ export default function DesignLab() {
 
   useEffect(() => {
     if (!playing) return
-    const id = setInterval(() => setT(v => (v >= CHAPTER_SEC ? 0 : v + 1)), 1000)
+    const id = setInterval(() => setT(v => Math.min(CHAPTER_SEC, v + 1)), 1000)
     return () => clearInterval(id)
   }, [playing])
+  if (playing && t >= CHAPTER_SEC) setPlaying(false)
   useEffect(() => { window.scrollTo(0, 0) }, [dir, screen])
   useEffect(() => { document.title = dir ? `Lantern · ${dir.meta.name}` : 'Lantern · Design lab' }, [dir])
 
@@ -73,7 +74,13 @@ export default function DesignLab() {
 
   if (!dir) return <Overview onPick={(id) => set({ d: id, s: 'library', m: null })} />
 
-  const ctx = { lockup: dir.meta.lockup, mode, book, setBook, playing, setPlaying, t, setT, go: (s) => set({ s }) }
+  const ctx = {
+    lockup: dir.meta.lockup, mode, book, setBook, playing, setPlaying, t, setT, go: (s) => set({ s }),
+    setMode: (m) => set({ m }), exit: () => set({ d: null, s: null, m: null }),
+  }
+  // Immersive directions are full prototypes: they own navigation, keep their
+  // state across screens and replace the lab bar with their own tab bar.
+  if (dir.meta.immersive) return <dir.App ctx={ctx} screen={params.get('s') || 'library'} />
   const Screen = dir.screens[screen]
   return (
     <div className={`lx lx--${dir.meta.family || dir.meta.id} lx--${dir.meta.id} lx--${mode}`} data-screen={screen}>
@@ -115,8 +122,8 @@ function Overview({ onPick }) {
     <div className="lab-overview">
       <header className="lab-ov-head">
         <span className="lab-ov-logo"><FlameMark size={18} /> Lantern</span>
-        <h1>Field Lab, five ways further</h1>
-        <p>Five offshoots of Field Lab, each taking its science-and-light idea somewhere very different: an amber oscilloscope, a library card catalogue, a periodic table of your books, a hand-drawn field sketchbook, and bold bands of split light. Each has its own layout, type and palette. Field Lab itself is last for comparison, and all six use the four-square mark from readwithlantern.com.</p>
+        <h1>Spectrum, refined</h1>
+        <p>Spectrum is now a clickable prototype with its own tab bar: band transitions between screens, a companion you can talk to (with the spoiler seal), highlights and notes, a working player, and distinct Daylight and Night modes. Tap the logo in the app to see the reworked mark. The other round five directions stay below for comparison.</p>
         <p className="lab-ov-avoid">Still avoided: purple gradients, frosted glass, glowing blobs, Inter, and identical card grids.</p>
       </header>
       <div className="lab-ov-list">
