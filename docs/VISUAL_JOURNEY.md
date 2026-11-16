@@ -2,7 +2,7 @@
 
 Ambient imagery that follows the book. As you listen or read, Lantern shows a very slow sequence of images drawn from the place you are in the story: a slow pan and zoom on one image, a long dissolve into the next. The images interpret setting, light, weather and mood. They never show what happens next.
 
-**Status (Session 165, 2026-11-15; revised 2026-11-16 with John's answers):** design only. Nothing here is built or benchmarked. Every number is marked **measured** (with its source) or **estimate**. The design follows the narration feature (`docs/NARRATION.md`) and the Listen & Atmosphere brief (FR-05, FR-06), and reuses their locators, storage rules and spoiler rules.
+**Status (Session 165, 2026-11-15; revised 2026-11-16 with John's answers):** build step 1 is done (section 11): the spoiler gate, the painterly WebGL stage and the Reader backdrop, shown on a preview page (`/preview/visuals`) with sample paintings drawn by code. Nothing is generated or benchmarked yet. Every number is marked **measured** (with its source) or **estimate**. The design follows the narration feature (`docs/NARRATION.md`) and the Listen & Atmosphere brief (FR-05, FR-06), and reuses their locators, storage rules and spoiler rules.
 
 ---
 
@@ -187,11 +187,12 @@ The core rule is: **an image is never shown before the reader has passed every w
 ### 5.2 Display side
 
 ```js
-eligible(image, position) = compareLocators(image.visibleAfter, position) <= 0
+eligible(image, position) = compareLocators(image.visibleAfter, position) < 0   // strictly past the window's last segment
 ```
 
 - `position` is the **current** locator from `lantern_listen` (the most recent of Listen and Reader, as today). It is not the furthest point ever reached. Seeking back hides images that are now ahead.
-- `compareLocators` orders by spine `order`, then block number, then segment number. It belongs in `src/narration/listenState.js` beside the existing locator code, with unit tests.
+- `compareLocators` (`src/atmosphere/visual/eligibility.js`) orders by spine `order`, then block number, then segment number. A locator with no segment (the Reader's top paragraph) counts as the start of that paragraph, so a Reader position never counts as having read the paragraph it is on.
+- The Reader's position must be the **topmost paragraph in the reading band**, taken from all paragraphs currently in the band. The existing `ReaderPage` observer picks the topmost of the paragraphs that *changed* in each callback, which can be a later one; it must be fixed when the backdrop is wired into the real Reader (the preview already does this).
 - **There is no slideshow timer to leak anything.** Images change only when the position passes the next image's `visibleAfter` (and the 90-second minimum has passed). If the reader lingers, the current painting just keeps drifting. Nothing ever moves forward early.
 - **Prefetch is not display.** The engine decodes the next 2 images ahead of time with `img.decode()` on detached elements, so the dissolve is smooth, but an image is only placed on the stage after the gate allows it.
 - **Gallery and thumbnails** show only eligible images. Ineligible ones are not rendered at all, not blurred, because a blurred colour field can still hint at "something red happens".
@@ -282,7 +283,7 @@ Images change on **context**, never on a clock (4.1). A new painting arrives whe
 ### 7.5 Surfaces
 
 - **Listen:** full-bleed stage behind the player, a bottom gradient veil in the page's own ink colours (light and dark mode), and controls on the existing card surfaces. The current mood accent (`--ca`) stays on the controls, not the image.
-- **Reader backdrop (in the first build, John 2026-11-16):** off until chosen. When on, the painting sits under an opaque Vellum veil at low strength (default 12%), softly blurred. It follows the reading position exactly like Listen does. The paint-in still happens, but slower (about 20 s) and at backdrop strength, so it reads as the page's colour slowly changing. Drift and shimmer are off behind text by default, because motion under words is tiring; a Motion toggle can turn them on. Body text contrast must stay at or above WCAG AA. `Clear page` hides it in one tap.
+- **Reader backdrop (in the first build, John 2026-11-16):** off until chosen. When on, the painting sits behind the page at low strength (default 22%, at most 40%), softly blurred, under a veil of the page colour that is strongest behind the text column (60% in light mode, 70% in dark mode, where the painting is also dimmed to 60% brightness). It follows the reading position exactly like Listen does. The paint-in still happens, but slower (about 20 s) and at backdrop strength, so it reads as the page's colour slowly changing. Drift and shimmer are off behind text by default, because motion under words is tiring; a Motion toggle can turn them on. Body text contrast must stay at or above WCAG AA. `Clear page` hides it in one tap.
 - **Mini-player:** no imagery. It stays quiet.
 - **Fallback:** no visuals for a book means the existing Lantern gradient or the cover, never unrelated stock art.
 - **Labelling:** a small "Generated image" note in the gallery, and a "Why this image" sheet that shows the descriptor (setting, light, mood). That sheet only exists for eligible images.
@@ -359,7 +360,12 @@ Feature flag: `atmosphereVisualsEnabled` (local), separate from the later `gener
 
 ## 11. Build order (each step is a separate PR, none merged without John)
 
-1. **Engine, stage and Reader backdrop with fixture art.** Eligibility, queue, the WebGL painterly stage (paint-in, drift, shimmer, paper), reduced motion, the CSS fallback, and the Reader backdrop with its veil and `Clear page`. Uses a few hand-made painterly test images and stroke maps for the fixture book. This is the brief's P2. Vitest covers the gate; a Playwright run checks that no ineligible image reaches the DOM and records the paint-in so John can judge it on screen.
+1. **Engine, stage and Reader backdrop with fixture art. Done (Session 165, 2026-11-16).**
+   - `src/atmosphere/visual/`: `eligibility.js` (gate and pacing), `motion.js` (drift maths and timing constants), `paintRenderer.js` (WebGL paint-in, drift, shimmer, paper grain), `VisualStage.jsx` (canvas, with a two-`<img>` crossfade fallback when WebGL is missing or lost), `ReaderBackdrop.jsx`, `useVisualJourney.js`, `sampleJourney.js`.
+   - Preview page `src/pages/VisualPreviewPage.jsx` at `/preview/visuals` (not linked from the app): a short story written for the preview, five sample paintings, Listen and Reader backdrop modes, a 5× story speed, scene jumps, Clear page, and toggles for drift, shimmer, backdrop strength and motion, and Reduced Motion.
+   - Sample paintings: `tools/visual-samples/` draws five simple scenes and repaints them stroke by stroke in headless Chromium, recording each stroke's order as the stroke map (`node tools/visual-samples/paint-samples.mjs`). They are labelled as drawn by code, not generated. About 450 KB in `public/visual-samples/`.
+   - Verified: 19 new Vitest tests (gate, pacing, drift bounds, sample windows). A Playwright run in Chromium (SwiftShader WebGL) walked the whole story in 400 ms steps of fake time and found the image on stage eligible at every step; all five paintings appeared in order; jumping back replaced the painting at once; the Reader backdrop showed the latest painting allowed at the reading position; no console errors. The WebGL-less fallback and Reduced Motion both ran without errors.
+   - Not yet wired into the real Listen and Reader pages: that needs a visual set to exist for a book, which arrives with step 2.
 2. **Package format and import.** `.lantern-visuals` reader, IndexedDB stores, the version-2 migration, storage display, remove.
 3. **Mac CLI: candidate boundaries, context-shift detection, style profile, describer, prompt builder.** Runs without an image model and writes a manifest with scene boundaries and prompts only, so the spoiler tests (5.3) and the context-shift tuning (4.1) run with no GPU.
 4. **Mac CLI: image model, validator, stroke maps, encoder, benchmark and audition.** Then benchmark on the M5 Pro (via Remote Control) and on the M2 Air, and replace every **estimate** in this doc with a measured number.
@@ -380,4 +386,4 @@ Nothing is open now. The remaining choices (which painterly preset, the context-
 
 ## 13. Not yet verified
 
-Everything. In particular: how well a 4B describer spots real context shifts (and how often that lands near the 4 to 8 minute average), how the paint-in and shimmer look and what they cost in battery on an iPhone, any image model's speed on the M5 Pro or the M2 Air, image quality and style consistency across a book, how well a 4B describer abstracts scenes without leaking events, Apple Vision face and text detection rates on painterly images, WebP sizes, iPhone memory and battery during a 14-second crossfade, and Safari's handling of long CSS transforms when the screen locks.
+Everything except the step 1 checks above. In particular: how the painterly stage looks and performs on a real iPhone and Mac GPU (only headless SwiftShader was tested), how well a 4B describer spots real context shifts (and how often that lands near the 4 to 8 minute average), how the paint-in and shimmer look and what they cost in battery on an iPhone, any image model's speed on the M5 Pro or the M2 Air, image quality and style consistency across a book, how well a 4B describer abstracts scenes without leaking events, Apple Vision face and text detection rates on painterly images, WebP sizes, iPhone memory and battery during a 14-second crossfade, and Safari's handling of long CSS transforms when the screen locks.

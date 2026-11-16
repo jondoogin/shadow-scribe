@@ -410,6 +410,23 @@ Used via `style={{ boxShadow: 'var(--shadow-modal)' }}`.
 
 ---
 
+## Atmosphere motion (Visual Journey, Session 165)
+
+The Visual Journey stage runs on story time, not interface time, so its values are far longer than the UI animations below on purpose. Audits should not flag them as outliers. Values live in `src/atmosphere/visual/motion.js`.
+
+| Token | Value | Use |
+|---|---|---|
+| `--visual-paint-in` | 14 s (Reader backdrop 20 s) | A new painting paints itself in along its brushstrokes |
+| `--visual-min-on-screen` | 90 s, no maximum | A context shift sooner than this waits |
+| `--visual-drift-scale` | 1.03 → 1.07 over 240 s, then back | Slow drift and zoom about the painting's focus |
+| `--visual-shimmer` | 1.5 px | Living-paint shimmer |
+| `--visual-grain` | 0.06 | Paper grain |
+| Reduced Motion | 1 s opacity fade, no drift or shimmer | |
+
+Behind body text (Reader backdrop) motion is off by default, the painting is at most 40% strength, blurred, and veiled by the page colour behind the text column.
+
+---
+
 ## Animation System
 
 All keyframes defined in `index.css`. Applied via custom `animate-*` Tailwind utilities.

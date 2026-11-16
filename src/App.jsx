@@ -14,6 +14,7 @@ import AccountPage from './pages/AccountPage.jsx'
 import DebugPage from './pages/DebugPage.jsx'
 import ListenPage from './pages/ListenPage.jsx'
 import ReaderPage from './pages/ReaderPage.jsx'
+import VisualPreviewPage from './pages/VisualPreviewPage.jsx'
 import { PlaybackProvider } from './context/PlaybackContext.jsx'
 import MiniPlayer from './components/listen/MiniPlayer.jsx'
 import { logError } from './utils/logger.js'
@@ -304,6 +305,7 @@ function AppShell() {
           <Route path="/book/:bookId" element={<BookPage />} />
           <Route path="/book/:bookId/listen" element={<ListenPage />} />
           <Route path="/book/:bookId/read" element={<ReaderPage />} />
+          <Route path="/preview/visuals" element={<VisualPreviewPage />} />
           <Route path="/settings" element={<SettingsPage />} />
           <Route path="/about" element={<AboutPage />} />
           <Route path="/signin" element={<SignInPage />} />

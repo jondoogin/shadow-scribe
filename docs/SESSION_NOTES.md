@@ -19,6 +19,13 @@ Reverse-chronological log of what was built, fixed, and decided in each working 
 - Images change on context shifts (setting, time, weather, mood) detected by the local describer, never on a timer; 90 s minimum, no maximum.
 - Reader backdrop moves into the first build. Distant figures and silhouettes allowed, faces never.
 
+**BUILT 2026-11-16 (step 1, John said build it)**
+- `src/atmosphere/visual/`: spoiler gate and pacing (`eligibility.js`), drift maths (`motion.js`), WebGL painterly renderer (`paintRenderer.js`), `VisualStage.jsx` with an `<img>` fallback, `ReaderBackdrop.jsx`, `useVisualJourney.js`, `sampleJourney.js`.
+- Preview page `/preview/visuals` (`src/pages/VisualPreviewPage.jsx`, unlinked): sample story written for it, Listen and Reader backdrop modes, 5× story speed, scene jumps, Clear page, motion toggles.
+- Sample paintings drawn by code (`tools/visual-samples/`, headless Chromium) with real stroke-order maps; about 450 KB in `public/visual-samples/`.
+- Verified: 79 Vitest tests pass (19 new). No per-file lint change. Build passes. Playwright (Chromium, SwiftShader WebGL): image on stage eligible at every 400 ms step over the whole story, all five paintings in order, jump back replaces at once, Reader backdrop follows the reading band, no console errors; WebGL-less fallback and Reduced Motion run clean.
+- Found: `ReaderPage`'s IntersectionObserver picks the topmost of the paragraphs that changed, not of all paragraphs in the band, so the saved read locator can run ahead. Must be fixed before the backdrop is wired into the real Reader.
+
 **NOT YET VERIFIED**
 - Everything. Speeds in the doc are estimates scaled from one published M1 Max number; no image model has run on either Mac.
 

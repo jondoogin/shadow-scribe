@@ -36,7 +36,9 @@ The companion is the star. Book data — characters, questions, themes, plot not
 - Spoiler rule: an image appears only after you have passed every word it was made from.
 - Slow pan and zoom, 14-second dissolves, 90 to 240 seconds per image, off with Reduced Motion.
 
-**John's answers (2026-11-16):** painterly, with painterly animation (each picture paints itself in along its brushstrokes and stays faintly "wet"); images change when the story's setting, time or mood shifts, not on a timer; the Reader backdrop is in the first build; distant figures and silhouettes are fine, never faces. Nothing is open; the next step is building the stage with sample art.
+**John's answers (2026-11-16):** painterly, with painterly animation (each picture paints itself in along its brushstrokes and stays faintly "wet"); images change when the story's setting, time or mood shifts, not on a timer; the Reader backdrop is in the first build; distant figures and silhouettes are fine, never faces. Nothing is open.
+
+**Built (2026-11-16, step 1):** the painterly display and the Reader backdrop, on a preview page (`/preview/visuals`) with five sample paintings drawn by code and a short story written for it. Paintings paint themselves in along their brushstrokes, drift slowly and shimmer faintly; the Reader backdrop sits faintly behind the text. Checked in a headless browser: no painting ever appeared before its passage had been heard. Not yet on a real iPhone, and not yet wired into real books (that needs step 2, importing a book's paintings).
 
 ### Session 164 — 2026-11-13 — Narrator retargeted to the M5 Pro (same branch, not merged)
 
