@@ -1,21 +1,15 @@
 .lx--fieldlab {
   --bg: #F1EEE6; --paper: #FAF8F3; --ink: #15140F; --ink-2: #45413A; --ink-3: #6B665C;
-  --grid: rgba(40,110,120,.10); --grid-major: rgba(40,110,120,.20);
+  --grid: rgba(30,90,100,.07); --cross: rgba(30,90,100,.22);
   --rule: rgba(21,20,15,.24); --rule-soft: rgba(21,20,15,.10);
   --ember: #C9400C; --heat: linear-gradient(90deg, #6E8A96 0%, #E8A13A 55%, #E2551A 85%, #B8300A 100%);
-  --mark-gap: var(--paper);
   --serif: "Libre Caslon Text", Georgia, serif; --display: "Libre Caslon Display", "Libre Caslon Text", serif;
   --mono: "IBM Plex Mono", ui-monospace, monospace; --sans: "IBM Plex Sans", system-ui, sans-serif;
   font-family: var(--sans);
-  background-image:
-    linear-gradient(var(--grid-major) 1px, transparent 1px), linear-gradient(90deg, var(--grid-major) 1px, transparent 1px),
-    linear-gradient(var(--grid) 1px, transparent 1px), linear-gradient(90deg, var(--grid) 1px, transparent 1px);
-  background-size: 60px 60px, 60px 60px, 12px 12px, 12px 12px;
-  background-position: -1px -1px;
 }
 .lx--fieldlab.lx--dark {
   --bg: #11140F; --paper: #191C17; --ink: #ECE8DE; --ink-2: #C2BDB0; --ink-3: #959083;
-  --grid: rgba(120,200,190,.06); --grid-major: rgba(120,200,190,.12);
+  --grid: rgba(150,210,200,.05); --cross: rgba(150,210,200,.16);
   --rule: rgba(236,232,222,.24); --rule-soft: rgba(236,232,222,.09);
   --ember: #FF8A4C; --heat: linear-gradient(90deg, #5B7480 0%, #E8A13A 55%, #FF6A2A 85%, #FFB070 100%);
 }
@@ -149,3 +143,55 @@
 .fl--preview { padding: 18px; display: flex; flex-direction: column; gap: 14px; }
 .fl--preview-row { display: flex; gap: 16px; align-items: flex-end; }
 .fl--preview .fl-callouts { margin: 0 0 10px; }
+
+/* ── Round three refinement: cleaner, quieter, the grid only hints ── */
+/* A hairline grid sits under the top of each screen and fades out, and small
+   registration crosses mark the rest of the page. Content sits on clean paper. */
+.lx--fieldlab::before { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 520px; z-index: 0; pointer-events: none;
+  background-image: linear-gradient(var(--grid) 1px, transparent 1px), linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+  background-size: 24px 24px; background-position: center -1px;
+  -webkit-mask-image: linear-gradient(#000 0, #000 30%, transparent 100%); mask-image: linear-gradient(#000 0, #000 30%, transparent 100%); }
+.lx--fieldlab::after { content: ""; position: absolute; inset: 0; z-index: 0; pointer-events: none; background: var(--cross);
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='48' height='48'%3E%3Cpath d='M24 20v8M20 24h8' stroke='black' stroke-width='1'/%3E%3C/svg%3E") center 0 / 48px 48px repeat; mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='48' height='48'%3E%3Cpath d='M24 20v8M20 24h8' stroke='black' stroke-width='1'/%3E%3C/svg%3E") center 0 / 48px 48px repeat;
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='48' height='48'%3E%3Cpath d='M24 20v8M20 24h8' stroke='black' stroke-width='1'/%3E%3C/svg%3E"), linear-gradient(transparent 0, transparent 360px, #000 520px); mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='48' height='48'%3E%3Cpath d='M24 20v8M20 24h8' stroke='black' stroke-width='1'/%3E%3C/svg%3E"), linear-gradient(transparent 0, transparent 360px, #000 520px);
+  -webkit-mask-composite: source-in; mask-composite: intersect; -webkit-mask-size: 48px 48px, 100% 100%; mask-size: 48px 48px, 100% 100%; -webkit-mask-repeat: repeat, no-repeat; mask-repeat: repeat, no-repeat; -webkit-mask-position: center 0, 0 0; mask-position: center 0, 0 0; }
+.lab-ov-preview.lx--fieldlab::before, .lab-ov-preview.lx--fieldlab::after { position: absolute; }
+
+.fl-head { border-bottom: 1px solid var(--ink); }
+.fl-plate { border: 1px solid var(--rule-soft); box-shadow: 0 1px 0 var(--rule-soft), 0 20px 40px -32px rgba(21,20,15,.45); }
+.fl-plate::before, .fl-plate::after { display: none; }
+.fl-plate-no { color: var(--ink-3); }
+.fl-callouts > div::before { border-top-color: var(--rule); }
+.fl-callouts > div::after { width: 5px; height: 5px; top: 5px; left: -2px; background: var(--ember); }
+
+.fl-burn { grid-template-columns: 1fr; padding-bottom: 14px; }
+.fl-burn-bulb { display: none; }
+.fl-burn-tube { height: 6px; margin-left: 0; border: 0; border-radius: 3px; background: var(--rule-soft); }
+.fl-burn-scale { left: 0; right: 0; }
+.fl-burn-scale i { height: 3px; background: var(--rule); }
+.fl-burn-scale b { font-weight: 400; font-size: 9px; color: var(--ink-3); opacity: .8; }
+
+.fl-btn { border-color: var(--rule); }
+.fl-btn--heat { box-shadow: none; border-color: var(--ink); }
+.fl-section { border-bottom: 1px solid var(--ink); }
+.fl-row { border-bottom-color: var(--rule-soft); }
+.fl-row-heat { height: 4px; border: 0; border-radius: 2px; background: var(--rule-soft); }
+.fl-row.is-on .fl-row-title { text-decoration: none; }
+.fl-row.is-on .fl-row-title::after { content: " ●"; font-size: 8px; vertical-align: middle; color: var(--ember); }
+
+.fl-tabs { border-top: 1px solid var(--rule); background: transparent; }
+.fl-strip { height: 6px; gap: 2px; }
+.fl-strip span { background: var(--rule-soft); border-radius: 1px; }
+.fl-card { border-color: var(--rule-soft); }
+.fl-entry--companion { background: none; }
+.fl-compose { border-color: var(--rule); }
+.fl-chap { border-top: 1px solid var(--rule); }
+.fl-foot { border-color: var(--rule); }
+.fl-key { border-color: var(--rule); }
+.fl-key--main { box-shadow: none; border-color: var(--ink); }
+.fl-dial-track { stroke: var(--rule-soft); stroke-width: 6; }
+.fl-dial-heat { stroke-width: 6; stroke-linecap: round; }
+.fl-dial-tick { stroke: var(--ink-3); stroke-width: 1; }
+.fl-dial-needle line { stroke-width: 1.5; }
+.fl-checks button { border-bottom-color: var(--rule-soft); }
+.fl-box { border-color: var(--ink-3); }

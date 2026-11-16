@@ -68,10 +68,10 @@ body:has(.lx)::after, body:has(.lab-overview)::after { display: none !important;
 
 /* ═══════════ Flame mark + lockups (round three) ═══════════ */
 .lx-flame { display: inline-block; flex-shrink: 0; overflow: visible; }
-@keyframes lxFlick { 0%, 100% { opacity: 1; } 37% { opacity: .82; } 52% { opacity: .97; } 71% { opacity: .88; } }
-.lx-flame--live .lx-pane--tl { animation: lxFlick 3.1s ease-in-out infinite; }
-.lx-flame--live .lx-pane--tr { animation: lxFlick 3.7s ease-in-out -1.2s infinite; }
-.lx-flame--live .lx-pane--bl { animation: lxFlick 4.3s ease-in-out -2.1s infinite; }
+@keyframes lxFlick { 0%, 100% { opacity: 1; } 37% { opacity: .78; } 52% { opacity: .96; } 71% { opacity: .86; } }
+.lx-flame--live .lx-pane--b { animation: lxFlick 3.1s ease-in-out infinite; }
+.lx-flame--live .lx-pane--r { animation: lxFlick 3.7s ease-in-out -1.2s infinite; }
+.lx-flame--live .lx-pane--l { animation: lxFlick 4.3s ease-in-out -2.1s infinite; }
 .lx-flame--fast .lx-pane { animation-duration: 1.1s !important; }
 .lk { display: inline-flex; align-items: center; gap: .42em; line-height: 1; color: var(--ink, var(--t1)); }
 .lk-word { white-space: nowrap; }
@@ -81,12 +81,9 @@ body:has(.lx)::after, body:has(.lab-overview)::after { display: none !important;
 .lk-reticle::before { left: 50%; top: -.28em; bottom: -.28em; width: 1px; transform: translateX(-.5px); -webkit-mask: linear-gradient(#000 0 .45em, transparent .45em calc(100% - .45em), #000 calc(100% - .45em)); mask: linear-gradient(#000 0 .45em, transparent .45em calc(100% - .45em), #000 calc(100% - .45em)); }
 .lk-reticle::after { top: 50%; left: -.28em; right: -.28em; height: 1px; transform: translateY(-.5px); -webkit-mask: linear-gradient(90deg, #000 0 .45em, transparent .45em calc(100% - .45em), #000 calc(100% - .45em)); mask: linear-gradient(90deg, #000 0 .45em, transparent .45em calc(100% - .45em), #000 calc(100% - .45em)); }
 .lk-reticle .lx-flame { position: relative; z-index: 1; }
-.lk--expedition { gap: .38em; }
-.lk-stack { display: flex; flex-direction: column; gap: .2em; }
-.lk--expedition .lk-word { font-family: "Young Serif", Georgia, serif; font-size: 1.08em; letter-spacing: -.01em; }
-.lk-sub { font-family: "Courier Prime", ui-monospace, monospace; font-size: .44em; letter-spacing: .16em; text-transform: uppercase; opacity: .72; }
-.lk--kiln { gap: .3em; }
-.lk--kiln .lk-word { font-family: "Bricolage Grotesque", sans-serif; font-weight: 800; font-size: 1.12em; letter-spacing: -.045em; font-variation-settings: "wdth" 78, "opsz" 72; }
+.lk--ledger .lk-word { font-family: "Libre Caslon Display", serif; font-size: 1.22em; letter-spacing: -0.01em; }
+.lk--lamplight { gap: .36em; }
+.lk--lamplight .lk-word { font-family: "Libre Caslon Text", serif; font-style: italic; font-size: 1.12em; letter-spacing: -0.015em; }
 
 /* shared cover object */
 .lx-cover { position: relative; display: flex; flex-direction: column; justify-content: space-between; flex-shrink: 0; aspect-ratio: 2 / 3; padding: 10% 10% 12%; color: #fff; background: linear-gradient(170deg, var(--c1), var(--c1) 60%, var(--c2) 160%); border-radius: 2px 4px 4px 2px; box-shadow: inset 4px 0 0 rgba(0,0,0,.18), inset 5px 0 0 rgba(255,255,255,.12), 0 1px 1px rgba(0,0,0,.2), 0 10px 18px -8px rgba(0,0,0,.45); }
@@ -97,7 +94,3 @@ body:has(.lx)::after, body:has(.lab-overview)::after { display: none !important;
 .lx-cover--md { width: 92px; font-size: 13px; }
 .lx-cover--lg { width: 128px; font-size: 17px; }
 .lx-cover--xl { width: 184px; font-size: 24px; }
-.lk--patent .lk-word { font-family: "Spectral", Georgia, serif; font-weight: 500; font-variant: small-caps; font-size: 1.12em; letter-spacing: .06em; }
-.lk-dimline { position: relative; display: block; height: .4em; border-left: 1px solid currentColor; border-right: 1px solid currentColor; }
-.lk-dimline::before { content: ""; position: absolute; left: 0; right: 0; top: 50%; border-top: 1px solid currentColor; }
-.lk--beacon .lk-word { font-family: "Libre Baskerville", Georgia, serif; font-weight: 700; letter-spacing: -0.015em; }

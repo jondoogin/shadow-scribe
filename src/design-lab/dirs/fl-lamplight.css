@@ -1,0 +1,19 @@
+/* Lamplight: the grid shows only inside the lantern's pool of light. Warm
+   palette taken from the four-square mark. */
+.lx--fl-lamplight { --bg: #F8F2E8; --paper: #FDF9F2; --ink: #1E1611; --ink-2: #4E4036; --ink-3: #7A6A5C;
+  --rule: rgba(30,22,17,.2); --rule-soft: rgba(30,22,17,.09); --ember: #AA5634; --grid: rgba(170,86,52,.13);
+  --heat: linear-gradient(90deg, #D3C2A6 0%, #D69058 50%, #AA5634 100%); }
+.lx--fl-lamplight.lx--dark { --bg: #14110E; --paper: #1C1814; --ink: #F3EBDD; --ink-2: #CDBFAD; --ink-3: #9C8D7D;
+  --rule: rgba(243,235,221,.2); --rule-soft: rgba(243,235,221,.08); --ember: #E39A62; --grid: rgba(214,144,88,.14);
+  --heat: linear-gradient(90deg, #A47044 0%, #D69058 55%, #F0C9A0 100%); }
+.lx.lx--fl-lamplight::before { height: 640px; background-size: 22px 22px;
+  -webkit-mask-image: radial-gradient(ellipse 85% 70% at 50% 0, #000 0, #000 35%, transparent 72%); mask-image: radial-gradient(ellipse 85% 70% at 50% 0, #000 0, #000 35%, transparent 72%); }
+.lx.lx--fl-lamplight::after { display: none; }
+.lx--fl-lamplight .fl-h1 { font-family: var(--serif); font-style: italic; font-size: 42px; letter-spacing: -0.02em; }
+.lx--fl-lamplight .fl-plate { border-radius: 4px; border-color: var(--rule-soft); }
+.lx--fl-lamplight.lx--dark .fl-plate { box-shadow: 0 30px 60px -40px rgba(0,0,0,.8); }
+.lx--fl-lamplight .fl-btn--heat, .lx--fl-lamplight .fl-key--main { background: var(--ember); border-color: var(--ember); color: #FDF9F2; }
+.lx--fl-lamplight.lx--dark .fl-btn--heat, .lx--fl-lamplight.lx--dark .fl-key--main { color: #14110E; }
+.lx--fl-lamplight .fl-dial-heat { stroke: #D69058; }
+.lx--fl-lamplight .fl-prose p.is-now { background: linear-gradient(transparent 64%, rgba(214,144,88,.32) 64%); }
+.lx--fl-lamplight .fl-seal { border-radius: 3px; }

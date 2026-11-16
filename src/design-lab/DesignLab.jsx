@@ -4,10 +4,9 @@ import { BOOKS } from './sample.js'
 import { CHAPTER_SEC } from './shared.jsx'
 import { FlameMark } from './brand.jsx'
 import * as fieldlab from './dirs/fieldlab.jsx'
-import * as expedition from './dirs/expedition.jsx'
-import * as kiln from './dirs/kiln.jsx'
-import * as patent from './dirs/patent.jsx'
-import * as beacon from './dirs/beacon.jsx'
+import * as ledger from './dirs/fl-ledger.jsx'
+import * as instrument from './dirs/fl-instrument.jsx'
+import * as lamplight from './dirs/fl-lamplight.jsx'
 import './lab.css'
 
 // Design lab, round three: five explorations grown from Specimen (John's pick
@@ -16,7 +15,7 @@ import './lab.css'
 // spoiler-safe content.
 // Self-contained: it reads and writes no app data and is not linked from the app.
 
-const DIRS = [fieldlab, expedition, kiln, patent, beacon]
+const DIRS = [ledger, instrument, lamplight, fieldlab]
 const SCREENS = [
   { id: 'library', label: 'Library' },
   { id: 'companion', label: 'Companion' },
@@ -70,10 +69,10 @@ export default function DesignLab() {
 
   if (!dir) return <Overview onPick={(id) => set({ d: id, s: 'library', m: null })} />
 
-  const ctx = { mode, book, setBook, playing, setPlaying, t, setT, go: (s) => set({ s }) }
+  const ctx = { lockup: dir.meta.lockup, mode, book, setBook, playing, setPlaying, t, setT, go: (s) => set({ s }) }
   const Screen = dir.screens[screen]
   return (
-    <div className={`lx lx--${dir.meta.id} lx--${mode}`} data-screen={screen}>
+    <div className={`lx lx--${dir.meta.family || dir.meta.id} lx--${dir.meta.id} lx--${mode}`} data-screen={screen}>
       <main className="lx-app" key={`${dir.meta.id}-${screen}`}>
         <Screen ctx={ctx} />
       </main>
@@ -112,8 +111,8 @@ function Overview({ onPick }) {
     <div className="lab-overview">
       <header className="lab-ov-head">
         <span className="lab-ov-logo"><FlameMark size={18} /> Lantern</span>
-        <h1>Five explorations of Specimen, round three</h1>
-        <p>All five grow out of Specimen and lean into the scientific tinkerer and explorer. Each one uses the new four-pane diamond flame mark with its own logotype, and brings heat back in its own way. Open one, flip between Library, Companion, Reader and Listen, and try light and dark. Press play on Listen to see the mark flicker.</p>
+        <h1>Field Lab, three ways</h1>
+        <p>Three variations on Field Lab, each cleaner and simpler than the original and each treating the grid more quietly: a ruler down the margin, a fine dot matrix, or graph paper that only shows where the lamp shines. The refined original is fourth for comparison. All use the four-square mark from readwithlantern.com.</p>
         <p className="lab-ov-avoid">Still avoided: purple gradients, frosted glass, glowing blobs, Inter, and identical card grids.</p>
       </header>
       <div className="lab-ov-list">
@@ -121,7 +120,7 @@ function Overview({ onPick }) {
           const P = d.Preview
           return (
             <button key={d.meta.id} className="lab-ov-card" onClick={() => onPick(d.meta.id)}>
-              <div className={`lx lx--${d.meta.id} lx--${d.meta.defaultMode} lab-ov-preview`}><P /></div>
+              <div className={`lx lx--${d.meta.family || d.meta.id} lx--${d.meta.id} lx--${d.meta.defaultMode} lab-ov-preview`}><P /></div>
               <div className="lab-ov-info">
                 <span className="lab-ov-num">0{i + 1}</span>
                 <h2>{d.meta.name}</h2>

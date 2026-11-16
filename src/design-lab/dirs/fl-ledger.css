@@ -1,0 +1,21 @@
+/* Ledger: Field Lab with the boxes taken away. The grid is a margin ruler. */
+.lx--fl-ledger { --bg: #F6F4EE; --paper: #F6F4EE; }
+.lx--fl-ledger.lx--dark { --bg: #121210; --paper: #121210; }
+.lx.lx--fl-ledger::before { top: 0; bottom: 0; left: 0; right: auto; width: 12px; height: auto; -webkit-mask-image: none; mask-image: none;
+  background-image: repeating-linear-gradient(to bottom, var(--ink-3) 0 1px, transparent 1px 48px), repeating-linear-gradient(to bottom, var(--rule) 0 1px, transparent 1px 8px);
+  background-size: 12px 100%, 6px 100%; background-repeat: no-repeat; background-position: 0 0, 0 0; opacity: .7; }
+.lx.lx--fl-ledger::after { display: none; }
+.lx--fl-ledger .fl-plate { padding: 4px 0 0; background: none; border: 0; box-shadow: none; }
+.lx--fl-ledger .fl-plate-no { right: 0; top: 0; }
+.lx--fl-ledger .fl-h1 { font-size: 42px; }
+.lx--fl-ledger .fl-head { border-bottom-color: var(--rule); }
+.lx--fl-ledger .fl-card { background: none; border: 0; border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule); padding: 16px 0; }
+.lx--fl-ledger .fl-btn { background: none; }
+.lx--fl-ledger .fl-btn--heat { background: var(--ink); }
+.lx--fl-ledger .fl-key { background: none; }
+.lx--fl-ledger .fl-key--main { background: var(--ink); }
+.lx--fl-ledger .fl-compose { background: none; border-width: 0 0 1px; }
+.lx--fl-ledger .fl-compose button { background: none; color: var(--ember); }
+.lx--fl-ledger .fl-section { border-bottom-color: var(--rule); }
+.lx--fl-ledger .fl-foot { background: var(--bg); border-width: 1px 0 0; }
+.lx--fl-ledger.lx--fieldlab .fl--reader .fl-prose, .lx--fl-ledger .fl--reader .fl-chap { background: none; }

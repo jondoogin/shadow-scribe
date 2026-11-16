@@ -9,9 +9,9 @@ import './fieldlab.css'
 // a burn gauge, and the flame mark sits in a sighting reticle.
 
 export const meta = {
-  id: 'fieldlab', name: 'Field Lab', defaultMode: 'light',
+  id: 'fieldlab', name: 'Field Lab (base)', defaultMode: 'light',
   tagline: 'Specimen, kept in a tinkerer’s lab notebook',
-  signature: 'Burn gauges and callout labels on graph paper',
+  signature: 'Burn gauges and callout labels, with a grid that only hints',
   research: 'Keeps Specimen’s accession labels and adds the instrument side: engineering graph paper, leader-line callouts, a thermometer for chapter progress and a dial for listening. The mark sits in a sighting reticle taken from the original app icon.',
 }
 
@@ -76,7 +76,7 @@ function Library({ ctx }) {
   const pct = b.id === 'pp' ? (ctx.t / CHAPTER_SEC) * 100 : b.bookPct
   return (
     <div className="fl">
-      <Top left={<Lockup kind="fieldlab" size={17} />} right={<><button className="fl-ic" aria-label="Search"><Icon name="search" /></button><button className="fl-ic" aria-label="Add a book"><Icon name="plus" /></button></>} />
+      <Top left={<Lockup kind={ctx.lockup || 'fieldlab'} size={17} />} right={<><button className="fl-ic" aria-label="Search"><Icon name="search" /></button><button className="fl-ic" aria-label="Add a book"><Icon name="plus" /></button></>} />
       <div className="fl-head">
         <span className="fl-mono fl-dim">Bench log · 16 Nov · {pad2(BOOKS.length)} specimens</span>
         <h1 className="fl-h1">On the bench</h1>
@@ -243,10 +243,10 @@ function Listen({ ctx }) {
 }
 
 export const screens = { library: Library, companion: Companion, reader: Reader, listen: Listen }
-export function Preview() {
+export function Preview({ kind = 'fieldlab' }) {
   return (
     <div className="fl fl--preview">
-      <Lockup kind="fieldlab" size={22} />
+      <Lockup kind={kind} size={22} />
       <div className="fl--preview-row">
         <Cover book={BOOKS[0]} size="md" />
         <div style={{ flex: 1 }}>
