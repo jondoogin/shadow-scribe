@@ -14,6 +14,11 @@ Reverse-chronological log of what was built, fixed, and decided in each working 
 - Local generation on the Mac with FLUX.2 [klein] 4B (Apache-2.0); Z-Image Turbo to audition. Hosted (about $0.005 to $0.04 per image) only as an opt-in fallback.
 - Images shown only after the current position passes the end of their source window.
 
+**REVISED 2026-11-16 (John's answers)**
+- Painterly look, animated in a painterly way: WebGL paint-in along per-image stroke maps, faint living-paint shimmer, slow drift, paper grain.
+- Images change on context shifts (setting, time, weather, mood) detected by the local describer, never on a timer; 90 s minimum, no maximum.
+- Reader backdrop moves into the first build. Distant figures and silhouettes allowed, faces never.
+
 **NOT YET VERIFIED**
 - Everything. Speeds in the doc are estimates scaled from one published M1 Max number; no image model has run on either Mac.
 

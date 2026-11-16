@@ -85,6 +85,7 @@ There is no CI in `.github/`. Vercel builds with `npm run build`.
 - Not built yet. Ambient scene images follow the reading position, generated **locally on the Mac** (FLUX.2 [klein] 4B via mflux, Apache-2.0; a local Qwen3 LLM writes scene descriptions) into a `.lantern-visuals` package that Lantern imports into IndexedDB `lantern_content`. Hosted image APIs are an opt-in fallback only; book text never leaves the Mac.
 - **Spoiler gate:** every image carries `visibleAfter` = the last segment of the text it was made from. Show it only when `visibleAfter <= current locator`. Prefetch may decode early but never put an ineligible image in the DOM; the slideshow timer never advances past the gate.
 - The style profile is built from the title, author and first 2,000 words only, never later text.
+- **John's choices (2026-11-16):** painterly look and painterly animation (WebGL paint-in along stroke maps, living-paint shimmer, paper grain); images change on **context shifts** (setting, time, weather, mood), never on a timer, about every 4 to 8 minutes on average; the Reader backdrop is in the first build (off until chosen); distant figures and silhouettes are allowed, faces never.
 - `lantern_content` schema v2 is shared with the planned transcript work: whichever lands first takes v2. Migrations stay additive.
 
 ## Never commit

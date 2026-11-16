@@ -36,7 +36,7 @@ The companion is the star. Book data — characters, questions, themes, plot not
 - Spoiler rule: an image appears only after you have passed every word it was made from.
 - Slow pan and zoom, 14-second dissolves, 90 to 240 seconds per image, off with Reduced Motion.
 
-**Open:** John to choose painterly or photographic, whether distant figures are allowed, and the pace.
+**John's answers (2026-11-16):** painterly, with painterly animation (each picture paints itself in along its brushstrokes and stays faintly "wet"); images change when the story's setting, time or mood shifts, not on a timer; the Reader backdrop is in the first build; distant figures and silhouettes are fine, never faces. Nothing is open; the next step is building the stage with sample art.
 
 ### Session 164 — 2026-11-13 — Narrator retargeted to the M5 Pro (same branch, not merged)
 

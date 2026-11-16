@@ -2,22 +2,24 @@
 
 Ambient imagery that follows the book. As you listen or read, Lantern shows a very slow sequence of images drawn from the place you are in the story: a slow pan and zoom on one image, a long dissolve into the next. The images interpret setting, light, weather and mood. They never show what happens next.
 
-**Status (Session 165, 2026-11-15):** design only. Nothing here is built or benchmarked. Every number is marked **measured** (with its source) or **estimate**. The design follows the narration feature (`docs/NARRATION.md`) and the Listen & Atmosphere brief (FR-05, FR-06), and reuses their locators, storage rules and spoiler rules.
+**Status (Session 165, 2026-11-15; revised 2026-11-16 with John's answers):** design only. Nothing here is built or benchmarked. Every number is marked **measured** (with its source) or **estimate**. The design follows the narration feature (`docs/NARRATION.md`) and the Listen & Atmosphere brief (FR-05, FR-06), and reuses their locators, storage rules and spoiler rules.
 
 ---
 
 ## 1. Decisions in one screen
 
+**John decided (2026-11-16):** the look is **painterly**, and the motion should be painterly too, not just a camera move. Images change at **scene and context shifts**, not on a timer, and about every 4 to 8 minutes on average is the right feel. The **Reader backdrop goes in the first build**. **Distant figures and silhouettes are allowed**; faces never are (section 4.3).
+
 | Question | Recommendation |
 |---|---|
 | Where are images made? | **Locally on the Mac**, in a batch alongside narration (`lantern-narrate visuals`). Hosted generation is an opt-in fallback, off by default. |
-| Which image model? | **FLUX.2 [klein] 4B** (Apache-2.0) via `mflux` on the M5 Pro and the M2 Air. **Z-Image Turbo** (6B, Apache-2.0) is the alternative to audition on the M5 Pro. |
+| Which image model? | **FLUX.2 [klein] 4B** (Apache-2.0) via `mflux` on the M5 Pro and the M2 Air, with painterly style presets (gouache, watercolour, oil sketch). Z-Image Turbo leans photographic, so it drops to a backup. |
 | How are prompts made? | A small **local LLM** (Qwen3 4B or 8B, 4-bit, MLX) turns a short, spoiler-bounded window of text into a structured scene description. Book text never leaves the Mac. |
-| How much imagery? | About one scene image per 4 to 8 minutes of listening, plus 1 or 2 alternate framings for long scenes. A 10-hour novel gets about **80 to 150 images**. |
+| How much imagery? | One image per **context shift**: a new place, time of day, weather, or a clear turn in mood. That averages about one every 4 to 8 minutes, but the story sets the pace, not a clock. A 10-hour novel gets about **80 to 150 images**. |
 | How does it reach the iPhone? | A `.lantern-visuals` package (STORED zip, like `.lantern-audio`), imported into IndexedDB `lantern_content`. |
 | Spoiler rule | An image becomes visible only after the reader's **current position** passes the last word the image was made from (`visibleAfter`). Prefetching may load it early but never shows it. |
-| Motion | Ken Burns drift of 4 to 8% over the whole dwell, 14-second crossfade, 90 to 240 seconds per image. Reduced Motion gives still images and a short fade. |
-| Default | **Off.** In Listen the user turns on Visuals per book. In Reader the backdrop stays off unless chosen, as the brief requires. |
+| Motion | **Painterly:** each new image *paints itself in* over the old one along its brushstrokes (a WebGL paint-bleed dissolve, about 14 s), the image keeps a faint living-paint shimmer and a slow drift, and a paper-and-canvas texture sits over everything. Reduced Motion gives still images and a short fade. |
+| Default | **Off.** In Listen the user turns on Visuals per book. The Reader backdrop ships in the first build but stays off until chosen, as the brief requires. |
 
 ---
 
@@ -29,13 +31,13 @@ Ambient imagery that follows the book. As you listen or read, Lantern shows a ve
  narration script (same segments, same ids)                  Listen / Reader position (locator)
    │                                                                   │
    ▼                                                                   ▼
- 1. Scene planner   → scene boundaries, source windows         VisualJourney engine
+ 1. Scene planner   → context-shift scenes, source windows     VisualJourney engine
  2. Style profile   → palette, medium, seed (from opening only)  ├─ eligibility gate (visibleAfter ≤ position)
  3. Scene describer → SceneDescriptor JSON (local LLM)           ├─ queue: current + next 2 eligible-soon
  4. Prompt builder  → model prompt (deterministic, audited)      ├─ decode-ahead (img.decode, not in DOM)
- 5. Image model     → PNG (mflux, local)                         └─ two-layer stage: Ken Burns + crossfade
+ 5. Image model     → PNG (mflux, local)                         └─ painterly stage: paint-in + drift   
  6. Validator       → rejects faces/text/unsafe, retries                   ▲
- 7. Encoder         → WebP 1600×1000 + 400 px thumb                        │
+ 7. Encoder         → WebP 1600×1000 + thumb + stroke map                  │
    │                                                                       │
    ▼                                                                       │
  book.lantern-visuals ── AirDrop / Files ──► Import ──► IndexedDB lantern_content
@@ -59,7 +61,7 @@ A 10-hour novel (about 90,000 words) at one scene image per 4 to 8 minutes, with
 | Model | Licence | Size | Steps | M5 Pro 48 GB, 1024×640 | M2 Air 16 GB, 1024×640 | Fit for Lantern |
 |---|---|---|---|---|---|---|
 | **FLUX.2 [klein] 4B** | Apache-2.0 (weights and commercial use) | 4B, about 4 to 8 GB in 4/8-bit | 4 | about 6 to 12 s (**estimate**) | about 40 to 90 s (**estimate**) | **Recommended default.** Small, fast, permissive, good at painterly landscapes. |
-| Z-Image Turbo | Apache-2.0 | 6B | 8 | about 10 to 20 s (**estimate**) | about 90 to 180 s, tight on memory (**estimate**) | Audition on the M5 Pro. Strong photorealism; may suit realist novels. |
+| Z-Image Turbo | Apache-2.0 | 6B | 8 | about 10 to 20 s (**estimate**) | about 90 to 180 s, tight on memory (**estimate**) | Backup. Its strength is photorealism, which John ruled out. |
 | FLUX.1 [schnell] | Apache-2.0 | 12B | 4 | about 15 to 25 s (**estimate**) | swaps heavily in 4-bit (**estimate**) | Fallback only; older and heavier than klein. |
 | FLUX.2 [klein] 9B, FLUX dev | FLUX Non-Commercial | 9B / 32B | | | | **Avoid.** The licence restricts deployment; keep the stack Apache-2.0 like narration. |
 | Qwen-Image | Apache-2.0 | 20B | 20+ | minutes per image (**estimate**) | does not fit | Too heavy for a background batch. |
@@ -94,23 +96,39 @@ None of the models has been looked at for this use. The audition step (section 9
 
 ## 4. From text to scene prompt
 
-### 4.1 Scene planning (deterministic, no model)
+### 4.1 Scene planning: change on context, not on time
 
-The planner walks the narration script in order and cuts **scenes**:
+John's rule: the picture changes when the story moves somewhere new, not because a timer ran out. So scenes are cut where the **context shifts**, in two passes.
 
-- A new scene starts at every narrated section, at every scene break (`***`, `* * *`, `⁂`, an empty `<hr>`, or a blank-line break the parser already keeps as a block), and whenever a running scene passes about 1,400 words (about 9 minutes at narration pace) without a break.
-- Scenes shorter than about 250 words merge into the previous scene in the same section.
-- Each scene gets a **source window**: the first 150 to 300 words of the scene, cut at a segment boundary. Only that text, plus the book's style profile and the previous scene's descriptor, goes into the describer.
-- A long scene can get 1 or 2 **alternates**. Each alternate has its own later window inside the same scene and its own `visibleAfter`, so it can only appear further in.
+**Pass 1, candidates (deterministic, no model).** Every narrated section start and every explicit scene break (`***`, `* * *`, `⁂`, an empty `<hr>`, or a blank-line break the parser keeps as a block) is a *hard* boundary. Every paragraph start is a *soft* candidate.
 
-Scene planning uses only text positions, so it is cheap, testable in Vitest or pytest with the public-domain fixtures, and reproducible.
+**Pass 2, context shifts (local LLM).** The describer (4.3) reads the text in order, a few paragraphs at a time, and keeps a running **context**: setting, time of day, weather, light and mood. At each soft candidate it answers one question about the paragraph it has just read: has the context changed? A new scene starts when:
+
+- the **setting** changes (a new room, house, town or landscape), or
+- **time** jumps (night falls, "the next morning", "three weeks later"), or
+- the **weather or light** turns (a storm breaks, candles are lit), or
+- the **mood** turns sharply and stays turned for more than a paragraph or two.
+
+Only text up to and including the paragraph being judged is ever read for that decision, so detecting a shift cannot look ahead.
+
+**Pacing guards (so the story sets the pace without flicker):**
+
+- A shift less than about 90 seconds of narration after the last image waits, and the newest context wins. A burst of quick cuts becomes one change, not three.
+- A context that holds for a long time keeps its image. There is **no maximum** time on screen; the image just keeps drifting (7.2). Only if the same place holds for more than about 15 minutes *and* the light or mood has shifted within it does the planner add an **alternate**: the same place, newly lit.
+- If a book ends up far outside the 4 to 8 minute average (very static or very restless), the shift threshold is tuned per book in the audition step, not replaced by a timer.
+
+Each scene gets a **source window**: the paragraphs from the shift point that established the new context, usually the first 150 to 300 words, cut at a segment boundary. Only that window, the style profile and the previous context go into the describer. An alternate has its own later window and its own `visibleAfter`, so it can only appear further in.
+
+**Without an LLM** (the keyword fallback in 4.3), pass 2 uses keyword changes in place, time and weather words. It cuts less accurately but stays context-based.
+
+Pass 1 and the guards are plain code, testable in pytest with the public-domain fixtures. Pass 2 is tested on a few hand-labelled public-domain chapters (where are the real setting changes?) to tune the threshold.
 
 ### 4.2 Style profile (once per book)
 
 A book keeps one look for consistency: medium ("soft gouache", "ink and wash", "muted oil", "cinematic photograph"), palette (4 to 6 colours), light quality, texture words, framing rules, a seed, and the abstraction level (`abstract`, `environmental` (the default) or `figurative-minimal`).
 
 - **Made only from the title, author, and the first 2,000 words.** A profile built from the whole book could leak its arc ("war-torn, ash-grey palette"), so it is never built from later text, even when the whole book is on the Mac.
-- John can pick a preset instead (`--style-preset gouache`). Presets are tuned to sit beside the Vellum palette: warm, low-saturation, nothing neon.
+- **Painterly is the default (John, 2026-11-16).** Presets: `gouache` (the default), `watercolour`, `oil-sketch` and `ink-and-wash`. Each is tuned to sit beside the Vellum palette: warm, low-saturation, nothing neon, with visible brushwork, because the painterly animation (7.2) needs real strokes to follow. Photographic styles are not offered.
 - The profile is versioned. Changing it changes every image's cache key, as a voice change does for narration.
 
 ### 4.3 Scene describer (local LLM)
@@ -122,27 +140,34 @@ A small local LLM (default Qwen3 4B Instruct, 4-bit MLX, about 2.5 GB, Apache-2.
   "weather": "rain", "light": "candlelight, warm, low", "palette": ["umber", "candle gold", "slate blue"],
   "mood": "restless anticipation", "elements": ["tall rain-streaked windows", "embroidery frame", "fire"],
   "framing": "wide interior, empty foreground", "focus": { "x": 0.62, "y": 0.45 },
-  "people": "none" | "distant figures" | "silhouette",
+  "people": "none" | "distant" | "silhouette",
   "confidence": 0.8 }
 ```
 
 Rules the describer is prompted with, and that the prompt builder enforces again in code:
 
 - Describe **only** what the window states or clearly implies about place, light, weather and objects. Do not guess what happens next.
-- **No named characters, no faces, no readable text, no violence or death, no plot events.** Abstract the place, not the action. At most "distant figures" or a silhouette.
-- If the window is mostly dialogue with no setting, reuse the previous scene's setting with the new mood, and set `confidence` low. Low-confidence scenes get no new image; the previous image's alternate carries on.
+- **No named characters, no faces, no readable text, no violence or death, no plot events.** Abstract the place, not the action.
+
+**Figures (John, 2026-11-16): distant figures and silhouettes are okay.** A lone walker on a far hill, two small shapes on a beach, a silhouette in a lit window or against a doorway. The rules that keep them from spoiling or replacing the reader's imagination:
+
+- **Small or unlit.** A distant figure stays under about 5% of the frame height. A silhouette may be larger but is dark against light, with no facial features, and is never the main subject of a close-up.
+- **Only who the text puts there.** The describer may add figures only if the source window has people in that place. It never adds a figure to show who is coming, and never shows an action (no fights, embraces, falls).
+- **Never identifiable.** No faces, no named characters' distinguishing features (a scar, a red coat the story makes significant). The prompt builder strips character names and appearance details before they reach the image model.
+- The validator's face check (4.5) still rejects any visible face, whatever its size, so a figure that came out too close is regenerated.
+- If the window is mostly dialogue with no setting, the context hasn't really shifted: keep the previous setting, set `confidence` low, and make no new image. The current painting stays.
 
 **Fallback without an LLM:** a keyword pass (place nouns, weather, time of day, light words) fills the same schema less well. It lets the M2 Air skip the LLM download, and it gives tests something deterministic.
 
 ### 4.4 Prompt builder (code, not model)
 
-`prompt = style profile + descriptor fields + fixed tail`, assembled by a template, never by the LLM. The fixed tail asks for "no text, no lettering, no people in the foreground". FLUX.2 klein and schnell ignore negative prompts, so the exclusions are written as positive phrases ("empty room", "landscape without figures"). The final prompt is stored in the manifest so every image can be audited.
+`prompt = style profile + descriptor fields + fixed tail`, assembled by a template, never by the LLM. The fixed tail asks for "no text, no lettering, no people in the foreground" (distant figures or silhouettes come only from the descriptor). FLUX.2 klein and schnell ignore negative prompts, so the exclusions are written as positive phrases ("empty room", "landscape without figures"). The final prompt is stored in the manifest so every image can be audited.
 
 ### 4.5 Validator
 
 Before an image is kept:
 
-- **Faces:** Apple Vision face detection (through `pyobjc`, built into macOS, no download). Any face larger than about 3% of the frame is rejected and regenerated with the next seed, up to 3 times. Then the scene falls back to the previous image.
+- **Faces:** Apple Vision face detection (through `pyobjc`, built into macOS, no download). Any detected face is rejected (distant figures and silhouettes are fine as long as no face is readable) and regenerated with the next seed, up to 3 times. Then the scene falls back to the previous image.
 - **Text:** Vision text recognition. Any legible word is rejected, because image models love to invent signs and book covers.
 - **Safety:** the model's own safety checker where one exists, plus a rejection list for the describer's output.
 - Everything rejected is logged with its reason in the job folder, never shipped.
@@ -167,7 +192,7 @@ eligible(image, position) = compareLocators(image.visibleAfter, position) <= 0
 
 - `position` is the **current** locator from `lantern_listen` (the most recent of Listen and Reader, as today). It is not the furthest point ever reached. Seeking back hides images that are now ahead.
 - `compareLocators` orders by spine `order`, then block number, then segment number. It belongs in `src/narration/listenState.js` beside the existing locator code, with unit tests.
-- **The slideshow timer cannot reveal anything.** When the dwell runs out and the next image isn't eligible yet, the stage shows an alternate of the current scene or keeps drifting on the current image (reversing the pan). It never moves forward early.
+- **There is no slideshow timer to leak anything.** Images change only when the position passes the next image's `visibleAfter` (and the 90-second minimum has passed). If the reader lingers, the current painting just keeps drifting. Nothing ever moves forward early.
 - **Prefetch is not display.** The engine decodes the next 2 images ahead of time with `img.decode()` on detached elements, so the dissolve is smooth, but an image is only placed on the stage after the gate allows it.
 - **Gallery and thumbnails** show only eligible images. Ineligible ones are not rendered at all, not blurred, because a blurred colour field can still hint at "something red happens".
 - **Scrubbing** shows no image previews. Dragging the scrubber forward moves the position, and the image follows after release, as a reader turning pages would see.
@@ -178,7 +203,7 @@ eligible(image, position) = compareLocators(image.visibleAfter, position) <= 0
 
 1. For every image in a generated fixture package, `visibleAfter` equals the end of its source window.
 2. No prompt contains a token from any segment after `visibleAfter` (checked with the fixture book's text).
-3. The engine never puts an ineligible image on stage: timer expiry, seek back, seek forward, chapter jump and resume after reload.
+3. The engine never puts an ineligible image on stage: a long pause on one scene, seek back, seek forward, chapter jump and resume after reload.
 4. The gallery DOM contains no element for an ineligible image.
 5. The style profile builder never reads past word 2,000.
 
@@ -214,41 +239,57 @@ eligible(image, position) = compareLocators(image.visibleAfter, position) <= 0
 
 ### 7.1 The stage
 
-Two stacked layers (`<img>` elements with `object-fit: cover`), as the brief's FR-05 asks. The incoming image fades in above the outgoing one; only `opacity` and `transform` animate, so it stays on the GPU. `will-change` is set only during a transition.
+John asked for images that are painterly and *animated in a painterly way*. So the stage is not two photos crossfading under a moving camera; it is a painting that paints itself in and stays faintly wet.
 
-### 7.2 Ken Burns
+It is one WebGL canvas (a 2D canvas plus CSS crossfade is the fallback where WebGL is unavailable). It holds the outgoing image, the incoming image and each image's **stroke map**, and draws three layers in one pass: the paint-in transition, the living-paint shimmer, and a paper texture. Only the canvas redraws; the page around it doesn't reflow.
 
-- Each image gets a start and end frame: scale **1.04 → 1.10** (or the reverse), with a pan of at most 4% of the width toward or away from the descriptor's `focus` point. Direction alternates between images, so the sequence feels like breathing rather than a conveyor.
-- The move lasts the image's **whole time on screen** (dwell plus both crossfades), with a near-linear ease (`cubic-bezier(0.45, 0.05, 0.55, 0.95)`). It never stops and restarts in view.
-- The motion is seeded from the image id, so the same image always moves the same way on every device.
+### 7.2 Painterly animation
+
+**The stroke map (made on the Mac).** For every image the generator also writes a small greyscale map (about 256×160) that says *when* each part of the picture gets painted. It is built from the image itself: broad flat areas (sky, walls, water) come first, edges and fine detail later, and the focal point last, the way a painter blocks in washes before details. Stroke direction comes from the image's own brushwork (the local edge orientation), so the reveal follows the strokes that are really there. It costs about 10 to 20 KB per image and needs no extra model.
+
+**1. Paint-in (the transition, about 14 s).** The new image appears stroke by stroke over the old one, in stroke-map order. Each stroke's edge is soft and slightly darker for a moment, like pigment pooling at the edge of a wet wash, then settles. The outgoing painting doesn't vanish; it is painted over. With the watercolour preset the edges bloom outward a little; with oil sketch they are drier and more directional.
+
+**2. Living paint (between transitions).** The current image never sits perfectly still:
+
+- a slow drift and zoom, scale 1.03 → 1.07 over the whole time on screen, toward or away from the descriptor's `focus` point, alternating direction from image to image, eased near-linearly so it never visibly starts or stops;
+- a very faint **shimmer** along the stroke directions (displacement of at most about 1.5 px, slow noise), so the paint looks freshly laid rather than printed. It is meant to be felt more than seen.
+
+Both pause when narration pauses, so the painting "holds its breath" with the voice. Both are seeded from the image id, so the same image moves the same way on every device.
+
+**3. Paper.** A procedural paper or canvas grain (generated in the shader, no image asset) is multiplied over everything at low strength, in the Vellum palette. It ties the pictures to Lantern's page and hides the smoothness that gives AI images away.
+
+**Cost.** The paint-in runs at full frame rate for its 14 seconds. Between transitions the shimmer redraws at about 20 frames per second, which is light for any iPhone GPU, but the battery effect over a long listen is **not measured**. If it matters, "Living paint" can be switched off per book and the drift falls back to a plain CSS transform on the compositor.
+
+**Later, not in the first build:** a depth map (Depth Anything V2 Small, Apache-2.0, run on the Mac) would allow gentle 2.5D parallax, as if the painting had layers of paper. It is left out until the basic stage has been seen.
 
 ### 7.3 Timing tokens (new, in `src/index.css`)
 
 | Token | Value | Why |
 |---|---|---|
-| `--visual-crossfade` | 14 s | Inside the brief's 12 to 20 s range. Long enough that you notice the new image, not the change. |
-| `--visual-dwell-min` | 90 s | The brief's minimum. |
-| `--visual-dwell-max` | 240 s | Beyond this the current image's alternate or reversed drift takes over. |
-| `--visual-drift-scale` | 1.06 average | Subtle; the design system wants motion that is "remembered, not triggered". |
+| `--visual-paint-in` | 14 s | Inside the brief's 12 to 20 s range. Long enough that you notice the new painting, not the change. |
+| `--visual-min-on-screen` | 90 s | The brief's minimum dwell. A shift sooner than this waits. There is no maximum. |
+| `--visual-drift-scale` | 1.03 → 1.07 | Subtle; the design system wants motion that is "remembered, not triggered". |
+| `--visual-shimmer` | 1.5 px | The living-paint displacement. 0 turns it off. |
+| `--visual-grain` | 0.06 | Paper texture strength. |
 | `--visual-veil` | gradient, 0.35 to 0.75 opacity | Keeps controls and captions legible. |
 
 These are far longer than the 150 to 600 ms UI tokens, on purpose: the stage is atmosphere, not interface. `docs/DESIGN_SYSTEM.md` should gain an "Atmosphere motion" subsection that says so, so a later audit doesn't flag them as outliers (see `MOTION_AND_TIMING_AUDIT.md`).
 
 ### 7.4 Pacing
 
-Images change on **story position**, not on a clock. A new scene's image arrives when its `visibleAfter` is passed and the current image has had at least `--visual-dwell-min`. If the reader is going fast (2× speed, skimming), the dwell minimum wins and scenes can be skipped, which is better than flicker. Pausing narration pauses the drift too, so the picture "holds its breath" with the voice.
+Images change on **context**, never on a clock (4.1). A new painting arrives when the position passes its `visibleAfter` and the current one has been up for at least 90 seconds. Long scenes keep their painting as long as the story stays there. Fast listening (2×) or skimming means some scenes are skipped rather than flickered through: when two images become eligible during one minimum dwell, the stage goes straight to the newer one.
 
 ### 7.5 Surfaces
 
 - **Listen:** full-bleed stage behind the player, a bottom gradient veil in the page's own ink colours (light and dark mode), and controls on the existing card surfaces. The current mood accent (`--ca`) stays on the controls, not the image.
-- **Reader backdrop:** off by default. When on, the image sits under an opaque Vellum veil at low strength (default 12%), heavily blurred, with Ken Burns off. Body text contrast must stay at or above WCAG AA. `Clear page` hides it in one tap.
+- **Reader backdrop (in the first build, John 2026-11-16):** off until chosen. When on, the painting sits under an opaque Vellum veil at low strength (default 12%), softly blurred. It follows the reading position exactly like Listen does. The paint-in still happens, but slower (about 20 s) and at backdrop strength, so it reads as the page's colour slowly changing. Drift and shimmer are off behind text by default, because motion under words is tiring; a Motion toggle can turn them on. Body text contrast must stay at or above WCAG AA. `Clear page` hides it in one tap.
 - **Mini-player:** no imagery. It stays quiet.
 - **Fallback:** no visuals for a book means the existing Lantern gradient or the cover, never unrelated stock art.
 - **Labelling:** a small "Generated image" note in the gallery, and a "Why this image" sheet that shows the descriptor (setting, light, mood). That sheet only exists for eligible images.
 
 ### 7.6 Accessibility
 
-- `prefers-reduced-motion` (or the per-book Motion toggle): no Ken Burns and a 1-second opacity fade, or an instant swap if the user also chose "No transitions".
+- `prefers-reduced-motion` (or the per-book Motion toggle): no paint-in, no drift and no shimmer. Images change with a 1-second opacity fade, or an instant swap if the user also chose "No transitions". The paper grain stays, because it doesn't move.
 - Separate controls for **Visuals** (off, backdrop, slideshow), **Intensity**, and **Motion**, as the brief asks.
 - The stage is `aria-hidden`. Screen readers hear nothing about images, which avoids describing scenes aloud and adding noise to narration.
 - High-contrast mode suppresses imagery behind text entirely.
@@ -270,7 +311,7 @@ Images change on **story position**, not on a clock. A new scene's image arrives
                "sourceWindow": { "from": "b12.0", "to": "b19.2" },
                "visibleAfter": { "sectionId": "ch3", "blockId": "b19", "segmentId": "b19.2" },
                "file": "images/img-0007.webp", "thumb": "thumbs/img-0007.webp", "width": 1600, "height": 1000,
-               "focus": { "x": 0.62, "y": 0.45 }, "descriptor": { … }, "prompt": "…", "bytes" }] }
+               "strokes": "strokes/img-0007.webp", "focus": { "x": 0.62, "y": 0.45 }, "descriptor": { … }, "prompt": "…", "bytes" }] }
 ```
 
 - STORED zip, read with `Blob.slice`, exactly like `.lantern-audio`, so `src/narration/audiobookPackage.js`'s zip reader can be shared rather than copied.
@@ -306,7 +347,8 @@ lantern-narrate clean --visuals
 | `src/atmosphere/visual/visualRepository.js` | `visualSets` / `visualImages` in `lantern_content` (or extend `contentRepository.js`) |
 | `src/atmosphere/visual/eligibility.js` | `compareLocators`, `eligibleImages(position)`, `nextEligible`; pure and unit-tested |
 | `src/atmosphere/visual/VisualJourneyEngine.js` | Queue, decode-ahead, dwell timing, sequence guard; no React |
-| `src/atmosphere/visual/VisualStage.jsx` | Two-layer stage, Ken Burns, crossfade, reduced motion |
+| `src/atmosphere/visual/VisualStage.jsx` | WebGL stage: paint-in, drift, shimmer, paper grain, reduced motion, CSS fallback |
+| `src/atmosphere/visual/paintShader.js` | The fragment shader and its uniforms; no React, testable with a headless WebGL snapshot |
 | `src/atmosphere/visual/VisualGallery.jsx` | Eligible thumbnails, "Why this image", regenerate hint |
 | `src/context/PlaybackContext.jsx` | Publishes the current locator to the engine; no new state of its own |
 | `src/pages/ListenPage.jsx`, `ReaderPage.jsx` | Mount the stage and the Visuals control |
@@ -317,20 +359,25 @@ Feature flag: `atmosphereVisualsEnabled` (local), separate from the later `gener
 
 ## 11. Build order (each step is a separate PR, none merged without John)
 
-1. **Engine and stage with fixture art.** Eligibility, queue, Ken Burns, crossfade, reduced motion, using a few hand-made public-domain-style test images for the fixture book. This is the brief's P2. Vitest covers the gate; a Playwright run checks timings and that no ineligible image reaches the DOM.
+1. **Engine, stage and Reader backdrop with fixture art.** Eligibility, queue, the WebGL painterly stage (paint-in, drift, shimmer, paper), reduced motion, the CSS fallback, and the Reader backdrop with its veil and `Clear page`. Uses a few hand-made painterly test images and stroke maps for the fixture book. This is the brief's P2. Vitest covers the gate; a Playwright run checks that no ineligible image reaches the DOM and records the paint-in so John can judge it on screen.
 2. **Package format and import.** `.lantern-visuals` reader, IndexedDB stores, the version-2 migration, storage display, remove.
-3. **Mac CLI: planner, style profile, describer, prompt builder.** Runs without an image model and writes a manifest with prompts only, so the spoiler tests (section 5.3) can run in pytest with no GPU.
-4. **Mac CLI: image model, validator, encoder, benchmark and audition.** Then benchmark on the M5 Pro (via Remote Control) and on the M2 Air, and replace every **estimate** in this doc with a measured number.
-5. **John chooses model and style by eye** from the audition sheet.
-6. Optional later: on-the-fly generation on the Mac while reading (a localhost companion process that fills the queue ahead of the position). Browser access from the https site to `http://localhost` differs between Chrome and Safari, and it has not been tested. Hosted generation behind a flag, if ever wanted.
+3. **Mac CLI: candidate boundaries, context-shift detection, style profile, describer, prompt builder.** Runs without an image model and writes a manifest with scene boundaries and prompts only, so the spoiler tests (5.3) and the context-shift tuning (4.1) run with no GPU.
+4. **Mac CLI: image model, validator, stroke maps, encoder, benchmark and audition.** Then benchmark on the M5 Pro (via Remote Control) and on the M2 Air, and replace every **estimate** in this doc with a measured number.
+5. **John chooses the painterly preset by eye** from the audition sheet.
+6. Optional later: depth-based parallax; on-the-fly generation on the Mac while reading (a localhost process that fills the queue ahead of the position; browser access from the https site to `http://localhost` differs between Chrome and Safari and is untested); hosted generation behind a flag, if ever wanted.
 
-## 12. Open questions for John
+## 12. Questions
 
-- **Look:** painterly (gouache, ink and wash) or photographic? This decides between klein and Z-Image more than speed does.
-- **People:** strictly no figures, or distant silhouettes allowed? The default here is "distant figures at most, never faces".
-- **Cadence:** is one new image every 4 to 8 minutes the right pace, or slower?
-- **Reader backdrop:** worth building in the first round, or Listen only?
+**Answered by John (2026-11-16):**
+
+- **Look:** painterly, and animated in a painterly way (4.2, 7.2).
+- **Cadence:** 4 to 8 minutes feels right, but driven by context, not time (4.1, 7.4).
+- **Reader backdrop:** yes, in the first build (7.5, step 1 above).
+
+- **Figures:** distant figures and silhouettes are okay; faces never (4.3).
+
+Nothing is open now. The remaining choices (which painterly preset, the context-shift threshold) are made by eye in the audition step.
 
 ## 13. Not yet verified
 
-Everything. In particular: any image model's speed on the M5 Pro or the M2 Air, image quality and style consistency across a book, how well a 4B describer abstracts scenes without leaking events, Apple Vision face and text detection rates on painterly images, WebP sizes, iPhone memory and battery during a 14-second crossfade, and Safari's handling of long CSS transforms when the screen locks.
+Everything. In particular: how well a 4B describer spots real context shifts (and how often that lands near the 4 to 8 minute average), how the paint-in and shimmer look and what they cost in battery on an iPhone, any image model's speed on the M5 Pro or the M2 Air, image quality and style consistency across a book, how well a 4B describer abstracts scenes without leaking events, Apple Vision face and text detection rates on painterly images, WebP sizes, iPhone memory and battery during a 14-second crossfade, and Safari's handling of long CSS transforms when the screen locks.
