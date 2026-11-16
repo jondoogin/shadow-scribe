@@ -78,7 +78,7 @@ There is no CI in `.github/`. Vercel builds with `npm run build`.
 
 ## Design lab (Session 166, demo only)
 
-`/design-lab` is an unlinked, lazy-loaded demo of five candidate design directions (Aurora, Folio, Glasshouse, Margin, Lumen) on sample Library, Companion, Reader and Listen screens. Code lives in `src/design-lab/`, styles are scoped to `.dl` / `.lab-*`, and it reads and writes no app data. `App.jsx` returns it before the normal shell. Query params: `d` direction, `s` screen, `m` light/dark. It does not replace the current design system until John picks a direction.
+`/design-lab` is an unlinked, lazy-loaded demo of candidate design directions on sample Library, Companion, Reader and Listen screens. Round 2 (after John found round 1 generic): Specimen, Riso, Shelf, Almanac, Index, one module per direction in `src/design-lab/dirs/` (each exports `meta`, `screens`, `Preview` and owns its CSS). Styles are scoped to `.lx--<id>` / `.lab-*`; it reads and writes no app data. `App.jsx` returns it before the normal shell. Query params: `d` direction, `s` screen, `m` light/dark. Avoid the AI-generic tells John rejected: purple gradients, frosted glass, glow blobs, Inter, identical card grids. It does not replace the current design system until John picks a direction.
 
 ## Never commit
 
