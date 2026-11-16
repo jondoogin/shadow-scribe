@@ -81,9 +81,6 @@ body:has(.lx)::after, body:has(.lab-overview)::after { display: none !important;
 .lk-reticle::before { left: 50%; top: -.28em; bottom: -.28em; width: 1px; transform: translateX(-.5px); -webkit-mask: linear-gradient(#000 0 .45em, transparent .45em calc(100% - .45em), #000 calc(100% - .45em)); mask: linear-gradient(#000 0 .45em, transparent .45em calc(100% - .45em), #000 calc(100% - .45em)); }
 .lk-reticle::after { top: 50%; left: -.28em; right: -.28em; height: 1px; transform: translateY(-.5px); -webkit-mask: linear-gradient(90deg, #000 0 .45em, transparent .45em calc(100% - .45em), #000 calc(100% - .45em)); mask: linear-gradient(90deg, #000 0 .45em, transparent .45em calc(100% - .45em), #000 calc(100% - .45em)); }
 .lk-reticle .lx-flame { position: relative; z-index: 1; }
-.lk--ledger .lk-word { font-family: "Libre Caslon Display", serif; font-size: 1.22em; letter-spacing: -0.01em; }
-.lk--lamplight { gap: .36em; }
-.lk--lamplight .lk-word { font-family: "Libre Caslon Text", serif; font-style: italic; font-size: 1.12em; letter-spacing: -0.015em; }
 
 /* shared cover object */
 .lx-cover { position: relative; display: flex; flex-direction: column; justify-content: space-between; flex-shrink: 0; aspect-ratio: 2 / 3; padding: 10% 10% 12%; color: #fff; background: linear-gradient(170deg, var(--c1), var(--c1) 60%, var(--c2) 160%); border-radius: 2px 4px 4px 2px; box-shadow: inset 4px 0 0 rgba(0,0,0,.18), inset 5px 0 0 rgba(255,255,255,.12), 0 1px 1px rgba(0,0,0,.2), 0 10px 18px -8px rgba(0,0,0,.45); }

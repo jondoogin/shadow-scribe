@@ -4,9 +4,11 @@ import { BOOKS } from './sample.js'
 import { CHAPTER_SEC } from './shared.jsx'
 import { FlameMark } from './brand.jsx'
 import * as fieldlab from './dirs/fieldlab.jsx'
-import * as ledger from './dirs/fl-ledger.jsx'
-import * as instrument from './dirs/fl-instrument.jsx'
-import * as lamplight from './dirs/fl-lamplight.jsx'
+import * as scope from './dirs/scope.jsx'
+import * as catalogue from './dirs/catalogue.jsx'
+import * as elements from './dirs/elements.jsx'
+import * as sketchbook from './dirs/sketchbook.jsx'
+import * as spectrum from './dirs/spectrum.jsx'
 import './lab.css'
 
 // Design lab, round three: five explorations grown from Specimen (John's pick
@@ -15,7 +17,7 @@ import './lab.css'
 // spoiler-safe content.
 // Self-contained: it reads and writes no app data and is not linked from the app.
 
-const DIRS = [ledger, instrument, lamplight, fieldlab]
+const DIRS = [scope, catalogue, elements, sketchbook, spectrum, fieldlab]
 const SCREENS = [
   { id: 'library', label: 'Library' },
   { id: 'companion', label: 'Companion' },
@@ -30,6 +32,8 @@ const FONT_HREF = 'https://fonts.googleapis.com/css2?' + [
   'family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,200..800', 'family=Literata:ital,opsz,wght@0,7..72,400..600;1,7..72,400',
   'family=Spectral:ital,wght@0,400;0,500;0,600;1,400;1,500', 'family=Spline+Sans+Mono:wght@400;500',
   'family=Libre+Baskerville:ital,wght@0,400;0,700;1,400', 'family=DM+Mono:wght@400;500', 'family=DM+Sans:opsz,wght@9..40,400..700',
+  'family=Archivo:wdth,wght@62..125,100..900', 'family=Newsreader:ital,opsz,wght@0,6..72,400..600;1,6..72,400',
+  'family=Caveat:wght@400..700', 'family=Source+Serif+4:ital,opsz,wght@0,8..60,400..600;1,8..60,400',
 ].join('&') + '&display=swap'
 
 function useLabFonts() {
@@ -111,8 +115,8 @@ function Overview({ onPick }) {
     <div className="lab-overview">
       <header className="lab-ov-head">
         <span className="lab-ov-logo"><FlameMark size={18} /> Lantern</span>
-        <h1>Field Lab, three ways</h1>
-        <p>Three variations on Field Lab, each cleaner and simpler than the original and each treating the grid more quietly: a ruler down the margin, a fine dot matrix, or graph paper that only shows where the lamp shines. The refined original is fourth for comparison. All use the four-square mark from readwithlantern.com.</p>
+        <h1>Field Lab, five ways further</h1>
+        <p>Five offshoots of Field Lab, each taking its science-and-light idea somewhere very different: an amber oscilloscope, a library card catalogue, a periodic table of your books, a hand-drawn field sketchbook, and bold bands of split light. Each has its own layout, type and palette. Field Lab itself is last for comparison, and all six use the four-square mark from readwithlantern.com.</p>
         <p className="lab-ov-avoid">Still avoided: purple gradients, frosted glass, glowing blobs, Inter, and identical card grids.</p>
       </header>
       <div className="lab-ov-list">
