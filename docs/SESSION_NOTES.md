@@ -14,8 +14,19 @@ Reverse-chronological log of what was built, fixed, and decided in each working 
 - Look: a lantern-light pool glides behind the current sentence; the spoken word fills with ink. Word animation only where alignment passed its confidence check.
 - John's decisions (2026-11-16): the "listening register" motion exception is approved (520 ms glide, fill while a word is spoken; added to DESIGN_SYSTEM and MOTION_SYSTEM); words animate by default where measured; reveal-as-spoken is optional and off by default; the transcript is a Text view inside Listen.
 
+**PHASE 1 BUILT (2026-11-16, after John said go)**
+- Listen has a **Now Playing ↔ Text** switch. Text shows the narrated chapter in EB Garamond; a soft light pool glides (520 ms) behind the sentence being read, read text settles, text ahead is quieter. Works with neural packages (frame clock over `audio.currentTime`) and the device voice (follows the player's sentence).
+- Follow-scroll keeps the voice near 38% of the view and moves only when it leaves a 25–55% band. Scrolling by hand pauses it and shows **Back to narration**; it resumes after 8 s. Tap a sentence to play from it. Big jumps don't glide.
+- **Reveal as spoken** (off by default) veils everything after the next sentence. Strict spoiler mode veils an unreached chapter's heading until it is spoken. Only the current chapter is ever rendered.
+- New: `src/narration/clock.js`, `src/narration/transcript.js`, `src/components/transcript/`. `GeneratedAudioPlayer.mediaTime()`. Prefs `listenView`, `transcriptReveal`.
+
+**VERIFIED**
+- 81 Vitest tests pass (21 new: transcript model, segment states, follow-scroll band, media clock, conductor, player clock). Build passes. Lint unchanged at 49 errors / 9 warnings, none in changed files.
+- Headless Chromium at phone size with the real Kokoro sample package: the light follows the audio, tap-to-play, Back to narration, reveal-as-spoken and the saved prefs all worked; across the chapter change too.
+- Not verified: iPhone Safari, light theme by eye.
+
 **FILES**
-- New `docs/TRANSCRIPT.md`. ROADMAP milestone added. No code changed.
+- New `docs/TRANSCRIPT.md`. ROADMAP milestone added.
 
 ---
 

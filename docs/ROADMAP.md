@@ -27,7 +27,8 @@
 Design: `docs/TRANSCRIPT.md`.
 - [x] Design doc: timing sources, package sidecar, playback sync, animation, spoilers
 - [x] John's decisions (2026-11-16): motion exception approved, word-level by default, reveal-as-spoken optional and off, Text view inside Listen
-- [ ] Phase 1: sentence-level transcript in Listen (front end only)
+- [x] Phase 1: sentence-level transcript in Listen (front end only), built Session 165
+- [ ] iPhone check of the Text view (scrolling, light pool, lock and wake)
 - [ ] Phase 2: aligner spike on the M5 Pro (Qwen3-ForcedAligner vs wav2vec2 CTC)
 - [ ] Phase 3: word timings in the narrator (`words` in the script, `align` step and command, sidecars)
 - [ ] Phase 4: word animation in Lantern (IndexedDB `timings`, ink fill, sync offset)

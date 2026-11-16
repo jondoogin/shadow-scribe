@@ -272,3 +272,14 @@ describe('listen state', () => {
     expect(chapterReached(s, { currentChapter: 40 })).toBeNull()
   })
 })
+
+describe('GeneratedAudioPlayer.mediaTime', () => {
+  it('reports the element position, smoothed between timeupdates', async () => {
+    const { player, audio } = makeAudioPlayer()
+    await player.load(0, 0)
+    audio.tick(2.5)
+    expect(player.mediaTime()).toBeCloseTo(2.5, 1)
+    audio.currentTime = 7
+    expect(player.mediaTime()).toBe(7) // a jump snaps immediately
+  })
+})

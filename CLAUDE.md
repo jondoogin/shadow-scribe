@@ -74,7 +74,7 @@ There is no CI in `.github/`. Vercel builds with `npm run build`.
 - **Reader ↔ Listen:** the most recent locator wins. Narration **never** changes `book.currentChapter`; it only offers the ChapterUpdateModal. Strict spoiler mode hides unreached chapter titles (`sectionLabels.js`).
 - **Audio graph:** narration stays out of Web Audio, so iOS keeps playing it with the screen locked. Ambience is Web Audio and ducks via events. iOS ignores `<audio>.volume`.
 - **One playback session** app-wide (`PlaybackContext`). `openSession` is sequence-guarded, because concurrent opens used to orphan a player (found in the browser e2e run).
-- **Follow-along transcript (designed Session 165, not built):** see `docs/TRANSCRIPT.md`. Word timings come only from measured alignment; never display estimated word times. Timing sidecars hold offsets and milliseconds, never book text.
+- **Follow-along transcript (Session 165):** see `docs/TRANSCRIPT.md`. Phase 1 (sentence level) is built: `TranscriptView` renders a chapter once and `TranscriptConductor` moves classes, the light pool and the scroll per frame, so never re-render React per frame. Only the narrated chapter is rendered. Word timings come only from measured alignment; never display estimated word times. Timing sidecars hold offsets and milliseconds, never book text.
 - **DRM:** encrypted EPUBs keep no text. Do not implement DRM removal.
 
 ## Design lab (Session 166, demo only)

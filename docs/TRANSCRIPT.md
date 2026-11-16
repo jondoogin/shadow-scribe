@@ -1,6 +1,6 @@
 # Lantern — Follow-Along Transcript (design)
 
-**Status (Session 165, 2026-11-15; John's answers 2026-11-16): design approved in outline, nothing built yet.** John's decisions are in §10. It builds on the neural narration branch (`feature/lantern-neural-narration`, `docs/NARRATION.md`), which is also unmerged.
+**Status (Session 165, 2026-11-15/16):** design approved by John (decisions in §10). **Phase 1, the sentence-level Text view, is built** and tested in Node and headless Chromium; not yet tried on an iPhone. Word timings (Phases 2–4) are not built. It builds on the neural narration branch (`feature/lantern-neural-narration`, `docs/NARRATION.md`), which is also unmerged.
 
 **What John asked for:** while narration plays, show the book's text on screen and animate it as each sentence, or even each word, is spoken. Like Spotify's lyrics view, but more intelligent and more beautifully animated.
 
@@ -280,7 +280,9 @@ Lantern's spoiler rules protect the reader from the **companion** knowing or sho
 
 Each phase is a PR into the narration branch (or `main` once that merges), and each is useful on its own.
 
-**Phase 1 — Sentence transcript (front end only, no package change).**
+**Phase 1 — Sentence transcript (front end only, no package change). Built, Session 165.**
+What shipped: `src/narration/clock.js` (MediaClock), `src/narration/transcript.js` (pure helpers), `src/components/transcript/TranscriptConductor.js` and `TranscriptView.jsx`, the Now Playing ↔ Text switch in Listen, `mediaTime`/`goToSegment`/`setPrefs` in `PlaybackContext`, and the prefs `listenView` and `transcriptReveal` in `lantern_listen`. Not yet in Phase 1: the Settings sync-offset calibration (moves to Phase 4, where words make it matter) and a keyboard path for "tap a sentence".
+Planned scope:
 `TranscriptView`, `TranscriptConductor` with the frame clock, light pool, follow-scroll with "Back to narration", tap to play, reduced motion, strict-mode labels, Now Playing ↔ Text in Listen. Works with every existing package and with Web Speech. Tests: clock extrapolation and snapping, segment lookup, conductor class changes on a fake clock, follow-scroll band logic; browser e2e on a fake-engine package.
 
 **Phase 2 — Aligner spike (Mac, about an hour of John's machine via Remote Control).**

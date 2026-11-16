@@ -35,7 +35,7 @@ The companion is the star. Book data — characters, questions, themes, plot not
 - Sentence-level follow-along can ship first with no narrator changes, because every narration package already has exact sentence times.
 - Word-level timing comes from a local forced aligner on the Mac, run on each sentence after it is spoken. Existing narrations can be upgraded without regenerating audio. Words only animate where the alignment is measured and confident.
 - The look: a pool of lantern light glides behind the sentence being read, and each word fills with ink as it's spoken. Spoilers: only the current chapter is ever shown; progress never changes on its own.
-- John decided (2026-11-16): this view may break the 0.5 s motion limit (the "listening register"); words animate by default; "reveal as spoken" is optional and off by default; the transcript is a Text view inside Listen. Next: build Phase 1 (sentence-level transcript).
+- John decided (2026-11-16): this view may break the 0.5 s motion limit (the "listening register"); words animate by default; "reveal as spoken" is optional and off by default; the transcript is a Text view inside Listen. Phase 1 is built: Listen now has a Text view where a soft light follows the sentence being read, with tap-to-play, calm auto-scroll, Back to narration and the optional reveal-as-spoken veil. Not yet tried on an iPhone. Next: the aligner test on the Mac for word timing.
 
 ### Session 164 — 2026-11-13 — Narrator retargeted to the M5 Pro (same branch, not merged)
 

@@ -6,7 +6,8 @@ import { useBookContent } from '../hooks/useBookContent.js'
 import { Ico } from '../components/shared/icons.jsx'
 import LinkEpub from '../components/listen/LinkEpub.jsx'
 import ImportNarration from '../components/listen/ImportNarration.jsx'
-import { callNumber, Holes, LitLabel, Mark } from '../catalogue/parts.jsx'
+import { callNumber, Holes, LitLabel, Mark, Tabs } from '../catalogue/parts.jsx'
+import TranscriptView from '../components/transcript/TranscriptView.jsx'
 import ChapterUpdateModal from '../components/modals/ChapterUpdateModal.jsx'
 import { AMBIENT_CATALOG } from '../atmosphere/ambientEngine.js'
 import { SLEEP_OPTIONS } from '../narration/sleepTimer.js'
@@ -76,6 +77,7 @@ export default function ListenPage() {
   const sections = sessionForThisBook ? pb.session.sections : []
   const section = ps ? sections[ps.sectionIndex] : null
   const isAudio = ps?.kind === 'audio'
+  const view = pb.prefs.listenView === 'text' ? 'text' : 'now'
 
   const caption = useMemo(() => {
     if (!ps || !section) return null
@@ -166,6 +168,12 @@ export default function ListenPage() {
       {/* ── Now playing: the loan slip ── */}
       {ps && section && (
         <>
+          <section className="c3-box c2-listen-box">
+          <Tabs label="Listen view" items={[['now', 'Now playing'], ['text', 'Text']]} value={view}
+            onChange={v => pb.setPrefs({ listenView: v })} />
+          {view === 'text' ? (
+            <TranscriptView book={book} session={pb.session} playerState={ps} pb={pb} />
+          ) : (
           <article className="c2-card c2-card--slip" aria-label="Now playing">
             <div className="c2-card-head">
               <span className="c2-call">{callNumber(book)} · {ps.sectionIndex + 1}</span>
@@ -190,6 +198,8 @@ export default function ListenPage() {
               <span>{isAudio ? formatClock(ps.duration) : 'Device voice'}</span>
             </div>
           </article>
+          )}
+          </section>
 
           <div className="c2-keys">
             <button type="button" className="c2-key-sm" aria-label="Previous chapter" onClick={pb.prev}><Ico.SkipBack /></button>
@@ -256,9 +266,9 @@ export default function ListenPage() {
             </div>
           </section>
 
-          <section className="c2-transcript" aria-live="polite">
+          {view === 'now' && <section className="c2-transcript" aria-live="polite">
             <p className="is-now">{(isAudio ? caption : speechCaption) || (busy ? 'Loading…' : ' ')}</p>
-          </section>
+          </section>}
         </>
       )}
 

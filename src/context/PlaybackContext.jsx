@@ -229,6 +229,10 @@ export function PlaybackProvider({ children }) {
       const segs = p.kind === 'audio' ? p.sections[sectionIndex]?.segments || [] : await p.segmentsFor(sectionIndex)
       await p.goTo(sectionIndex, findSegmentIndex(segs, blockId), opts)
     },
+    goToSegment: (sectionIndex, segmentIndex, opts) => playerRef.current?.goTo(sectionIndex, segmentIndex, opts),
+    // Per-frame position for the transcript (audio only; device voice has no timeline).
+    mediaTime: () => (playerRef.current?.kind === 'audio' ? playerRef.current.mediaTime() : null),
+    setPrefs: (patch) => updateListen(st => ({ ...st, prefs: { ...st.prefs, ...patch } })),
     setRate: (rate) => {
       playerRef.current?.setRate(rate)
       updateListen(st => ({ ...st, prefs: { ...st.prefs, rate } }))
