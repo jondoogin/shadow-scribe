@@ -76,6 +76,10 @@ There is no CI in `.github/`. Vercel builds with `npm run build`.
 - **One playback session** app-wide (`PlaybackContext`). `openSession` is sequence-guarded, because concurrent opens used to orphan a player (found in the browser e2e run).
 - **DRM:** encrypted EPUBs keep no text. Do not implement DRM removal.
 
+## Design lab (Session 166, demo only)
+
+`/design-lab` is an unlinked, lazy-loaded demo of five candidate design directions (Aurora, Folio, Glasshouse, Margin, Lumen) on sample Library, Companion, Reader and Listen screens. Code lives in `src/design-lab/`, styles are scoped to `.dl` / `.lab-*`, and it reads and writes no app data. `App.jsx` returns it before the normal shell. Query params: `d` direction, `s` screen, `m` light/dark. It does not replace the current design system until John picks a direction.
+
 ## Never commit
 
 Model weights, `~/.lantern-narrator/` job folders, `*.lantern-audio`, generated audio (`*.m4a`, `*.m4b`, `*.wav`), proprietary EPUBs, secrets, or large temporary assets. `.gitignore` covers the usual paths. Test fixtures use public-domain text built in code (`src/test/sampleEpub.js`).

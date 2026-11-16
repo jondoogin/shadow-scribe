@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, Component } from 'react'
+import { useEffect, useState, useRef, Component, lazy, Suspense } from 'react'
 import { useLocation, BrowserRouter, Routes, Route, Navigate, Link, useNavigate } from 'react-router-dom'
 import { BooksProvider, useBooks } from './context/BooksContext.jsx'
 import { SettingsProvider, useSettings } from './context/SettingsContext.jsx'
@@ -17,6 +17,10 @@ import ReaderPage from './pages/ReaderPage.jsx'
 import { PlaybackProvider } from './context/PlaybackContext.jsx'
 import MiniPlayer from './components/listen/MiniPlayer.jsx'
 import { logError } from './utils/logger.js'
+
+// Design lab (unlinked demo of candidate design directions). Lazy so it adds
+// nothing to the main bundle.
+const DesignLab = lazy(() => import('./design-lab/DesignLab.jsx'))
 
 // ── Atmospheric mouse-following ember glow ─────────────────────────────────────
 function AtmosphericGlow() {
@@ -357,6 +361,10 @@ function AppShell() {
     else if (!location.pathname.startsWith('/book/')) document.title = 'Lantern'
     // /book/:id titles are set by BookPage itself
   }, [location.pathname])
+
+  if (location.pathname === '/design-lab') {
+    return <Suspense fallback={null}><DesignLab /></Suspense>
+  }
 
   return (
     <div className="min-h-screen" style={{ background: 'var(--color-bg)' }}>
