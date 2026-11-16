@@ -2,18 +2,21 @@ import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { BOOKS } from './sample.js'
 import { CHAPTER_SEC } from './shared.jsx'
-import * as specimen from './dirs/specimen.jsx'
-import * as riso from './dirs/riso.jsx'
-import * as shelf from './dirs/shelf.jsx'
-import * as almanac from './dirs/almanac.jsx'
-import * as index from './dirs/index.jsx'
+import { FlameMark } from './brand.jsx'
+import * as fieldlab from './dirs/fieldlab.jsx'
+import * as expedition from './dirs/expedition.jsx'
+import * as kiln from './dirs/kiln.jsx'
+import * as patent from './dirs/patent.jsx'
+import * as beacon from './dirs/beacon.jsx'
 import './lab.css'
 
-// Design lab: five candidate visual directions for Lantern, each with its own
-// layouts on real Lantern screens and sample, spoiler-safe content.
+// Design lab, round three: five explorations grown from Specimen (John's pick
+// in round two), each with the four-pane flame mark, its own logotype and a
+// tinkerer / explorer point of view, on real Lantern screens with sample,
+// spoiler-safe content.
 // Self-contained: it reads and writes no app data and is not linked from the app.
 
-const DIRS = [specimen, riso, shelf, almanac, index]
+const DIRS = [fieldlab, expedition, kiln, patent, beacon]
 const SCREENS = [
   { id: 'library', label: 'Library' },
   { id: 'companion', label: 'Companion' },
@@ -24,12 +27,10 @@ const SCREENS = [
 const FONT_HREF = 'https://fonts.googleapis.com/css2?' + [
   'family=Libre+Caslon+Text:ital,wght@0,400;0,700;1,400', 'family=Libre+Caslon+Display',
   'family=IBM+Plex+Mono:wght@400;500;600', 'family=IBM+Plex+Sans:wght@400;500;600',
+  'family=Young+Serif', 'family=Courier+Prime:ital,wght@0,400;0,700;1,400',
   'family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,200..800', 'family=Literata:ital,opsz,wght@0,7..72,400..600;1,7..72,400',
-  'family=Kalam:wght@400;700', 'family=Geist:wght@400..700', 'family=Source+Serif+4:ital,opsz,wght@0,8..60,400..600;1,8..60,400',
-  'family=Bodoni+Moda:ital,opsz,wght@0,6..96,400..800;1,6..96,400', 'family=DM+Mono:wght@400;500', 'family=DM+Sans:opsz,wght@9..40,400..700',
-  'family=Spectral:ital,wght@0,400;0,500;1,400', 'family=Archivo:wdth,wght@62..125,100..900',
-  'family=Newsreader:ital,opsz,wght@0,6..72,400..600;1,6..72,400', 'family=JetBrains+Mono:wght@400;500;600',
-  'family=Libre+Baskerville:wght@400;700',
+  'family=Spectral:ital,wght@0,400;0,500;0,600;1,400;1,500', 'family=Spline+Sans+Mono:wght@400;500',
+  'family=Libre+Baskerville:ital,wght@0,400;0,700;1,400', 'family=DM+Mono:wght@400;500', 'family=DM+Sans:opsz,wght@9..40,400..700',
 ].join('&') + '&display=swap'
 
 function useLabFonts() {
@@ -85,7 +86,7 @@ function LabBar({ dir, mode, screen, set }) {
   return (
     <nav className="lab-bar" aria-label="Design lab">
       <div className="lab-row">
-        <button className="lab-home" onClick={() => set({ d: null, s: null, m: null })} aria-label="All directions"><span aria-hidden="true">✦</span></button>
+        <button className="lab-home" onClick={() => set({ d: null, s: null, m: null })} aria-label="All directions"><FlameMark size={20} /></button>
         <div className="lab-seg lab-seg--scroll">
           {DIRS.map((d, i) => (
             <button key={d.meta.id} className={d === dir ? 'is-on' : ''} onClick={() => set({ d: d.meta.id, m: null })}>
@@ -110,10 +111,10 @@ function Overview({ onPick }) {
   return (
     <div className="lab-overview">
       <header className="lab-ov-head">
-        <span className="lab-ov-logo">✦ Lantern</span>
-        <h1>Five directions, round two</h1>
-        <p>Each one starts from something happening in product design right now and commits to it, with its own layouts, type and one signature idea. All five keep the logo. Open one, flip between Library, Companion, Reader and Listen, and try light and dark.</p>
-        <p className="lab-ov-avoid">Deliberately avoided: purple gradients, frosted glass, glowing blobs, Inter, and identical card grids, which are the most common signs of AI-generated UI in 2026.</p>
+        <span className="lab-ov-logo"><FlameMark size={18} /> Lantern</span>
+        <h1>Five explorations of Specimen, round three</h1>
+        <p>All five grow out of Specimen and lean into the scientific tinkerer and explorer. Each one uses the new four-pane diamond flame mark with its own logotype, and brings heat back in its own way. Open one, flip between Library, Companion, Reader and Listen, and try light and dark. Press play on Listen to see the mark flicker.</p>
+        <p className="lab-ov-avoid">Still avoided: purple gradients, frosted glass, glowing blobs, Inter, and identical card grids.</p>
       </header>
       <div className="lab-ov-list">
         {DIRS.map((d, i) => {
