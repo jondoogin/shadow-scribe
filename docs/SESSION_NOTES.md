@@ -12,7 +12,7 @@ Reverse-chronological log of what was built, fixed, and decided in each working 
 - Words are defined by Lantern's JS segmenter (`words` per segment, display offsets + spoken forms). Timings ship as per-chapter sidecars with offsets and milliseconds only, no text; IndexedDB gets a `timings` store.
 - Sync: a frame clock over `audio.currentTime` plus a user sync offset; React renders once, a small conductor moves classes and one CSS variable.
 - Look: a lantern-light pool glides behind the current sentence; the spoken word fills with ink. Word animation only where alignment passed its confidence check.
-- Needs John's OK: a "listening register" exception to the motion system (520 ms glide, fill while a word is spoken).
+- John's decisions (2026-11-16): the "listening register" motion exception is approved (520 ms glide, fill while a word is spoken; added to DESIGN_SYSTEM and MOTION_SYSTEM); words animate by default where measured; reveal-as-spoken is optional and off by default; the transcript is a Text view inside Listen.
 
 **FILES**
 - New `docs/TRANSCRIPT.md`. ROADMAP milestone added. No code changed.

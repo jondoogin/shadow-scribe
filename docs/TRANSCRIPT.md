@@ -1,6 +1,6 @@
 # Lantern — Follow-Along Transcript (design)
 
-**Status (Session 165, 2026-11-15): design only. Nothing here is built.** It builds on the neural narration branch (`feature/lantern-neural-narration`, `docs/NARRATION.md`), which is also unmerged.
+**Status (Session 165, 2026-11-15; John's answers 2026-11-16): design approved in outline, nothing built yet.** John's decisions are in §10. It builds on the neural narration branch (`feature/lantern-neural-narration`, `docs/NARRATION.md`), which is also unmerged.
 
 **What John asked for:** while narration plays, show the book's text on screen and animate it as each sentence, or even each word, is spoken. Like Spotify's lyrics view, but more intelligent and more beautifully animated.
 
@@ -195,7 +195,7 @@ The aim is the feeling of being read to by lamplight, not karaoke. Lantern's own
 
 ### Layout
 
-- **Where:** Listen gets a second view, **Now Playing ↔ Text**, a segmented control in the existing Listen header (mockup 9 already shows "Read / Listen"). The mini-player's caption opens it too. It is a full-height reading column inside Listen, with the slim transport (play, ±15 s, scrubber) pinned at the bottom.
+- **Where (John's choice):** Listen gets a second view, **Now Playing ↔ Text**, a segmented control in the existing Listen header (mockup 9 already shows "Read / Listen"). The mini-player's caption opens it too. It is a full-height reading column inside Listen, with the slim transport (play, ±15 s, scrubber) pinned at the bottom.
 - **Type:** EB Garamond, as in the Reader, a step larger (22 px on phones, 24 px from 768 px), line-height 1.7, measure about 34em, left-aligned like a book, not centred like lyrics. Paragraph indents and scene breaks (⁂) as in the Reader.
 - The active sentence sits about 38% from the top of the column: high enough to see what's coming, low enough to keep context above.
 
@@ -221,15 +221,15 @@ The aim is the feeling of being read to by lamplight, not karaoke. Lantern's own
 
 `prefers-reduced-motion`: no sweep, no glide, no glow, no smooth scroll. The current sentence (and word, where measured) changes colour instantly and the page jumps to it. Everything stays usable.
 
-### Fit with the motion system (needs John's OK)
+### Fit with the motion system (approved by John, 2026-11-16)
 
-`MOTION_SYSTEM.md` says nothing runs longer than 0.5 s and nothing animates continuously except the momentum dot. The transcript is **time-driven state, not decoration**: its motion follows the voice and stops when the voice stops. The proposal is a documented exception, a "**listening register**":
+`MOTION_SYSTEM.md` says nothing runs longer than 0.5 s and nothing animates continuously except the momentum dot. The transcript is **time-driven state, not decoration**: its motion follows the voice and stops when the voice stops. John approved a documented exception, the "**listening register**":
 
 - the light pool glides at 520 ms (the Reader's narration highlight is already 600 ms);
 - the ink fill is continuous only while a word is being spoken;
 - no other element moves; no bounce, overshoot, stagger or particles.
 
-If approved, this goes into `DESIGN_SYSTEM.md` and `MOTION_SYSTEM.md` as one short section.
+It is recorded in `docs/DESIGN_SYSTEM.md` and `docs/design-system/MOTION_SYSTEM.md`. It covers the transcript and the Reader's read-along only; no other surface may use it.
 
 ### One renderer, two places
 
@@ -249,7 +249,7 @@ Lantern's spoiler rules protect the reader from the **companion** knowing or sho
 
 1. **Only the chapter being narrated** is ever rendered. Text from later chapters never appears, not even as a preview line at the end of a chapter.
 2. **Strict spoiler mode:** chapter headings use `sectionLabels.js`, so an unreached chapter's title shows as "Section N" until narration reaches it. The heading's own words light up only as they are spoken.
-3. **Reveal as spoken (optional, off by default):** for readers who don't want to glimpse the end of a scene, everything after the next sentence is veiled (a soft blur over blank lines that keep the page's shape) and unveils as the voice reaches it. Default is the whole chapter, as in the Reader. *Open question for John* (§10).
+3. **Reveal as spoken (optional, off by default):** for readers who don't want to glimpse the end of a scene, everything after the next sentence is veiled (a soft blur over blank lines that keep the page's shape) and unveils as the voice reaches it. **Off by default** (John, 2026-11-16): by default the whole chapter shows, as in the Reader. The switch lives in the Text view's Aa menu and is saved in `lantern_listen` (`transcript.reveal`).
 4. **Progress stays conservative:** the transcript never changes `book.currentChapter`. It uses the same "Update companion progress" prompt as Listen when narration passes an unmarked chapter. Showing text is not the same as confirming the reader has reached it.
 5. **No AI involvement:** nothing in this feature calls the companion or any model at runtime. The companion's spoiler bound is unaffected. (The visual-journey feature, designed in its own thread, is where image prompts meet spoiler rules.)
 6. **Privacy:** timings are offsets and milliseconds only, live in IndexedDB beside the audio, and are never uploaded or synced. Alignment runs on the Mac with local weights.
@@ -301,12 +301,14 @@ Reader "Read along" switches to the shared renderer; `.reader-narrating` retires
 
 ---
 
-## 10. Open questions for John
+## 10. Decisions (John, 2026-11-16)
 
-1. **Motion exception.** OK to add the "listening register" (§6) to the design system: a 520 ms glide and a continuous fill while a word is spoken?
-2. **Default level.** Word-level by default where it's measured, or sentence-level by default with words as an option? (Recommendation: word-level where measured; it's the point of the feature.)
-3. **Reveal as spoken.** Keep it as an option, default off? (Recommendation: yes.)
-4. **Where it lives.** A Text view inside Listen (recommended), or a separate full-screen mode?
+1. **Motion exception: yes.** The "listening register" (§6) may go past the 0.5 s limit: a 520 ms glide of the light pool and a continuous ink fill while a word is spoken. Added to the design system docs.
+2. **Default level: word-level** wherever the narration has measured word timings. Sentences without them stay sentence-level. The user can switch to sentence-only in the Text view's Aa menu (`transcript.level`).
+3. **Reveal as spoken: an option, off by default.**
+4. **Placement: a Text view inside Listen** (Now Playing ↔ Text), not a separate full-screen mode.
+
+No open questions remain for Phase 1. The aligner choice (Phase 2) is settled by the spike's measurements.
 
 ---
 

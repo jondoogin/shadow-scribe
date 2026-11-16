@@ -26,7 +26,7 @@
 ### Milestone: Follow-along transcript — Session 165 — designed, not built
 Design: `docs/TRANSCRIPT.md`.
 - [x] Design doc: timing sources, package sidecar, playback sync, animation, spoilers
-- [ ] John's answers to the 4 open questions (motion exception, default level, reveal-as-spoken, placement)
+- [x] John's decisions (2026-11-16): motion exception approved, word-level by default, reveal-as-spoken optional and off, Text view inside Listen
 - [ ] Phase 1: sentence-level transcript in Listen (front end only)
 - [ ] Phase 2: aligner spike on the M5 Pro (Qwen3-ForcedAligner vs wav2vec2 CTC)
 - [ ] Phase 3: word timings in the narrator (`words` in the script, `align` step and command, sidecars)

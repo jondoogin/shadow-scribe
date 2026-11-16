@@ -99,6 +99,8 @@ to   { opacity: 1; transform: translateY(0) }
 
 **Rule:** Nothing above `0.5s` except the looping momentum dot. A slow animation says "wait for me" — Shadow Scribe never makes the reader wait.
 
+**Exception — the listening register (approved by John, 2026-11-16).** The follow-along transcript and the Reader's read-along follow the narrator's voice, so they never make the reader wait. They may use: a `520ms` critically damped glide of the light pool between sentences, and a continuous ink fill across the word being spoken. Both stop when narration pauses, and both are off under reduced motion. See `docs/TRANSCRIPT.md` §6. No other surface may use this exception.
+
 ---
 
 ## Hover Transitions
