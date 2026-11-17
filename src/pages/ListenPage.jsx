@@ -6,6 +6,7 @@ import { useBookContent } from '../hooks/useBookContent.js'
 import { Ico } from '../components/shared/icons.jsx'
 import LinkEpub from '../components/listen/LinkEpub.jsx'
 import ImportNarration from '../components/listen/ImportNarration.jsx'
+import { callNumber, Holes, LitLabel, Mark } from '../catalogue/parts.jsx'
 import ChapterUpdateModal from '../components/modals/ChapterUpdateModal.jsx'
 import { AMBIENT_CATALOG } from '../atmosphere/ambientEngine.js'
 import { SLEEP_OPTIONS } from '../narration/sleepTimer.js'
@@ -14,6 +15,13 @@ import { buildNarrationScript, scriptStats } from '../narration/narrationScript.
 import { getFullContent, deleteAudiobook, getSectionBlocks, storageEstimate } from '../content/contentRepository.js'
 import { segmentBlocks } from '../narration/segmenter.js'
 import { sectionLabel, chapterReached, formatClock, formatDuration, formatBytes } from '../narration/sectionLabels.js'
+
+// "16 NOV" for the lamp log's date stamps. Dates are stored as YYYY-MM-DD.
+function stampDate(d) {
+  if (!d) return '—'
+  const t = new Date(d.length <= 10 ? `${d}T12:00:00` : d)
+  return Number.isNaN(t.getTime()) ? '—' : t.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }).toUpperCase()
+}
 
 const RATES = [0.8, 0.9, 1, 1.1, 1.25, 1.5, 1.75, 2]
 
@@ -118,169 +126,200 @@ export default function ListenPage() {
     reload()
   }
 
-  return (
-    <div className="max-w-[760px] mx-auto px-5 sm:px-10 pt-8 pb-32 listen-page">
-      <Link to={`/book/${bookId}`} className="listen-link inline-flex items-center gap-1.5" style={{ marginBottom: 18 }}>
-        <Ico.Left /> {book.title}
-      </Link>
+  const remaining = isAudio && ps ? Math.max(0, ps.duration - ps.time) : 0
+  const pct = !ps ? 0 : isAudio
+    ? (ps.duration ? (ps.time / ps.duration) * 100 : 0)
+    : (ps.duration ? ((Math.max(0, ps.segmentIndex) + 1) / ps.duration) * 100 : 0)
+  const n = currentSource?.type === 'audio' ? audiobooks.find(ab => ab.id === currentSource.audiobookId)?.manifest.narration : null
+  const voiceName = n ? String(n.voice || 'Narration').replace(/_/g, ' ') : currentSource?.type === 'speech' ? 'Device voice' : null
+  const sleepMin = pb.sleep.mode === 'minutes' ? Math.ceil((pb.sleep.remainingMs || 0) / 60000) : 0
+  const wickOn = pb.sleep.mode === 'minutes' ? (SLEEP_OPTIONS.find(o => o.minutes && o.minutes >= sleepMin)?.id || '60') : pb.sleep.mode
+  const wickPct = pb.sleep.mode === 'minutes' ? Math.min(100, ((pb.sleep.remainingMs || 0) / 3_600_000) * 100) : pb.sleep.mode === 'chapter' ? 100 : 0
+  const log = (book.readingLog || []).slice(-3).reverse()
 
-      <header className="flex items-center gap-4" style={{ marginBottom: 22 }}>
-        {book.coverData || book.coverUrl
-          ? <img src={book.coverData || book.coverUrl} alt="" style={{ width: 56, height: 84, objectFit: 'cover', borderRadius: 4, boxShadow: 'var(--shadow-card)' }} />
-          : <div style={{ width: 56, height: 84, borderRadius: 4, background: book.coverBg || 'var(--color-card-deep)' }} />}
-        <div className="min-w-0">
-          <p className="listen-eyebrow">Listen</p>
-          <h1 className="font-serif" style={{ fontSize: 22, color: 'var(--color-text-primary)', lineHeight: 1.25 }}>{book.title}</h1>
-          <p style={{ fontSize: 13, color: 'var(--color-text-dim)' }}>{book.author}</p>
+  return (
+    <div className="cat c2 listen-page">
+      <header className="c2-top">
+        <div><Link to={`/book/${bookId}`} className="c2-ic" aria-label={`Back to ${book.title}`}><Ico.Left /></Link></div>
+        <div className="c2-top-c"><span className="c2-label">{voiceName ? `Listening · ${voiceName}` : 'Listen'}</span></div>
+        <div className="c2-top-r">
+          {ps && <button type="button" className="c2-ic" onClick={() => setShowChapters(v => !v)} aria-expanded={showChapters} aria-label={`Chapters (${sections.length})`}><Ico.Menu /></button>}
         </div>
       </header>
 
-      {storeError && <p role="alert" className="listen-panel" style={{ color: 'var(--color-ember)', fontSize: 13 }}>{storeError}</p>}
+      {storeError && <p role="alert" className="c2-fine" style={{ color: 'var(--color-ember)' }}>{storeError}</p>}
       {pb.error && sessionForThisBook && (
-        <p role="alert" style={{ color: 'var(--color-ember)', fontSize: 13, marginBottom: 12 }}>
-          {pb.error} <button className="listen-link" onClick={pb.clearError}>Dismiss</button>
+        <p role="alert" className="c2-fine" style={{ color: 'var(--color-ember)' }}>
+          {pb.error} <button type="button" className="c2-link" onClick={pb.clearError}>Dismiss</button>
         </p>
       )}
 
       {!loading && !meta && !audiobooks.length && (
-        <LinkEpub book={book} onUpdateBook={onUpdateBook} onLinked={reload} />
+        <article className="c2-card">
+          <div className="c2-card-head"><span className="c2-call">{callNumber(book)}</span><span className="c2-label">Listen</span></div>
+          <h1 className="c2-title">{book.title}</h1>
+          <p className="c2-by">{book.author}</p>
+          <div style={{ marginTop: 16 }}><LinkEpub book={book} onUpdateBook={onUpdateBook} onLinked={reload} /></div>
+        </article>
       )}
 
-      {/* ── Now playing ── */}
+      {/* ── Now playing: the loan slip ── */}
       {ps && section && (
-        <section className="listen-stage" aria-label="Now playing">
-          <p className="listen-eyebrow">{sectionLabel(section, ps.sectionIndex, book)}</p>
-          <p className="listen-caption" aria-live="polite">
-            {(isAudio ? caption : speechCaption) || (busy ? 'Loading…' : ' ')}
-          </p>
-
-          {isAudio ? (
-            <div className="listen-scrub">
-              <input
-                type="range" min={0} max={Math.max(1, ps.duration)} step={0.5} value={Math.min(ps.time, ps.duration || 0)}
-                onChange={e => pb.seek(Number(e.target.value))} aria-label="Position in chapter"
-              />
-              <div className="flex justify-between" style={{ fontSize: 11, color: 'var(--color-text-dim)' }}>
-                <span>{formatClock(ps.time)}</span>
-                <span>−{formatClock(Math.max(0, ps.duration - ps.time))}</span>
-              </div>
+        <>
+          <article className="c2-card c2-card--slip" aria-label="Now playing">
+            <div className="c2-card-head">
+              <span className="c2-call">{callNumber(book)} · {ps.sectionIndex + 1}</span>
+              <LitLabel lit={playing}>{sectionLabel(section, ps.sectionIndex, book)}</LitLabel>
             </div>
-          ) : (
-            <div className="listen-scrub">
-              <input
-                type="range" min={0} max={Math.max(0, ps.duration - 1)} step={1} value={Math.max(0, ps.segmentIndex)}
-                onChange={e => pb.seek(Number(e.target.value))} aria-label="Sentence in chapter"
-              />
-              <div className="flex justify-between" style={{ fontSize: 11, color: 'var(--color-text-dim)' }}>
-                <span>Sentence {Math.max(0, ps.segmentIndex) + 1} of {ps.duration || '—'}</span>
-                <span>Device voice · no timeline</span>
-              </div>
+            <p className="c2-time">{isAudio ? formatClock(ps.time) : `${Math.max(0, ps.segmentIndex) + 1}/${ps.duration || '—'}`}</p>
+            <p className="c2-by">
+              {book.title} · {isAudio ? `${formatClock(remaining)} left` : 'sentences read aloud'}
+            </p>
+            <div className="c2-scrub">
+              <Holes pct={pct} />
+              {isAudio ? (
+                <input type="range" min={0} max={Math.max(1, ps.duration)} step={0.5} value={Math.min(ps.time, ps.duration || 0)}
+                  onChange={e => pb.seek(Number(e.target.value))} aria-label="Position in chapter" />
+              ) : (
+                <input type="range" min={0} max={Math.max(0, ps.duration - 1)} step={1} value={Math.max(0, ps.segmentIndex)}
+                  onChange={e => pb.seek(Number(e.target.value))} aria-label="Sentence in chapter" />
+              )}
             </div>
-          )}
+            <div className="c2-dates">
+              <span>{sectionLabel(section, ps.sectionIndex, book)}</span>
+              <span>{isAudio ? formatClock(ps.duration) : 'Device voice'}</span>
+            </div>
+          </article>
 
-          <div className="listen-transport">
-            <button aria-label="Previous chapter" onClick={pb.prev}><Ico.SkipBack /></button>
-            <button aria-label={isAudio ? 'Back 15 seconds' : 'Previous sentence'} onClick={() => pb.skip(isAudio ? -15 : -1)}>
-              <Ico.Back /><span className="listen-skip-label">{isAudio ? '15' : '1'}</span>
-            </button>
-            <button className="listen-play" aria-label={playing ? 'Pause' : 'Play'} onClick={pb.toggle} disabled={busy}>
+          <div className="c2-keys">
+            <button type="button" className="c2-key-sm" aria-label="Previous chapter" onClick={pb.prev}><Ico.SkipBack /></button>
+            <button type="button" aria-label={isAudio ? 'Back 15 seconds' : 'Previous sentence'} onClick={() => pb.skip(isAudio ? -15 : -1)}>{isAudio ? '−15' : '−1'}</button>
+            <button type="button" className="c2-key-go" aria-label={playing ? 'Pause' : 'Play'} onClick={pb.toggle} disabled={busy}>
               {playing ? <Ico.Pause /> : <Ico.Play />}
             </button>
-            <button aria-label={isAudio ? 'Forward 15 seconds' : 'Next sentence'} onClick={() => pb.skip(isAudio ? 15 : 1)}>
-              <Ico.Forward /><span className="listen-skip-label">{isAudio ? '15' : '1'}</span>
-            </button>
-            <button aria-label="Next chapter" onClick={pb.next}><Ico.SkipFwd /></button>
+            <button type="button" aria-label={isAudio ? 'Forward 15 seconds' : 'Next sentence'} onClick={() => pb.skip(isAudio ? 15 : 1)}>{isAudio ? '+15' : '+1'}</button>
+            <button type="button" className="c2-key-sm" aria-label="Next chapter" onClick={pb.next}><Ico.SkipFwd /></button>
           </div>
 
-          <div className="listen-options">
-            <label>
-              <span>Speed</span>
-              <select value={pb.prefs.rate} onChange={e => pb.setRate(Number(e.target.value))}>
+          <div className="c2-opts">
+            <label className="c2-btn">
+              <span className="sr-only">Speed</span>
+              <select value={pb.prefs.rate} onChange={e => pb.setRate(Number(e.target.value))} aria-label="Speed">
                 {RATES.map(r => <option key={r} value={r}>{r}×</option>)}
               </select>
             </label>
-            <label>
-              <span><Ico.Moon style={{ display: 'inline', width: 12, height: 12 }} /> Sleep</span>
-              <select value={pb.sleep.mode === 'minutes' ? String(Math.round((pb.sleep.remainingMs || 0) / 60000)) : pb.sleep.mode}
-                onChange={e => pb.setSleep(e.target.value)}>
-                {pb.sleep.mode === 'minutes' && <option value={String(Math.round((pb.sleep.remainingMs || 0) / 60000))}>{Math.ceil((pb.sleep.remainingMs || 0) / 60000)} min left</option>}
-                {SLEEP_OPTIONS.map(o => <option key={o.id} value={o.id}>{o.label}</option>)}
-              </select>
-            </label>
-            <button className="listen-link" onClick={() => setShowChapters(v => !v)} aria-expanded={showChapters}>
-              Chapters ({sections.length})
-            </button>
-            <Link className="listen-link" to={`/book/${bookId}/read`}>Read along</Link>
+            <button type="button" className="c2-btn" onClick={() => setShowChapters(v => !v)} aria-expanded={showChapters}>Chapters</button>
+            <Link className="c2-btn" to={`/book/${bookId}/read`}>Read along</Link>
           </div>
 
-          {reachedChapter && (
-            <p style={{ fontSize: 12, color: 'var(--color-text-dim)', marginTop: 14, lineHeight: 1.6 }}>
-              You’re listening to chapter {reachedChapter}; your companion still thinks you’re at chapter {book.currentChapter || 0}.{' '}
-              <button className="listen-link" onClick={() => setShowUpdate(true)}>Update companion progress</button>
-            </p>
+          {showChapters && (
+            <section className="c3-box" aria-label="Chapters" style={{ marginTop: 18 }}>
+              <header className="c3-box-head"><h2>Chapters</h2><span className="c2-label">{sections.length}</span></header>
+              <ol className="c2-drawer">
+                {sections.map((s, i) => (
+                  <li key={s.id}>
+                    <button type="button" className={`c2-row${i === ps.sectionIndex ? ' is-on' : ''}`}
+                      onClick={() => { pb.goTo(i, null, { autoplay: playing }); setShowChapters(false) }}>
+                      <span className="c2-call">{String(i + 1).padStart(2, '0')}</span>
+                      <span className="c2-row-t"><b>{sectionLabel(s, i, book)}</b></span>
+                      <span className="c2-row-s">{s.durationSec ? formatDuration(s.durationSec) : ''}</span>
+                    </button>
+                  </li>
+                ))}
+              </ol>
+            </section>
           )}
-        </section>
+
+          {reachedChapter && (
+            <div className="c2-card c2-seal-row" style={{ marginTop: 18, borderTop: 0 }}>
+              <span className="c2-stamp">Unseal<small>ch. {reachedChapter}</small></span>
+              <p>
+                You’re listening to chapter {reachedChapter}; your companion is still at chapter {book.currentChapter || 0}.{' '}
+                <button type="button" className="c2-link" style={{ color: 'var(--red-ink)' }} onClick={() => setShowUpdate(true)}>Mark it read</button>
+              </p>
+            </div>
+          )}
+
+          {/* ── Wick: the sleep timer burns down ── */}
+          <section className="c3-wick" aria-label="Sleep timer" style={{ marginTop: 18 }}>
+            <div className="c3-wick-head">
+              <span className="c2-label">Wick</span>
+              <span className="c3-wick-v">{pb.sleep.mode === 'minutes' ? `${sleepMin} min` : pb.sleep.mode === 'chapter' ? 'End of chapter' : 'Off'}</span>
+            </div>
+            <div className="c3-wick-bar"><i style={{ width: `${wickPct}%` }}>{wickPct > 0 && <Mark size={16} live={playing} />}</i></div>
+            <div className="c3-wick-opts">
+              {SLEEP_OPTIONS.map(o => (
+                <button key={o.id} type="button" className={wickOn === o.id ? 'is-on' : ''} onClick={() => pb.setSleep(o.id)} aria-pressed={wickOn === o.id}>
+                  {o.minutes ? `${o.minutes}m` : o.id === 'chapter' ? 'Ch.' : 'Off'}
+                </button>
+              ))}
+            </div>
+          </section>
+
+          <section className="c2-transcript" aria-live="polite">
+            <p className="is-now">{(isAudio ? caption : speechCaption) || (busy ? 'Loading…' : ' ')}</p>
+          </section>
+        </>
       )}
 
-      {showChapters && ps && (
-        <section className="listen-panel" aria-label="Chapters">
-          <ol className="listen-chapters">
-            {sections.map((s, i) => (
-              <li key={s.id}>
-                <button
-                  className={i === ps.sectionIndex ? 'active' : ''}
-                  onClick={() => { pb.goTo(i, null, { autoplay: playing }); setShowChapters(false) }}
-                >
-                  <span>{sectionLabel(s, i, book)}</span>
-                  {s.durationSec ? <span className="listen-dim">{formatDuration(s.durationSec)}</span> : null}
-                </button>
+      {/* ── Lamp log: recent sessions from the reading log ── */}
+      {log.length > 0 && (
+        <>
+          <div className="c2-sec"><h2>Lamp log</h2><span className="c2-label">Ch. {book.currentChapter || 0}</span></div>
+          <ol className="c2-loans">
+            {log.map((e, i) => (
+              <li key={e.id || i}>
+                <span className="c2-datestamp" style={{ '--rot': `${[-3, 2, -1][i % 3]}deg` }}>{stampDate(e.date)}</span>
+                <span>
+                  <b>{e.endChapter > e.startChapter ? `Lit ch. ${e.startChapter + 1}–${e.endChapter}` : `Lit ch. ${e.endChapter || e.startChapter || 1}`}</b>
+                  <small>{e.durationEstimate ? `${e.durationEstimate} session` : 'reading session'}</small>
+                </span>
               </li>
             ))}
           </ol>
-        </section>
+        </>
       )}
 
-      {/* ── Atmosphere ── */}
+      {/* ── Reading room: ambience ── */}
       {ps && (
-        <section className="listen-panel" aria-label="Atmosphere">
-          <p className="listen-eyebrow" style={{ marginBottom: 10 }}>Atmosphere</p>
-          <div className="listen-chips" role="radiogroup" aria-label="Ambient sound">
-            <button role="radio" aria-checked={!pb.ambient.trackId} className={!pb.ambient.trackId ? 'active' : ''} onClick={() => pb.setAmbientTrack(null)}>Off</button>
+        <>
+          <div className="c2-sec"><h2>Reading room</h2></div>
+          <div className="c2-chips" role="radiogroup" aria-label="Ambient sound">
+            <button type="button" role="radio" aria-checked={!pb.ambient.trackId} className={!pb.ambient.trackId ? 'is-on' : ''} onClick={() => pb.setAmbientTrack(null)}>Quiet</button>
             {AMBIENT_CATALOG.map(t => (
-              <button key={t.id} role="radio" aria-checked={pb.ambient.trackId === t.id}
-                className={pb.ambient.trackId === t.id ? 'active' : ''} onClick={() => pb.setAmbientTrack(t.id)}>
+              <button key={t.id} type="button" role="radio" aria-checked={pb.ambient.trackId === t.id}
+                className={pb.ambient.trackId === t.id ? 'is-on' : ''} onClick={() => pb.setAmbientTrack(t.id)}>
                 {t.label}
               </button>
             ))}
           </div>
-          <div className="listen-options" style={{ marginTop: 12 }}>
-            <label style={{ flex: 1 }}>
-              <span>Ambience volume</span>
+          <div className="c2-card c2-levels">
+            <label>
+              <span className="c2-label">Ambience</span>
               <input type="range" min={0} max={1} step={0.01} value={pb.prefs.ambientVolume}
                 onChange={e => pb.setAmbientVolume(Number(e.target.value))} aria-label="Ambience volume" />
             </label>
             {isAudio && (
-              <label style={{ flex: 1 }}>
-                <span>Narration volume</span>
+              <label>
+                <span className="c2-label">Narration</span>
                 <input type="range" min={0} max={1} step={0.01} value={pb.prefs.narrationVolume}
                   onChange={e => pb.setNarrationVolume(Number(e.target.value))} aria-label="Narration volume" />
               </label>
             )}
-            <label className="listen-check">
+            <label className="c2-check">
               <input type="checkbox" checked={pb.prefs.duck} onChange={e => pb.setDuck(e.target.checked)} />
               <span>Soften ambience while narrating</span>
             </label>
+            <p className="c2-fine" style={{ marginTop: 6 }}>Ambient sounds are generated in your browser. On iPhone, narration volume follows the side buttons.</p>
           </div>
-          <p className="listen-dim" style={{ fontSize: 11, marginTop: 8 }}>
-            Ambient sounds are generated in your browser. On iPhone, narration volume follows the side buttons.
-          </p>
-        </section>
+        </>
       )}
 
       {/* ── Narration source ── */}
       {(meta || audiobooks.length > 0) && (
-        <section className="listen-panel" aria-label="Narration">
-          <p className="listen-eyebrow" style={{ marginBottom: 10 }}>Narration</p>
+        <section aria-label="Narration">
+          <div className="c2-sec"><h2>Narration</h2></div>
+          <div className="c2-card listen-panel">
           <ul className="listen-sources">
             {audiobooks.map(ab => {
               const n = ab.manifest.narration || {}
@@ -336,8 +375,11 @@ export default function ListenPage() {
             </p>
           )}
           {meta && <div style={{ marginTop: 12 }}><LinkEpub book={book} onUpdateBook={onUpdateBook} onLinked={reload} compact /></div>}
+          </div>
         </section>
       )}
+
+      <p className="c2-fine">Your companion stays at chapter {book.currentChapter || 0} until you move it.</p>
 
       {showUpdate && <ChapterUpdateModal book={book} onClose={() => setShowUpdate(false)} onUpdateBook={onUpdateBook} />}
     </div>

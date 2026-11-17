@@ -7,6 +7,7 @@ import { getSectionBlocks } from '../content/contentRepository.js'
 import { bookRecord, latestLocator } from '../narration/listenState.js'
 import { sectionLabel, chapterReached } from '../narration/sectionLabels.js'
 import { Ico } from '../components/shared/icons.jsx'
+import { callNumber, Holes } from '../catalogue/parts.jsx'
 import LinkEpub from '../components/listen/LinkEpub.jsx'
 import ChapterUpdateModal from '../components/modals/ChapterUpdateModal.jsx'
 
@@ -23,6 +24,8 @@ export default function ReaderPage() {
   const [loaded, setLoaded] = useState({ id: null, blocks: null })
   const [showUpdate, setShowUpdate] = useState(false)
   const pendingScroll = useRef(null)
+  const proseRef = useRef(null)
+  const [readPct, setReadPct] = useState(0)
   const visibleBlock = useRef(null)
 
   const sections = useMemo(() => (meta?.sections || []).filter(s => s.blockCount > 0 && s.skipReason !== 'nonlinear'), [meta])
@@ -71,6 +74,21 @@ export default function ReaderPage() {
     return () => { obs.disconnect(); clearTimeout(timer) }
   }, [blocks, section?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // How far through the open chapter the reader has scrolled, for the footer bar.
+  useEffect(() => {
+    if (!blocks) return
+    const onScroll = () => {
+      const el = proseRef.current
+      if (!el) return
+      const r = el.getBoundingClientRect()
+      const span = r.height - window.innerHeight * 0.6
+      setReadPct(span > 0 ? Math.max(0, Math.min(100, (-r.top + window.innerHeight * 0.2) / span * 100)) : 100)
+    }
+    onScroll()
+    window.addEventListener('scroll', onScroll, { passive: true })
+    return () => window.removeEventListener('scroll', onScroll)
+  }, [blocks])
+
   useEffect(() => {
     if (book?.title) document.title = `Read · ${book.title} — Lantern`
   }, [book?.title])
@@ -93,48 +111,69 @@ export default function ReaderPage() {
     navigate(`/book/${bookId}/listen`)
   }
 
+  const call = `${callNumber(book)}${section ? ` · ${sectionIndex + 1}` : ''}`
+
   return (
-    <div className="max-w-[720px] mx-auto px-5 sm:px-10 pt-8 pb-32 reader-page">
-      <div className="flex items-center justify-between gap-4" style={{ marginBottom: 20 }}>
-        <Link to={`/book/${bookId}`} className="listen-link inline-flex items-center gap-1.5"><Ico.Left /> {book.title}</Link>
-        {section && <button className="listen-link inline-flex items-center gap-1.5" onClick={listenHere}><Ico.Headphones /> Listen from here</button>}
-      </div>
+    <div className="cat c2 c2--reader reader-page">
+      <header className="c2-top">
+        <div><Link to={`/book/${bookId}`} className="c2-ic" aria-label={`Back to ${book.title}`}><Ico.Left /></Link></div>
+        <div className="c2-top-c"><span className="c2-label">{section ? `${sectionLabel(section, sectionIndex, book)} · ${Math.round(readPct)}%` : 'Reader'}</span></div>
+        <div className="c2-top-r">
+          {section && <button type="button" className="c2-ic" onClick={listenHere} aria-label="Listen from here"><Ico.Headphones /></button>}
+        </div>
+      </header>
 
       {!loading && !meta && <LinkEpub book={book} onUpdateBook={c => updateBook(bookId, c)} onLinked={reload} />}
 
       {section && (
         <>
-          <nav className="reader-nav" aria-label="Chapters">
-            <button onClick={() => go(sectionIndex - 1)} disabled={sectionIndex === 0} aria-label="Previous chapter">‹</button>
-            <select value={sectionIndex} onChange={e => go(Number(e.target.value))} aria-label="Chapter">
-              {sections.map((s, i) => <option key={s.id} value={i}>{sectionLabel(s, i, book)}{s.narrate ? '' : ' (front/back matter)'}</option>)}
-            </select>
-            <button onClick={() => go(sectionIndex + 1)} disabled={sectionIndex === sections.length - 1} aria-label="Next chapter">›</button>
-          </nav>
+          <div className="c2-page">
+            <header className="c2-page-head">
+              <span className="c2-call">{call}</span>
+              <h1>{sectionLabel(section, sectionIndex, book)}</h1>
+              <nav className="c2-chapnav" aria-label="Chapters">
+                <button type="button" onClick={() => go(sectionIndex - 1)} disabled={sectionIndex === 0} aria-label="Previous chapter">‹</button>
+                <select value={sectionIndex} onChange={e => go(Number(e.target.value))} aria-label="Chapter">
+                  {sections.map((s, i) => <option key={s.id} value={i}>{sectionLabel(s, i, book)}{s.narrate ? '' : ' (front/back matter)'}</option>)}
+                </select>
+                <button type="button" onClick={() => go(sectionIndex + 1)} disabled={sectionIndex === sections.length - 1} aria-label="Next chapter">›</button>
+              </nav>
+            </header>
 
-          <article className="reader-text" lang={meta.language || 'en'}>
-            {!blocks && <p className="listen-dim">Opening…</p>}
-            {blocks?.map(b => {
-              const cls = narrating === b.id ? 'reader-narrating' : undefined
-              if (b.type === 'break') return <hr key={b.id} id={`blk-${b.id}`} data-block={b.id} className="reader-break" />
-              if (b.type === 'heading') return <h2 key={b.id} id={`blk-${b.id}`} data-block={b.id} className={cls}>{b.text}</h2>
-              if (b.type === 'quote') return <blockquote key={b.id} id={`blk-${b.id}`} data-block={b.id} className={cls}>{b.text}</blockquote>
-              return <p key={b.id} id={`blk-${b.id}`} data-block={b.id} className={cls}>{b.text}</p>
-            })}
-          </article>
+            <article className="c2-prose" lang={meta.language || 'en'} ref={proseRef}>
+              {!blocks && <p className="c2-dim">Opening…</p>}
+              {blocks?.map(b => {
+                const cls = narrating === b.id ? 'is-now' : undefined
+                if (b.type === 'break') return <hr key={b.id} id={`blk-${b.id}`} data-block={b.id} className="c2-break" />
+                if (b.type === 'heading') return <h2 key={b.id} id={`blk-${b.id}`} data-block={b.id} className={cls}>{b.text}</h2>
+                if (b.type === 'quote') return <blockquote key={b.id} id={`blk-${b.id}`} data-block={b.id} className={cls}>{b.text}</blockquote>
+                return <p key={b.id} id={`blk-${b.id}`} data-block={b.id} className={cls}>{b.text}</p>
+              })}
+            </article>
 
-          {blocks && (
-            <div className="reader-end">
-              {reachedChapter && (
-                <p className="listen-dim" style={{ fontSize: 12, marginBottom: 12 }}>
-                  Finished chapter {reachedChapter}? <button className="listen-link" onClick={() => setShowUpdate(true)}>Update companion progress</button>
-                </p>
-              )}
-              {sectionIndex < sections.length - 1 && (
-                <button className="listen-btn" onClick={() => go(sectionIndex + 1)}>Next: {sectionLabel(sections[sectionIndex + 1], sectionIndex + 1, book)} →</button>
-              )}
-            </div>
-          )}
+            {blocks && (
+              <div className="c2-page-end">
+                {reachedChapter && (
+                  <div className="c2-seal-row">
+                    <span className="c2-stamp">Unseal<small>ch. {reachedChapter}</small></span>
+                    <p>Finished chapter {reachedChapter}? Mark it read so your companion can open it.</p>
+                  </div>
+                )}
+                <div className="c2-actions c2-actions--stack">
+                  {reachedChapter && <button type="button" className="c2-btn c2-btn--primary" onClick={() => setShowUpdate(true)}>Mark chapter {reachedChapter} read</button>}
+                  {sectionIndex < sections.length - 1 && (
+                    <button type="button" className={`c2-btn${reachedChapter ? '' : ' c2-btn--primary'}`} onClick={() => go(sectionIndex + 1)}>
+                      Next: {sectionLabel(sections[sectionIndex + 1], sectionIndex + 1, book)} →
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+          <footer className="c2-foot">
+            <Holes pct={readPct} label={`${Math.round(readPct)} percent through this chapter`} />
+            <span>{Math.round(readPct)}%</span>
+          </footer>
         </>
       )}
       {showUpdate && <ChapterUpdateModal book={book} onClose={() => setShowUpdate(false)} onUpdateBook={c => updateBook(bookId, c)} />}

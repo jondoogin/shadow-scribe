@@ -1,9 +1,12 @@
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo, useEffect, useRef } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { Ico } from '../shared/icons.jsx'
 import EmptyState from '../shared/EmptyState.jsx'
-import BookCard from './BookCard.jsx'
 import LanternMark from '../shared/LanternMark.jsx'
+import BookCover from '../shared/BookCover.jsx'
+import { usePlayback } from '../../context/PlaybackContext.jsx'
+import { fmtDate } from '../../utils/date.js'
+import { callNumber, statusLabel, unitWord, Holes, Field, Tabs, LitLabel, Mark } from '../../catalogue/parts.jsx'
 import LibraryCompanion from './LibraryCompanion.jsx'
 import FirstBookInvitation from './FirstBookInvitation.jsx'
 import { useAuth } from '../../context/AuthContext.jsx'
@@ -228,49 +231,40 @@ function SignUpNudge({ totalNotes, onDismiss }) {
   )
 }
 
-// Annotation density → inhabited presence level ('' | 'inhabited' | 'deep')
-// Presence is felt through annotation — sparse readers have no presence score
-// regardless of how many sessions they've logged. Reading without annotation
-// produces a self-sustaining pattern, not an inhabited companion surface.
-function bookPresence(book) {
-  const notes      = liveItems(book.notes).length
-  const mysteries  = liveItems(book.mysteries).filter(m => !m.resolved).length
-  // Minimum threshold — truly sparse annotation registers as absence
-  if (notes + mysteries < 4) return ''
-  const sessions   = (book.readingLog || []).length           // was: readingSessions (bug)
-  const rereadBonus = (book.rereadCount || 0) > 0 ? 0.14 : 0 // rereads carry layered weight
-  const score      = notes * 0.045 + mysteries * 0.09 + sessions * 0.018 + rereadBonus
-  if (score >= 0.50) return 'deep'
-  if (score >= 0.20) return 'inhabited'
-  return ''
+// Chapters marked in the last seven days, for the drawer's footnote.
+function chaptersThisWeek(books) {
+  const since = Date.now() - 7 * 86400000
+  let chapters = 0
+  const lit = new Set()
+  for (const b of books) {
+    for (const s of b.readingLog || []) {
+      if (!s.date || new Date(s.date).getTime() < since) continue
+      chapters += Math.max(0, (s.endChapter || 0) - (s.startChapter || 0))
+      lit.add(b.id)
+    }
+  }
+  return { chapters, books: lit.size }
 }
 
-// Days since last update — used to weight temporal recency in the active zone
-function daysSinceUpdate(book) {
-  if (!book.lastUpdated) return 999
-  return Math.floor((Date.now() - new Date(book.lastUpdated)) / 86400000)
-}
-
-// Deterministic positional drift — shelves settle organically over time.
-// Each book has a stable ±3px vertical offset derived from its identity,
-// not its grid position. The same book drifts the same amount regardless
-// of sort order or session — it has found its place on the shelf.
-function bookDrift(book) {
-  let h = 5381
-  for (const c of (book.id || '')) h = ((h * 33) ^ c.charCodeAt(0)) >>> 0
-  return (h % 7) - 3  // maps to −3, −2, −1, 0, 1, 2, 3 px
-}
+const FILTERS = [
+  ['all', 'All'], ['reading', 'On loan'], ['paused', 'Set aside'], ['finished', 'Returned'], ['want', 'Shelf'], ['archived', 'Archive'],
+]
+const SORTS = { recent: 'Recent', title: 'A–Z', progress: 'Furthest' }
+const ROW_STATUS = { finished: 'Returned', want: 'Shelf', paused: 'Aside' }
 
 export default function Library() {
   const { books, updateBook } = useBooks()
   const { settings, updateSetting } = useSettings()
   const { status, isCloudEnabled } = useAuth()
+  const { session, playerState } = usePlayback()
   const navigate  = useNavigate()
   const [q,                 setQ]                = useState('')
   const [filter,            setFilter]           = useState('all')
   const [sort,              setSort]             = useState('recent')
+  const [heroId,            setHeroId]           = useState(null)
   const [welcomed,          setWelcomed]         = useState(() => !!localStorage.getItem(WELCOMED_KEY))
   const [postSnapshotNudge, setPostSnapshotNudge] = useState(false)
+  const heroRef = useRef(null)
 
   const dismissWelcome = () => {
     localStorage.setItem(WELCOMED_KEY, '1')
@@ -315,379 +309,201 @@ export default function Library() {
     && !showSnapshotReminder && !postSnapshotNudge
 
   // ── First-book invitation ────────────────────────────────────────────────
-  // Detect whether the user has added their own book (vs only seeded demos).
   // User-created books have IDs prefixed `book_` via uid('book_').
-  const hasUserBook = useMemo(
-    () => books.some(b => (b.id || '').startsWith('book_')),
-    [books]
-  )
+  const hasUserBook = useMemo(() => books.some(b => (b.id || '').startsWith('book_')), [books])
   const invitationRecentlyDismissed = useMemo(() => {
     const at = settings.firstBookInvitationDismissedAt
     if (!at) return false
     return (Date.now() - new Date(at)) / 86400000 < 7
   }, [settings.firstBookInvitationDismissedAt])
-  const showFirstBookInvitation =
-    welcomed && !hasUserBook && !invitationRecentlyDismissed
-  const deferInvitation = () =>
-    updateSetting('firstBookInvitationDismissedAt', new Date().toISOString())
+  const showFirstBookInvitation = welcomed && !hasUserBook && !invitationRecentlyDismissed
+  const deferInvitation = () => updateSetting('firstBookInvitationDismissedAt', new Date().toISOString())
 
-  const filterOpts = [
-    { k: 'all',      l: 'All'       },
-    { k: 'reading',  l: 'Reading'   },
-    { k: 'finished', l: 'Finished'  },
-    { k: 'paused',   l: 'set aside' },  // matches grouped section label
-  ]
+  // ── The drawer: every card, filtered by tab and search ───────────────────
+  const sorted = useMemo(() => {
+    const byRecent = (a, b) => new Date(b.lastUpdated || 0) - new Date(a.lastUpdated || 0)
+    const fn = sort === 'title' ? (a, b) => a.title.localeCompare(b.title)
+      : sort === 'progress' ? (a, b) => getProgress(b) - getProgress(a)
+      : byRecent
+    return [...books].sort(fn)
+  }, [books, sort])
 
-  const qLower = q.toLowerCase()
-  const matches = b =>
-    !q || b.title.toLowerCase().includes(qLower) || b.author.toLowerCase().includes(qLower)
+  const inFilter = (b, f) => f === 'archived' ? !!b.archived
+    : f === 'all' ? !b.archived
+    : !b.archived && b.status === f
+  const counts = useMemo(() => Object.fromEntries(FILTERS.map(([f]) => [f, books.filter(b => inFilter(b, f)).length])), [books])
+  const qLower = q.trim().toLowerCase()
+  const list = sorted.filter(b => inFilter(b, filter))
+    .filter(b => !qLower || b.title.toLowerCase().includes(qLower) || (b.author || '').toLowerCase().includes(qLower))
+  const tabs = FILTERS.filter(([f]) => f === 'all' || counts[f] > 0)
 
-  const sortFn = (a, b) => {
-    if (sort === 'recent')   return new Date(b.lastUpdated) - new Date(a.lastUpdated)
-    if (sort === 'title')    return a.title.localeCompare(b.title)
-    if (sort === 'progress') return getProgress(b) - getProgress(a)
-    return 0
+  // ── The card pulled from the drawer ──────────────────────────────────────
+  // Whatever is playing first, then the reader's pick, then the most recent
+  // book on loan, then anything not archived.
+  const playingId = session?.book?.id
+  const lit = !!playingId && playerState?.status === 'playing'
+  const byRecent = [...books].sort((a, b) => new Date(b.lastUpdated || 0) - new Date(a.lastUpdated || 0))
+  const hero = books.find(b => b.id === heroId)
+    || (playingId && books.find(b => b.id === playingId))
+    || byRecent.find(b => !b.archived && b.status === 'reading')
+    || byRecent.find(b => !b.archived && b.status === 'paused')
+    || byRecent.find(b => !b.archived)
+    || null
+
+  const pick = (id) => {
+    setHeroId(id)
+    requestAnimationFrame(() => heroRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }))
   }
 
-  const isFiltered = filter !== 'all' || !!q
-
-  // Status-grouped sections — only when not filtered/searching
-  const activeBooks   = useMemo(() => books.filter(b => !b.archived), [books])
-  const archivedBooks = useMemo(() => books.filter(b =>  b.archived), [books])
-
-  const readingNow = useMemo(
-    () => activeBooks.filter(b => b.status === 'reading').filter(matches).sort(sortFn),
-    [activeBooks, q, sort] // eslint-disable-line react-hooks/exhaustive-deps
-  )
-  const setAside = useMemo(
-    () => activeBooks.filter(b => b.status === 'paused' || b.status === 'want').filter(matches).sort(sortFn),
-    [activeBooks, q, sort] // eslint-disable-line react-hooks/exhaustive-deps
-  )
-  const finished = useMemo(
-    () => activeBooks.filter(b => b.status === 'finished').filter(matches).sort(sortFn),
-    [activeBooks, q, sort] // eslint-disable-line react-hooks/exhaustive-deps
-  )
-  const archived = useMemo(
-    () => archivedBooks.filter(matches).sort(sortFn),
-    [archivedBooks, q, sort] // eslint-disable-line react-hooks/exhaustive-deps
-  )
-
-  // Shelf ecology — section-level dormancy ratio.
-  // When more than half the set-aside books have been cooling for 45+ days,
-  // the section label itself recedes further — the whole shelf exhales together.
-  const setAsideDormantRatio = setAside.length > 0
-    ? setAside.filter(b => daysSinceUpdate(b) > 45).length / setAside.length
-    : 0
-  const setAsideLabelOpacity = setAsideDormantRatio > 0.5 ? 0.38 : 0.52
-
-  // Environmental weather — reading-now annotation mass.
-  // Total weight of active reading activity across all currently-reading books.
-  // Drives zone warmth: a heavily annotated active reading field runs warmer.
-  const readingNowMass = useMemo(
-    () => readingNow.reduce((total, b) => {
-      const notes     = (b.notes     || []).length
-      const mysteries = (b.mysteries || []).filter(m => !m.resolved).length
-      const sessions  = (b.readingLog || []).length
-      return total + (notes * 0.045 + mysteries * 0.09 + sessions * 0.018)
-    }, 0),
-    [readingNow]
-  )
-  // Zone warmth: 18–30% gold-bg mix, scaled continuously from annotation mass
-  const zoneWarmthPct = Math.min(30, Math.max(18, Math.round(18 + readingNowMass * 1.5)))
-
-  // Flat list for filtered/search views
-  const filteredFlat = useMemo(
-    () => activeBooks.filter(b => filter === 'all' || b.status === filter).filter(matches).sort(sortFn),
-    [activeBooks, filter, q, sort] // eslint-disable-line react-hooks/exhaustive-deps
-  )
-  const filteredArchived = useMemo(
-    () => archivedBooks.filter(matches).sort(sortFn),
-    [archivedBooks, q, sort] // eslint-disable-line react-hooks/exhaustive-deps
-  )
-
-  const isEmpty = isFiltered
-    ? filteredFlat.length === 0 && filteredArchived.length === 0
-    : readingNow.length === 0 && setAside.length === 0 && finished.length === 0 && archived.length === 0
+  const week = chaptersThisWeek(books)
+  const hasBooks = books.length > 0
 
   return (
     <>
-      {/* ── First-book invitation — surfaces once after welcome dismissed ── */}
       {showFirstBookInvitation && (
-        <FirstBookInvitation
-          onAddBook={deferInvitation}
-          onDismiss={deferInvitation}
-        />
+        <FirstBookInvitation onAddBook={deferInvitation} onDismiss={deferInvitation} />
       )}
 
-      {/* ── Search + filter bar ── */}
-      <div className="sticky-bar top-14">
-        <div className="max-w-[1000px] mx-auto px-5 sm:px-10 py-3 space-y-2.5">
-          <div className="relative">
-            <span className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: 'var(--color-ink-300)' }}>
-              <Ico.Search />
-            </span>
-            <input
-              type="text" value={q} onChange={e => setQ(e.target.value)}
-              placeholder="Search titles or authors…"
-              className="w-full pl-8 pr-4 py-2 rounded-xl bg-cream-50/80 text-sm text-ink-800 placeholder-ink-300 transition-all"
-              style={{ border: '1px solid var(--color-separator-soft)' }}
-            />
-          </div>
-          <div className="flex items-center gap-4">
-            {/* Text-link filter tabs — same register as tab bar */}
-            <div className="flex items-center">
-              {filterOpts.map((f, i) => (
-                <span key={f.k} className="flex items-center">
-                  {i > 0 && <span className="mx-2 select-none" style={{ color: 'var(--color-ink-100)', fontSize: 9 }}>·</span>}
-                  <button
-                    onClick={() => setFilter(f.k)}
-                    className={`filter-link ${filter === f.k ? 'active' : ''}`}
-                  >
-                    {f.l}
-                  </button>
-                </span>
-              ))}
-            </div>
-            {/* Sort — cycling text-link, no native select chrome */}
-            <div className="ml-auto">
-              <button
-                onClick={() => setSort(s => {
-                  const opts = ['recent', 'title', 'progress']
-                  return opts[(opts.indexOf(s) + 1) % opts.length]
-                })}
-                className="italic transition-opacity hover:opacity-60"
-                style={{ fontSize: 11, color: 'var(--color-ink-400)' }}
-              >
-                {sort === 'recent' ? 'recent' : sort === 'title' ? 'a–z' : 'furthest'}
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <main className="max-w-[1000px] mx-auto px-5 sm:px-10 pt-10 pb-24">
-        {isEmpty ? (
+      <main className="cat c2">
+        {!hasBooks ? (
           <EmptyState
             icon={<Ico.Book />}
-            title={q ? "Nothing matches that search" : "Your shelf is waiting"}
-            body={q
-              ? `No companions found for "${q}".`
-              : "A companion gathers what you notice as you read — chapters covered, threads spotted, questions that linger — and holds them alongside the story."}
-            action={!q ? (
-              <Link to="/new" className="text-[13px] font-semibold transition-opacity hover:opacity-75" style={{ color: 'var(--ca, #B8860B)' }}>
-                Begin your first companion →
-              </Link>
-            ) : undefined}
+            title="Your drawer is empty"
+            body="A companion gathers what you notice as you read — chapters covered, threads spotted, questions that linger — and holds them alongside the story."
+            action={
+              <Link to="/new" className="c2-btn c2-btn--primary" style={{ padding: '0 22px' }}>Add your first book</Link>
+            }
           />
-        ) : isFiltered ? (
-          // ── Flat view when filtered or searching ──
-          <>
-            {filteredFlat.length > 0 && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {filteredFlat.map(book => (
-                  <BookCard key={book.id} book={book} onClick={() => navigate(`/book/${book.id}`)} presence={bookPresence(book)} />
-                ))}
-              </div>
-            )}
-            {filteredArchived.length > 0 && (
-              <div className={filteredFlat.length > 0 ? 'mt-14 pt-8 border-t border-ink-100' : ''}>
-                <p className="shelf-title">archive</p>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {filteredArchived.map(book => (
-                    <div key={book.id} className="shelf-archive">
-                      <BookCard book={book} onClick={() => navigate(`/book/${book.id}`)} presence={bookPresence(book)} />
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </>
         ) : (
-          // ── Grouped reading-room view — topographic rhythm ──
-          <div>
-
-            {/* Welcome banner — first-time user orientation, dismissed to localStorage */}
+          <>
             {!welcomed && (
-              <WelcomeBanner
-                hasKey={true}
-                onDismiss={dismissWelcome}
-              />
+              <div className="c2-notice"><WelcomeBanner hasKey={true} onDismiss={dismissWelcome} /></div>
             )}
-
-            {/* Snapshot reminder — quiet nudge after meaningful accumulation */}
             {welcomed && showSnapshotReminder && (
-              <SnapshotReminder
-                books={books}
-                onSave={saveSnapshot}
-                onDismiss={deferSnapshot}
-              />
+              <div className="c2-notice"><SnapshotReminder books={books} onSave={saveSnapshot} onDismiss={deferSnapshot} /></div>
             )}
-
-            {/* Post-snapshot sign-up nudge — appears briefly after "later" while signed out */}
             {welcomed && postSnapshotNudge && !showSnapshotReminder && (
-              <PostSnapshotNudge onDismiss={() => setPostSnapshotNudge(false)} />
+              <div className="c2-notice"><PostSnapshotNudge onDismiss={() => setPostSnapshotNudge(false)} /></div>
             )}
-
-            {/* Sign-up nudge — 10+ notes accumulated while signed out */}
             {showSignUpNudge && (
-              <SignUpNudge
-                totalNotes={totalLiveNotes}
-                onDismiss={() => updateSetting('signUpNudgeDismissedAt', new Date().toISOString())}
-              />
+              <div className="c2-notice">
+                <SignUpNudge totalNotes={totalLiveNotes} onDismiss={() => updateSetting('signUpNudgeDismissedAt', new Date().toISOString())} />
+              </div>
             )}
 
-            {/* Library companion — one cross-book observation, surfaces when patterns emerge */}
+            {hero && (
+              <>
+                <p className="c2-label" style={{ marginTop: 18 }}>{hero.status === 'reading' && !hero.archived ? 'Now reading' : 'Pulled from the drawer'}</p>
+                <div className="c2-stack" ref={heroRef}>
+                  <HeroCard key={hero.id} book={hero} lit={lit && hero.id === playingId} onGo={(path) => navigate(path)} />
+                </div>
+              </>
+            )}
+
             <LibraryCompanion books={books} />
 
-            {/* Reading now — active gravity zone */}
-            {readingNow.length > 0 && (
-              <section
-                className={`reading-now-zone${setAside.length + finished.length + archived.length > 0 ? ' topo-gap-active' : ''}`}
-                style={{
-                  // Zone warmth responds continuously to total annotation mass
-                  background: `color-mix(in srgb, var(--color-gold-bg, #FDF8EC) ${zoneWarmthPct}%, var(--color-cream, #FAF6EE))`,
-                  // Deeply accumulated zone: slightly more breathing room (vertical only — horizontal handled by CSS)
-                  ...(readingNowMass >= 6 ? { paddingTop: 26, paddingBottom: 18 } : {}),
-                }}
-              >
-                <p className="shelf-title flex items-center gap-2"><LanternMark size={12} />Reading now</p>
-                {readingNow.length === 1 ? (
-                  // Solo active book — full reading-zone width
-                  <div>
-                    <div className={`reading-hero-card${bookPresence(readingNow[0]) === 'deep' ? ' surface-inhabited-deep' : bookPresence(readingNow[0]) === 'inhabited' ? ' surface-inhabited' : ''}`}>
-                      <BookCard book={readingNow[0]} onClick={() => navigate(`/book/${readingNow[0].id}`)} hero presence={bookPresence(readingNow[0])} />
-                    </div>
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                    {readingNow.map((book, i) => {
-                      const p = bookPresence(book)
-                      const isPrimary = i === 0
-                      return (
-                        <div key={book.id}
-                          className={`reading-hero-card${p === 'deep' ? ' surface-inhabited-deep' : p === 'inhabited' ? ' surface-inhabited' : ''}${isPrimary ? ' reading-hero-primary' : ''}`}>
-                          <BookCard book={book} onClick={() => navigate(`/book/${book.id}`)} hero primary={isPrimary} presence={p} />
-                        </div>
-                      )
-                    })}
-                  </div>
-                )}
-              </section>
-            )}
-
-            {/* Set aside — slightly contracted from active zone */}
-            {setAside.length > 0 && (
-              <section
-                className={finished.length + archived.length > 0 ? 'topo-gap-dormant' : ''}
-                style={{
-                  // Dormant weather filter: mostly-cooling shelves become collectively more diffuse
-                  ...(setAsideDormantRatio > 0.7 ? { filter: 'saturate(0.93)' } : {}),
-                  // Dormant suspension: a mostly-cooling shelf floats slightly in its space
-                  ...(setAsideDormantRatio > 0.5 ? { paddingTop: 6 } : {}),
-                }}
-              >
-                {/* "set aside" label — recedes with the shelf; fades further when most books are dormant */}
-                <p className="shelf-title" style={{ opacity: setAsideLabelOpacity }}>set aside</p>
-                {/* Row gap > column gap: books within a row feel closer; rows breathe more.
-                    Editorial vertical pacing rather than uniform grid cadence. */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-[22px]">
-                  {setAside.map((book, idx) => {
-                    const p        = bookPresence(book)
-                    const daysOld  = daysSinceUpdate(book)
-                    // Temperature: how long a paused book has been cooling
-                    const tempClass = daysOld > 90 ? ' shelf-silenced'
-                                    : daysOld > 45 ? ' shelf-cooling'
-                                    : ''
-                    // Inhabited books lose their border — shadow is enough
-                    const presenceClass = p === 'deep'     ? ' surface-inhabited-deep card-dissolved'
-                                        : p === 'inhabited' ? ' surface-inhabited'
-                                        : ''
-                    // Residue field: inhabited books push space around themselves
-                    const residuePb = p === 'deep' ? 10 : p === 'inhabited' ? 5 : 0
-                    // Shelf ecology — neighbor awareness
-                    // Deeply inhabited neighbors stabilize adjacent drift (the anchor steadies the shelf)
-                    // Unannotated books near deep ones absorb faint environmental warmth
-                    const prevBook = idx > 0 ? setAside[idx - 1] : null
-                    const nextBook = idx < setAside.length - 1 ? setAside[idx + 1] : null
-                    const neighborDeep = [prevBook, nextBook].some(b => b && bookPresence(b) === 'deep')
-                    // Drift — presence-damped, neighbor-stabilized, cooling-settled
-                    const baseDrift    = bookDrift(book)
-                    const dampFactor   = p === 'deep' ? 0.25 : p === 'inhabited' ? 0.55 : 1
-                    const neighborDamp = neighborDeep && p !== 'deep' ? 0.55 : 1
-                    const settlingExtra = daysOld > 90 ? 2 : daysOld > 45 ? 1 : 0
-                    const drift = Math.round(baseDrift * dampFactor * neighborDamp) + settlingExtra
-                    // Warmth inheritance — unannotated books near deep ones carry a faint shared warmth
-                    const neighborWarm = neighborDeep && p === ''
-                    return (
-                      <div key={book.id}
-                        style={{
-                          ...(residuePb ? { paddingBottom: residuePb } : {}),
-                          transform: `translateY(${drift}px)`,
-                          ...(neighborWarm ? { background: 'color-mix(in srgb, var(--color-accent) 3%, var(--color-card-base))' } : {}),
-                        }}
-                        className={`atmospheric-card${presenceClass}${tempClass}`}>
-                        <BookCard book={book} onClick={() => navigate(`/book/${book.id}`)} presence={p} />
-                      </div>
-                    )
-                  })}
-                </div>
-              </section>
-            )}
-
-            {/* Finished — settled, receding */}
-            {finished.length > 0 && (
-              <section className={archived.length > 0 ? 'topo-gap-dormant' : ''}>
-                {/* Slight left indent — the label steps inward as reading history deepens */}
-                <p className="shelf-title" style={{ opacity: 0.42, paddingLeft: 4 }}>finished</p>
-                {/* Row gap > column gap: same editorial pacing as set-aside, slightly tighter overall */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-3 gap-y-[18px]">
-                  {finished.map((book, idx) => {
-                    const p = bookPresence(book)
-                    // Inhabited finished books carry warmth even in dormancy
-                    const presenceClass = p === 'deep'     ? ' surface-inhabited-deep card-dissolved'
-                                        : p === 'inhabited' ? ' surface-inhabited'
-                                        : ''
-                    // Shelf ecology — deep neighbors stabilize drift in the finished section too
-                    const prevBook = idx > 0 ? finished[idx - 1] : null
-                    const nextBook = idx < finished.length - 1 ? finished[idx + 1] : null
-                    const neighborDeep = [prevBook, nextBook].some(b => b && bookPresence(b) === 'deep')
-                    const drift = Math.round(bookDrift(book) * (neighborDeep && p !== 'deep' ? 0.55 : 1))
-                    return (
-                      <div key={book.id}
-                        style={{ transform: `translateY(${drift}px)` }}
-                        className={`shelf-dormant atmospheric-card${presenceClass}`}>
-                        <BookCard book={book} onClick={() => navigate(`/book/${book.id}`)} presence={p} />
-                      </div>
-                    )
-                  })}
-                </div>
-              </section>
-            )}
-
-            {/* Archive — most receded */}
-            {archived.length > 0 && (
-              <section className="topo-gap-archive" style={{ paddingTop: 16 }}>
-                {/* Label steps furthest inward — the most settled section recedes both tonally and spatially */}
-                <p className="shelf-title" style={{ opacity: 0.32, paddingLeft: 10 }}>archive</p>
-                {/* Archive grid — bottom dissolution: books settle into the page rather than ending cleanly */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2"
-                  style={{
-                    maskImage: 'linear-gradient(to bottom, black 62%, transparent 100%)',
-                    WebkitMaskImage: 'linear-gradient(to bottom, black 62%, transparent 100%)',
-                  }}>
-                  {archived.map(book => (
-                    <div key={book.id}
-                      style={{ transform: `translateY(${bookDrift(book) + 1}px)` }}
-                      className="shelf-archive atmospheric-card">
-                      <BookCard book={book} onClick={() => navigate(`/book/${book.id}`)} />
-                    </div>
+            <section className="c3-box" aria-label="Your drawer">
+              <header className="c3-box-head">
+                <h2>Your drawer</h2>
+                <button type="button" className="c3-sort" onClick={() => setSort(s => {
+                  const keys = Object.keys(SORTS)
+                  return keys[(keys.indexOf(s) + 1) % keys.length]
+                })} aria-label={`Sort: ${SORTS[sort]}. Change sort`}>
+                  {SORTS[sort]} ↕
+                </button>
+              </header>
+              <div className="c3-search">
+                <Ico.Search />
+                <input type="search" value={q} onChange={e => setQ(e.target.value)} placeholder="Search titles or authors" aria-label="Search your drawer" />
+              </div>
+              <Tabs label="Filter" items={tabs} value={filter} onChange={setFilter} counts={filter === 'all' ? null : undefined} />
+              {list.length === 0 ? (
+                <p className="c2-drawer-empty">{q ? `No cards match “${q}”.` : 'No cards here yet.'}</p>
+              ) : (
+                <ol className="c2-drawer">
+                  {list.map(b => (
+                    <li key={b.id}>
+                      <button
+                        type="button"
+                        className={`c2-row${hero && b.id === hero.id ? ' is-on' : ''}${b.archived ? ' c2-row--archived' : ''}`}
+                        onClick={() => pick(b.id)}
+                        aria-current={hero && b.id === hero.id ? 'true' : undefined}
+                      >
+                        <span className="c2-call">{callNumber(b)}</span>
+                        <span className="c2-row-t"><b>{b.title}</b><span>{b.author}</span></span>
+                        <span className="c2-row-s">
+                          {b.id === playingId && lit ? <Mark size={14} live />
+                            : b.archived ? 'Archive'
+                            : ROW_STATUS[b.status] || `${Math.round(getProgress(b))}%`}
+                        </span>
+                      </button>
+                    </li>
                   ))}
-                </div>
-              </section>
-            )}
-          </div>
+                </ol>
+              )}
+              <div style={{ padding: '6px 16px 16px' }}>
+                <Link to="/new" className="c2-btn" style={{ width: '100%' }}>+ Add a book</Link>
+              </div>
+            </section>
+
+            <p className="c2-fine">
+              {week.chapters > 0
+                ? `Lit ${week.chapters} ${week.chapters === 1 ? 'chapter' : 'chapters'} across ${week.books} ${week.books === 1 ? 'book' : 'books'} this week.`
+                : `${books.length} ${books.length === 1 ? 'card' : 'cards'} in the drawer. ${totalLiveNotes} ${totalLiveNotes === 1 ? 'note' : 'notes'} kept.`}
+            </p>
+          </>
         )}
       </main>
     </>
+  )
+}
+
+// The index card pulled up from the drawer.
+function HeroCard({ book, lit, onGo }) {
+  const pct = getProgress(book)
+  const finished = book.status === 'finished'
+  const notes = liveItems(book.notes).length
+  const days = finished && book.firstOpenedAt && book.completedAt
+    ? Math.max(1, Math.floor((new Date(book.completedAt) - new Date(book.firstOpenedAt)) / 86400000))
+    : null
+  const companion = `/book/${book.id}`
+  const resume = lit ? `${companion}/listen` : book.contentId ? `${companion}/read` : companion
+  const resumeLabel = lit ? 'Listening' : finished ? 'Open the record' : book.contentId ? 'Resume' : book.status === 'want' ? 'Begin' : 'Open companion'
+  return (
+    <article className="c2-card c2-card--hero">
+      <div className="c2-card-head">
+        <span className="c2-call">{callNumber(book)}{book.series ? ` · ${book.series.position}` : ''}</span>
+        <LitLabel lit={lit} label="Lit · listening">{statusLabel(book)}</LitLabel>
+      </div>
+      <div className="c2-card-book">
+        <div>
+          <h1 className="c2-title">{book.title}</h1>
+          <p className="c2-by">{book.author}</p>
+        </div>
+        <div className="c2-card-cover"><BookCover book={book} className="w-[56px] h-[84px]" rounded="rounded-[4px]" /></div>
+      </div>
+      {finished ? (
+        <dl className="c2-fields">
+          <Field k="Closed" v={fmtDate(book.completedAt || book.lastUpdated)} />
+          <Field k="Notes" v={notes} />
+          <Field k="Days" v={days || '—'} />
+        </dl>
+      ) : (
+        <dl className="c2-fields">
+          <Field k={unitWord(book)} v={`${book.currentChapter || 0} of ${book.totalChapters || '—'}`} />
+          <Field k="Read" v={`${Math.round(pct)}%`} />
+          <Field k="Last lit" v={book.lastUpdated ? fmtDate(book.lastUpdated) : '—'} />
+        </dl>
+      )}
+      <Holes pct={finished ? 100 : pct} />
+      <div className="c2-actions">
+        <button type="button" className="c2-btn c2-btn--primary" onClick={() => onGo(resume)}>
+          {!finished && resume !== companion && <Ico.Play />} {resumeLabel}
+        </button>
+        {resume === companion
+          ? <button type="button" className="c2-btn" onClick={() => onGo(`${companion}/listen`)}><Ico.Headphones /> Listen</button>
+          : <button type="button" className="c2-btn" onClick={() => onGo(companion)}>Companion</button>}
+      </div>
+    </article>
   )
 }

@@ -666,3 +666,13 @@ background: isCurrentReflection
 - Do not render raw book counts as UI copy ("3 companions") — remove metric labels; let the content speak
 - Do not make the TopNav CTA a loud gold button — use the soft gold-bg/gold-border/gold-text hover style
 - Do not use repeated opener patterns in companion language ("Something in…", "You've been…", "What you…", "The story…", "Still…") — vary structure; lead with the observation, not the subject
+
+
+### Catalogue screens (Session 167, second pass)
+
+The real screens now use the prototype's layout, not just its colours. Markup follows `src/design-lab/dirs/catalogue.jsx`; styles are `src/catalogue/catalogue.css` (imported in `main.jsx`), aliased to the theme tokens so the accent drives everything. Shared pieces live in `src/catalogue/parts.jsx` (`callNumber`, `statusLabel`, `Holes` bar, `Field`, `Tabs`, `LitLabel`, `Mark`). Note `.cat button` resets backgrounds, so filled controls are styled as `.cat .c2-btn--primary` etc.
+
+- **Library:** one index card pulled from the drawer (whatever is playing, else the reader's pick, else the latest book on loan) with call number, status ("Lit · listening" with a flickering mark while narration plays), Chapter/Read/Last lit fields, progress bar, and one primary action (Resume to the reader if an EPUB is linked, otherwise the companion). Below it, "Your drawer": sort, search, filter tabs (All / On loan / Set aside / Returned / Shelf / Archive, shown only when non-empty) and rows; tapping a row pulls that card up. Welcome, snapshot, sign-up and first-book notices are kept.
+- **Book page:** a top bar (back, call · Companion, manage menu), the reader's card (fields, bar, spoiler seal stamp "Sealed after ch. N", primary chapter update, Read and Listen, lifecycle links, absence notes), then one card with tabs set into its top: Ask (the companion band; "Record" for finished books), Notes, People, Plot, Threads, Themes, Chronicle.
+- **Reader:** top bar with chapter and percent, the chapter as a page card with chapter navigation in its head, an "Unseal" prompt at the end of a reached chapter, and a sticky progress footer.
+- **Listen:** a loan-slip card (clock, scrub, chapter), keys (chapter, −15, play, +15, chapter), speed / chapters / read along, the wick sleep timer (all `SLEEP_OPTIONS`), the current sentence, a lamp log from `book.readingLog`, the reading room (ambience chips and levels), and narration sources.

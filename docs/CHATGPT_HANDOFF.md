@@ -1047,3 +1047,8 @@ These systems are easy to accidentally flatten. Each has been calibrated careful
 
 *End of handoff document.*
 *Full technical depth: `ARCHITECTURE.md` · `AI_COMPANION_RULES.md` · `DESIGN_SYSTEM.md` · `PRODUCT_FOUNDATION.md` · `ROADMAP.md`*
+
+
+## Session 167 (cont.): screens rebuilt as Catalogue III
+
+John said the first pass "basically just changed the color palette". The Library, book page, Reader and Listen screens are now rebuilt on the prototype's layout with real data: hero index card plus drawer with filter tabs, reader's card with spoiler seal plus tabs-in-card, page-card reader, and a Listen slip with wick timer and lamp log. Details in DESIGN_SYSTEM.md ("Catalogue screens"). Lint 47 errors (baseline 49, none new), build passes, 60 tests pass.
