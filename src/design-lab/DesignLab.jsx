@@ -3,21 +3,20 @@ import { useSearchParams } from 'react-router-dom'
 import { BOOKS } from './sample.js'
 import { CHAPTER_SEC } from './shared.jsx'
 import { FlameMark } from './brand.jsx'
-import * as fieldlab from './dirs/fieldlab.jsx'
-import * as scope from './dirs/scope.jsx'
 import * as catalogue from './dirs/catalogue.jsx'
-import * as elements from './dirs/elements.jsx'
-import * as sketchbook from './dirs/sketchbook.jsx'
-import * as spectrum from './dirs/spectrum/index.jsx'
+import * as spectrum from './dirs/spectrum.jsx'
+import * as swatch from './dirs/swatch.jsx'
+import * as ticket from './dirs/ticket.jsx'
+import * as thumb from './dirs/thumb.jsx'
 import './lab.css'
 
-// Design lab, round three: five explorations grown from Specimen (John's pick
-// in round two), each with the four-pane flame mark, its own logotype and a
-// tinkerer / explorer point of view, on real Lantern screens with sample,
+// Design lab, round seven: Catalogue and Spectrum (John's picks from round
+// five) evolved to be cleaner and easier to read and use, plus three new
+// directions built from their cues, on real Lantern screens with sample,
 // spoiler-safe content.
 // Self-contained: it reads and writes no app data and is not linked from the app.
 
-const DIRS = [spectrum, scope, catalogue, elements, sketchbook, fieldlab]
+const DIRS = [catalogue, spectrum, swatch, ticket, thumb]
 const SCREENS = [
   { id: 'library', label: 'Library' },
   { id: 'companion', label: 'Companion' },
@@ -122,8 +121,8 @@ function Overview({ onPick }) {
     <div className="lab-overview">
       <header className="lab-ov-head">
         <span className="lab-ov-logo"><FlameMark size={18} /> Lantern</span>
-        <h1>Spectrum, refined</h1>
-        <p>Spectrum is now a clickable prototype with its own tab bar: band transitions between screens, a companion you can talk to (with the spoiler seal), highlights and notes, a working player, and distinct Daylight and Night modes. Tap the logo in the app to see the reworked mark. The other round five directions stay below for comparison.</p>
+        <h1>Catalogue and Spectrum, evolved</h1>
+        <p>The two round five directions you liked, edited for reading and use: fewer type sizes, body text at 17px or more, one obvious action per screen, and ornaments only where they carry meaning. Then three new directions that cross them: Swatch, Ticket and Thumb Index. Tabs, filters, the player and the scrubber all work.</p>
         <p className="lab-ov-avoid">Still avoided: purple gradients, frosted glass, glowing blobs, Inter, and identical card grids.</p>
       </header>
       <div className="lab-ov-list">

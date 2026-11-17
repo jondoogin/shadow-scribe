@@ -1,67 +1,75 @@
 /* eslint-disable react-refresh/only-export-components -- design-lab modules export their meta, helpers and screens together; fast refresh is irrelevant here */
+import { useState } from 'react'
 import { BOOKS, PASSAGE, CHAT, REFLECTION, NOTES, AMBIENT } from '../sample.js'
 import { Icon, CHAPTER_SEC, fmt, pad2, lineFor } from '../shared.jsx'
 import { FlameMark } from '../brand.jsx'
 import './catalogue.css'
 
-// 2 · Catalogue — the library as a card-catalogue drawer. Every book is a
-// typed index card with blue rules and a red margin line; the grid becomes
-// ruled lines, and the Reader page is ruled to the exact line height.
+// Catalogue II. The index card stays the core object, but everything that
+// made round five hard to read is gone: no typewriter body text, no ruled
+// lines behind data, no overlapping stamp. Labels are a small clean mono,
+// content is a reading serif, and the only ornaments are the ones that carry
+// meaning: the red rule, the call number, the punched rod hole and the seal.
 
 export const meta = {
-  id: 'catalogue', name: 'Catalogue', defaultMode: 'light',
-  tagline: 'A card-catalogue drawer for your books',
-  signature: 'Typed index cards, ruled lines and a rubber-stamped spoiler seal',
-  research: 'Field Lab’s labels turned into an old library card catalogue: typewriter fields, blue rules with a red margin, call numbers, stacked cards you flick through, and a red rubber stamp for spoiler protection. The Reader page is ruled to the exact line height, so the text sits on the lines.',
+  id: 'catalogue', name: 'Catalogue II', defaultMode: 'light',
+  tagline: 'The card catalogue, edited down',
+  signature: 'One crisp card per book, punched-hole progress, a seal stamp that never covers text',
+  research: 'Kept: the index card, call numbers, the red rule, the rubber-stamp seal. Changed: body text moves from Courier to a reading serif, labels to a clean 12px mono, the ruled lines leave the data cards, and every screen gets one obvious primary action. Progress is a row of punched holes, like the rod hole at the foot of a catalogue card.',
 }
 
-const call = (b) => `${b.author.split(' ').slice(-1)[0].slice(0, 3).toUpperCase()} ${pad2(BOOKS.indexOf(b) + 1)}·${b.chapters}`
-const Typed = ({ k, v }) => <div className="ct-field"><span className="ct-k">{k}</span><span className="ct-v">{v}</span></div>
-const bar = (pct, n = 20) => '■'.repeat(Math.round((pct / 100) * n)) + '□'.repeat(n - Math.round((pct / 100) * n))
+const STATUS = { listening: 'On loan · listening', reading: 'On loan · reading', finished: 'Returned', next: 'On the shelf' }
+const call = (b) => `${b.author.split(' ').slice(-1)[0].slice(0, 3).toUpperCase()} ${pad2(BOOKS.indexOf(b) + 1)}`
+const FILTERS = [['all', 'All'], ['active', 'On loan'], ['finished', 'Returned'], ['next', 'Shelf']]
 
-function Top({ left, right, center }) {
-  return <header className="ct-top"><div>{left}</div><div className="ct-top-c">{center}</div><div className="ct-top-r">{right}</div></header>
-}
-const Lockup = () => (
-  <span className="ct-plate"><FlameMark size={18} /><span>Lantern</span></span>
+export const Holes = ({ pct, n = 24 }) => (
+  <div className="c2-holes" role="img" aria-label={`${Math.round(pct)} percent`}>
+    {Array.from({ length: n }, (_, i) => <i key={i} className={i < Math.round((pct / 100) * n) ? 'is-on' : ''} />)}
+  </div>
 )
+const Lockup = () => <span className="c2-lockup"><FlameMark size={20} /><span>Lantern</span></span>
+function Top({ left, right, center }) {
+  return <header className="c2-top"><div>{left}</div><div className="c2-top-c">{center}</div><div className="c2-top-r">{right}</div></header>
+}
+const Field = ({ k, v }) => <div className="c2-field"><dt>{k}</dt><dd>{v}</dd></div>
 
 function Library({ ctx }) {
+  const [f, setF] = useState('all')
   const b = ctx.book
   const isPP = b.id === 'pp'
   const pct = isPP ? (ctx.t / CHAPTER_SEC) * 100 : b.bookPct
-  const others = BOOKS.filter(x => x.id !== b.id)
+  const list = BOOKS.filter(x => f === 'all' || (f === 'active' ? ['listening', 'reading'].includes(x.status) : x.status === f))
   return (
-    <div className="ct">
-      <Top left={<Lockup />} right={<><button className="ct-ic" aria-label="Search"><Icon name="search" /></button><button className="ct-ic" aria-label="Add a book"><Icon name="plus" /></button></>} />
-      <p className="ct-drawer">Drawer 1 · A–Z · {pad2(BOOKS.length)} cards</p>
+    <div className="c2">
+      <Top left={<Lockup />} right={<><button className="c2-ic" aria-label="Search"><Icon name="search" /></button><button className="c2-ic" aria-label="Add a book"><Icon name="plus" /></button></>} />
+      <p className="c2-label">Now reading</p>
+      <article className="c2-card c2-card--hero">
+        <div className="c2-card-head"><span className="c2-call">{call(b)}</span><span className="c2-label">{STATUS[b.status]}</span></div>
+        <h1 className="c2-title">{b.title}</h1>
+        <p className="c2-by">{b.author}</p>
+        <dl className="c2-fields">
+          <Field k="Chapter" v={b.chapter ? `${b.chapter} of ${b.chapters}` : '—'} />
+          <Field k={isPP ? 'In chapter' : 'In book'} v={`${Math.round(pct)}%`} />
+          <Field k="Left" v={isPP ? fmt(CHAPTER_SEC - ctx.t) : `${100 - b.bookPct}%`} />
+        </dl>
+        <Holes pct={pct} />
+        <div className="c2-actions">
+          <button className="c2-btn c2-btn--primary" onClick={() => ctx.go('listen')}><Icon name="play" size={16} /> Resume</button>
+          <button className="c2-btn" onClick={() => ctx.go('companion')}>Companion</button>
+        </div>
+      </article>
 
-      <div className="ct-stack">
-        {others.slice(0, 3).map((x, i) => <div key={x.id} className="ct-behind" style={{ '--i': i }}><span>{x.title}</span></div>)}
-        <article className="ct-card ct-card--front">
-          <div className="ct-card-head"><span className="ct-call">{call(b)}</span><span className="ct-stat">{b.status === 'listening' ? 'ON LOAN · LISTENING' : b.status === 'reading' ? 'ON LOAN · READING' : b.status === 'finished' ? 'RETURNED' : 'ON SHELF'}</span></div>
-          <h1 className="ct-title">{b.title}</h1>
-          <Typed k="Author" v={b.author} />
-          <Typed k="Position" v={b.chapter ? `Chapter ${b.chapter} of ${b.chapters}` : 'Not begun'} />
-          <Typed k="Remaining" v={isPP ? `${fmt(CHAPTER_SEC - ctx.t)} in chapter` : `${100 - b.bookPct}% of book`} />
-          <div className="ct-progress"><span>{bar(pct)}</span><b>{Math.round(pct)}%</b></div>
-          <span className="ct-hole" aria-hidden="true" />
-        </article>
-      </div>
-      <div className="ct-actions">
-        <button className="ct-btn ct-btn--ink" onClick={() => ctx.go('listen')}><Icon name="play" size={16} /> Resume</button>
-        <button className="ct-btn" onClick={() => ctx.go('companion')}>Notes</button>
-      </div>
-
-      <div className="ct-tabs-row" aria-hidden="true">{['A–F', 'G–L', 'M–R', 'S–Z'].map((t, i) => <span key={t} className={i === 0 ? 'is-on' : ''}>{t}</span>)}</div>
-      <ol className="ct-list">
-        {BOOKS.map(x => (
+      <div className="c2-sec"><h2>Your drawer</h2><span className="c2-label">{pad2(BOOKS.length)} cards</span></div>
+      <nav className="c2-tabs" aria-label="Filter">
+        {FILTERS.map(([id, label]) => <button key={id} className={f === id ? 'is-on' : ''} onClick={() => setF(id)}>{label}</button>)}
+      </nav>
+      <ol className="c2-drawer">
+        {list.map(x => (
           <li key={x.id}>
-            <button className={`ct-row${x.id === b.id ? ' is-on' : ''}`} onClick={() => ctx.setBook(x)}>
-              <span className="ct-row-call">{call(x)}</span>
-              <span className="ct-row-title">{x.title}</span>
-              <span className="ct-row-meta">{x.author}</span>
-              <span className="ct-row-pct">{x.status === 'finished' ? 'RET.' : x.status === 'next' ? '—' : `${x.bookPct || 1}%`}</span>
+            <button className={`c2-row${x.id === b.id ? ' is-on' : ''}`} onClick={() => ctx.setBook(x)} aria-current={x.id === b.id}>
+              <span className="c2-call">{call(x)}</span>
+              <span className="c2-row-t"><b>{x.title}</b><span>{x.author}</span></span>
+              <span className="c2-row-s">{x.status === 'finished' ? 'Returned' : x.status === 'next' ? 'Shelf' : `${x.bookPct}%`}</span>
             </button>
           </li>
         ))}
@@ -71,38 +79,44 @@ function Library({ ctx }) {
 }
 
 function Companion({ ctx }) {
+  const [tab, setTab] = useState('Ask')
   const pp = BOOKS[0]
   return (
-    <div className="ct">
-      <Top left={<button className="ct-ic" onClick={() => ctx.go('library')} aria-label="Back"><Icon name="back" /></button>}
-        center={<span className="ct-small">{call(pp)}</span>} right={<button className="ct-ic" aria-label="More"><Icon name="more" /></button>} />
-      <article className="ct-card">
-        <div className="ct-card-head"><span className="ct-call">Reader’s notes</span><span className="ct-stat">Card 1 of 1</span></div>
-        <h1 className="ct-title">{pp.title}</h1>
-        <Typed k="Author" v={`${pp.author}, 1813`} />
-        <Typed k="Read to" v="Chapter 1" />
-        <span className="ct-stamp">Restricted<small>Ch. 2 onward</small></span>
+    <div className="c2">
+      <Top left={<button className="c2-ic" onClick={() => ctx.go('library')} aria-label="Back"><Icon name="back" /></button>}
+        center={<span className="c2-label">{call(pp)} · Companion</span>} right={<button className="c2-ic" aria-label="More"><Icon name="more" /></button>} />
+      <article className="c2-card">
+        <div className="c2-card-head"><span className="c2-call">{call(pp)}</span><span className="c2-label">Reader’s card</span></div>
+        <h1 className="c2-title">{pp.title}</h1>
+        <p className="c2-by">{pp.author}, 1813</p>
+        <div className="c2-seal-row">
+          <span className="c2-stamp">Sealed<small>after ch. 1</small></span>
+          <p>Lantern only talks about chapter 1. Everything after it stays sealed until you get there.</p>
+        </div>
       </article>
-      <nav className="ct-dividers" aria-label="Sections">
-        {['Notes', 'People', 'Plot', 'Questions', 'Discussion'].map((t, i) => <button key={t} className={i === 0 ? 'is-on' : ''}>{t}</button>)}
+      <nav className="c2-tabs c2-tabs--attached" aria-label="Sections">
+        {['Ask', 'Notes', 'People', 'Plot'].map(t => <button key={t} className={tab === t ? 'is-on' : ''} onClick={() => setTab(t)}>{t}</button>)}
       </nav>
-      <article className="ct-card ct-card--plain">
-        <p className="ct-hand">{REFLECTION}</p>
-      </article>
-      <div className="ct-thread" aria-label="Conversation">
-        {CHAT.map((m, i) => (
-          <article key={i} className={`ct-card ct-msg ct-msg--${m.who}`}>
-            <span className="ct-k">{m.who === 'reader' ? 'Query · you' : <><FlameMark size={11} /> Reply · Lantern</>}</span>
-            <p>{m.text}</p>
-          </article>
-        ))}
+      <div className="c2-sheet">
+        {tab === 'Ask' && <>
+          <p className="c2-quote">{REFLECTION}</p>
+          <div className="c2-thread">
+            {CHAT.map((m, i) => (
+              <div key={i} className={`c2-msg c2-msg--${m.who}`}>
+                <span className="c2-label">{m.who === 'reader' ? 'You asked' : <><FlameMark size={12} /> Lantern</>}</span>
+                <p>{m.text}</p>
+              </div>
+            ))}
+          </div>
+          <form className="c2-compose" onSubmit={e => e.preventDefault()}>
+            <input placeholder="Ask about chapter 1" aria-label="Message your companion" />
+            <button aria-label="Send"><Icon name="send" size={18} /></button>
+          </form>
+        </>}
+        {tab === 'Notes' && NOTES.map((n, i) => <div key={i} className="c2-note"><span className="c2-label">{n.tag}</span><p>{n.text}</p></div>)}
+        {tab === 'People' && ['Mr. Bennet', 'Mrs. Bennet', 'Lizzy', 'Mr. Bingley (mentioned)'].map(p => <div key={p} className="c2-note"><span className="c2-label">First seen · ch. 1</span><p>{p}</p></div>)}
+        {tab === 'Plot' && <><div className="c2-note"><span className="c2-label">Ch. 1</span><p>Netherfield Park is let at last, and Mrs. Bennet has plans for the new tenant.</p></div><div className="c2-note c2-note--sealed"><span className="c2-label">Ch. 2–61</span><p>Sealed</p></div></>}
       </div>
-      <form className="ct-compose" onSubmit={e => e.preventDefault()}>
-        <input placeholder="Type a query about Chapter 1…" aria-label="Message your companion" />
-        <button aria-label="Send"><Icon name="send" size={18} /></button>
-      </form>
-      <p className="ct-small ct-fine">Lantern only refers to pages you’ve reached.</p>
-      {NOTES.map((n, i) => <div key={i} className="ct-slip"><span className="ct-k">{n.tag}</span><p>{n.text}</p></div>)}
     </div>
   )
 }
@@ -111,17 +125,17 @@ function Reader({ ctx }) {
   const line = lineFor(ctx.t)
   const pct = (ctx.t / CHAPTER_SEC) * 100
   return (
-    <div className="ct ct--reader">
-      <Top left={<button className="ct-ic" onClick={() => ctx.go('companion')} aria-label="Back"><Icon name="back" /></button>}
-        center={<span className="ct-small">Pride and Prejudice</span>}
-        right={<><button className="ct-ic ct-aa" aria-label="Text settings">Aa</button><button className="ct-ic" onClick={() => ctx.go('listen')} aria-label="Listen"><Icon name="headphones" /></button></>} />
-      <div className="ct-page">
-        <header className="ct-page-head"><span className="ct-k">Chapter</span><span className="ct-page-num">I.</span></header>
-        <article className="ct-prose">
+    <div className="c2 c2--reader">
+      <Top left={<button className="c2-ic" onClick={() => ctx.go('companion')} aria-label="Back"><Icon name="back" /></button>}
+        center={<span className="c2-label">Chapter 1 · {Math.round(pct)}%</span>}
+        right={<><button className="c2-ic c2-aa" aria-label="Text settings">Aa</button><button className="c2-ic" onClick={() => ctx.go('listen')} aria-label="Listen"><Icon name="headphones" /></button></>} />
+      <div className="c2-page">
+        <header className="c2-page-head"><span className="c2-call">{call(BOOKS[0])} · I</span><h1>Chapter One</h1></header>
+        <article className="c2-prose">
           {PASSAGE.map((p, i) => <p key={i} className={ctx.playing && i === line ? 'is-now' : ''}>{p}</p>)}
         </article>
       </div>
-      <footer className="ct-foot"><span>Ch. 1</span><span className="ct-foot-bar">{bar(pct, 16)}</span><span>{fmt(CHAPTER_SEC - ctx.t)}</span></footer>
+      <footer className="c2-foot"><Holes pct={pct} n={20} /><span>{fmt(CHAPTER_SEC - ctx.t)} left</span></footer>
     </div>
   )
 }
@@ -129,38 +143,36 @@ function Reader({ ctx }) {
 function Listen({ ctx }) {
   const line = lineFor(ctx.t)
   const pct = (ctx.t / CHAPTER_SEC) * 100
+  const [amb, setAmb] = useState('Fireplace')
   return (
-    <div className="ct">
-      <Top left={<button className="ct-ic" onClick={() => ctx.go('companion')} aria-label="Close"><Icon name="down" /></button>}
-        center={<span className="ct-small">Listening</span>} right={<button className="ct-ic" aria-label="More"><Icon name="more" /></button>} />
-      <article className="ct-card ct-loan">
-        <div className="ct-card-head"><span className="ct-call">Loan record · audio</span><span className="ct-stat">Read by Aiden</span></div>
-        <h1 className="ct-title">Chapter I</h1>
-        <p className="ct-sub">Pride and Prejudice</p>
-        <div className="ct-dates">
-          {[['Started', '0:00'], ['Now', fmt(ctx.t)], ['Due', fmt(CHAPTER_SEC)]].map(([k, v], i) => (
-            <div key={k} className={i === 1 ? 'is-now' : ''}><span className="ct-k">{k}</span><span className="ct-datestamp">{v}</span></div>
-          ))}
+    <div className="c2">
+      <Top left={<button className="c2-ic" onClick={() => ctx.go('companion')} aria-label="Close"><Icon name="down" /></button>}
+        center={<span className="c2-label">Listening · Aiden</span>} right={<button className="c2-ic" aria-label="More"><Icon name="more" /></button>} />
+      <article className="c2-card c2-card--slip">
+        <div className="c2-card-head"><span className="c2-call">{call(BOOKS[0])}</span><span className="c2-label">Chapter 1</span></div>
+        <p className="c2-time">{fmt(ctx.t)}</p>
+        <p className="c2-by">Pride and Prejudice · {fmt(CHAPTER_SEC - ctx.t)} left</p>
+        <div className="c2-scrub">
+          <Holes pct={pct} n={24} />
+          <input type="range" min={0} max={CHAPTER_SEC} value={ctx.t} onChange={e => ctx.setT(Number(e.target.value))} aria-label="Position" />
         </div>
-        <div className="ct-progress ct-progress--big"><span>{bar(pct, 24)}</span><b>{Math.round(pct)}%</b></div>
-        <input className="ct-range" type="range" min={0} max={CHAPTER_SEC} value={ctx.t} onChange={e => ctx.setT(Number(e.target.value))} aria-label="Position" />
-        <span className="ct-hole" aria-hidden="true" />
+        <div className="c2-dates"><span>0:00</span><span>{fmt(CHAPTER_SEC)}</span></div>
       </article>
-      <div className="ct-keys">
+      <div className="c2-keys">
         <button aria-label="Back 15 seconds" onClick={() => ctx.setT(Math.max(0, ctx.t - 15))}>−15</button>
-        <button className="ct-key-main" aria-label={ctx.playing ? 'Pause' : 'Play'} onClick={() => ctx.setPlaying(!ctx.playing)}><Icon name={ctx.playing ? 'pause' : 'play'} size={26} /></button>
+        <button className="c2-key-go" aria-label={ctx.playing ? 'Pause' : 'Play'} onClick={() => ctx.setPlaying(!ctx.playing)}><Icon name={ctx.playing ? 'pause' : 'play'} size={28} /></button>
         <button aria-label="Forward 15 seconds" onClick={() => ctx.setT(Math.min(CHAPTER_SEC, ctx.t + 15))}>+15</button>
       </div>
-      <p className="ct-keylabels"><span>1.0×</span><span>Sleep: end of chapter</span></p>
-      <div className="ct-slip ct-transcript">
+      <div className="c2-opts"><button>1.0×</button><button>Sleep · off</button><button>Chapters</button></div>
+      <section className="c2-transcript">
         {PASSAGE.slice(Math.max(0, line - 1), line + 2).map((p, i) => {
           const idx = Math.max(0, line - 1) + i
           return <p key={idx} className={idx === line ? 'is-now' : ''}>{p}</p>
         })}
-      </div>
-      <p className="ct-k ct-amb-label">Reading room</p>
-      <div className="ct-tickets">{AMBIENT.map((a, i) => <button key={a} className={i === 2 ? 'is-on' : ''}>{a}</button>)}</div>
-      <p className="ct-small ct-fine">Your companion stays at Chapter 1 until you move it.</p>
+      </section>
+      <div className="c2-sec"><h2>Reading room</h2></div>
+      <div className="c2-chips">{AMBIENT.map(a => <button key={a} className={amb === a ? 'is-on' : ''} onClick={() => setAmb(a)}>{a}</button>)}</div>
+      <p className="c2-fine">Your companion stays at chapter 1 until you move it.</p>
     </div>
   )
 }
@@ -168,12 +180,12 @@ function Listen({ ctx }) {
 export const screens = { library: Library, companion: Companion, reader: Reader, listen: Listen }
 export function Preview() {
   return (
-    <div className="ct ct--preview">
+    <div className="c2 c2--preview">
       <Lockup />
-      <article className="ct-card ct-card--front">
-        <div className="ct-card-head"><span className="ct-call">AUS 01·61</span><span className="ct-stat">ON LOAN</span></div>
-        <h1 className="ct-title">Pride and Prejudice</h1>
-        <div className="ct-progress"><span>{bar(64, 14)}</span><b>64%</b></div>
+      <article className="c2-card">
+        <div className="c2-card-head"><span className="c2-call">AUS 01</span><span className="c2-label">On loan</span></div>
+        <h1 className="c2-title">Pride and Prejudice</h1>
+        <Holes pct={64} n={18} />
       </article>
     </div>
   )
