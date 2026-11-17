@@ -4,6 +4,7 @@ import { Ico } from '../shared/icons.jsx'
 import { useBooks } from '../../context/BooksContext.jsx'
 import { useSettings } from '../../context/SettingsContext.jsx'
 import { useAuth } from '../../context/AuthContext.jsx'
+import LanternMark from '../shared/LanternMark.jsx'
 
 const IS_DEV = import.meta.env.DEV
 
@@ -40,24 +41,15 @@ export default function TopNav() {
   return (
     <header
       className="sticky top-0 z-50 h-14"
-      style={{ background: 'var(--color-cream)', backdropFilter: 'blur(8px)' }}
+      style={{ background: 'var(--color-bg)', boxShadow: '0 1px 0 var(--color-hairline)' }}
     >
       <div className="h-full max-w-[1000px] mx-auto px-5 sm:px-10 flex items-center justify-between">
 
         {/* Logo */}
-        <button onClick={() => navigate('/library')} className="flex items-center gap-1 group">
+        <button onClick={() => navigate('/library')} className="flex items-center gap-2 group" aria-label="Lantern library">
+          <LanternMark size={22} />
           <span
-            className="font-bold text-[14px] group-hover:scale-110 transition-transform origin-center ember-drift"
-            style={{
-              marginTop: 3,
-              background: 'var(--lantern-gradient, #b07010)',
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent',
-              backgroundClip: 'text',
-            }}
-          >✦</span>
-          <span
-            className="font-serif text-[22px] font-semibold tracking-tight leading-none"
+            className="font-serif text-[22px] font-bold tracking-tight leading-none"
             style={{ color: 'var(--color-ink-900, #1C1917)' }}
           >
             Lantern
@@ -132,7 +124,7 @@ export default function TopNav() {
                 e.currentTarget.style.borderColor = 'color-mix(in srgb, var(--color-accent) 35%, transparent)'
               }}
             >
-              <span style={{ fontSize: 10, opacity: 0.8 }}>✦</span>
+              <LanternMark size={12} />
               <span className="hidden sm:inline">Sign in</span>
             </button>
           )}
@@ -165,7 +157,7 @@ export default function TopNav() {
                 {[
                   { label: 'Library',       icon: <Ico.Library />,  path: '/library',  active: isLibrary  },
                   { label: 'Add a book',    icon: <Ico.Plus />,     path: '/new',      active: false      },
-                  { label: 'About Lantern', icon: <span style={{ fontSize: 12, opacity: 0.7 }}>✦</span>, path: '/about', active: isAbout },
+                  { label: 'About Lantern', icon: <LanternMark size={13} />, path: '/about', active: isAbout },
                   { label: 'Settings',      icon: <Ico.Settings />, path: '/settings', active: isSettings },
                   ...(status === 'signed-in' ? [{ label: 'Account', icon: <Ico.User />, path: '/account', active: isAccount }] : []),
                 ].map(({ label, icon, path, active }) => (

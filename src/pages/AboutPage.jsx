@@ -75,7 +75,7 @@ function GoldRule() {
     <div style={{ textAlign: 'center' }}>
       <div style={{
         height: 1,
-        background: 'linear-gradient(to right, transparent, rgba(168,94,16,0.3), transparent)',
+        background: 'linear-gradient(to right, transparent, color-mix(in srgb, var(--color-accent) 30%, transparent), transparent)',
         margin: '0 auto',
       }} />
       <span style={{
@@ -467,7 +467,7 @@ export default function AboutPage() {
         }
         .lp-hero-cta:hover {
           opacity: 0.93;
-          box-shadow: 0 0 0 2px rgba(196, 118, 28, 0.58), 0 0 28px rgba(168, 94, 16, 0.16), 0 2px 10px rgba(0,0,0,0.08);
+          box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-accent) 58%, transparent), 0 0 28px color-mix(in srgb, var(--color-accent) 16%, transparent), 0 2px 10px rgba(0,0,0,0.08);
           transform: translateY(-1px);
         }
         .lp-hero-cta:active { transform: scale(0.98); }
@@ -583,7 +583,7 @@ export default function AboutPage() {
         }
         .lp-residue-card:hover {
           border-color: color-mix(in srgb, var(--color-accent) 30%, transparent);
-          box-shadow: 0 6px 24px rgba(168,94,16,0.08);
+          box-shadow: 0 6px 24px color-mix(in srgb, var(--color-accent) 8%, transparent);
           transform: translateY(-2px);
         }
         .lp-residue-card[data-gold="true"] {

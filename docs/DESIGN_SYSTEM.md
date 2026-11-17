@@ -1,7 +1,22 @@
 # Lantern — Design System
-**Last updated:** 2026-05-21 (Session 81)
+**Last updated:** 2026-11-17 (Session 167, Catalogue theme)
 
 ---
+
+## Catalogue theme (Session 167, 2026-11-17)
+
+John settled on **Catalogue III** in the design lab and asked for it in the real app. The theme block at the end of `src/index.css` overrides the Vellum tokens:
+
+- **Four inputs drive every colour:** `--lantern-accent` (deep teal `#236D86`), `--lantern-paper` (Stone `#E8E8E3`, dark `#131515`), `--lantern-k` (contrast 25) and `--lantern-warm` (lamplight 20). Background, cards, the ink scale, separators, `--ca*`, the old gold scale and the Lantern mark panes (`--mk-t/l/r/b`) are all `color-mix()` from these. Change the accent and everything follows, including the mark.
+- **Type:** Literata for titles (`--font-serif`, `--font-title`), Source Serif 4 for text (`--font-sans`), Spline Sans Mono for labels, fields, tabs and buttons (`--font-mono`). Inter, Libre Baskerville, Playfair and JetBrains Mono are no longer loaded.
+- **Shape:** 6px corners (`--radius-card`), one card shadow (hairline plus a soft drop), folder tabs with an accent top edge (`.tab-btn`), accent-filled primary buttons.
+- **Removed:** the drifting ember blobs and mouse-following glow (`App.jsx`), the body glow gradients, the paper grain and the frosted glass on the companion band and sticky bars.
+- **Library cards** (`BookCard.jsx`) are catalogue index cards: call number and status, accent rule, title and author, three catalogue fields (chapter, % read, last lit) and a bar.
+- **Mark:** `src/components/shared/LanternMark.jsx` (header, library, menu). `public/favicon.svg` and `icon-192/512.png` use the teal panes (static colours, regenerate if the accent changes).
+- Small inline `✦` bullets inside companion text are still present (accent coloured); swapping them for the mark is a follow-up.
+
+---
+
 
 ## CSS Architecture
 

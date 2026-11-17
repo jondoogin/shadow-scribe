@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, Component, lazy, Suspense } from 'react'
+import { useEffect, useState, Component, lazy, Suspense } from 'react'
 import { useLocation, BrowserRouter, Routes, Route, Navigate, Link, useNavigate } from 'react-router-dom'
 import { BooksProvider, useBooks } from './context/BooksContext.jsx'
 import { SettingsProvider, useSettings } from './context/SettingsContext.jsx'
@@ -22,87 +22,8 @@ import { logError } from './utils/logger.js'
 // nothing to the main bundle.
 const DesignLab = lazy(() => import('./design-lab/DesignLab.jsx'))
 
-// ── Atmospheric mouse-following ember glow ─────────────────────────────────────
-function AtmosphericGlow() {
-  const ref = useRef(null)
-  const mouse = useRef({ x: 0.5, y: 0.5 })
-  const current = useRef({ x: 0.5, y: 0.5 })
-  const raf = useRef(null)
-
-  useEffect(() => {
-    const onMove = (e) => {
-      mouse.current = {
-        x: e.clientX / window.innerWidth,
-        y: e.clientY / window.innerHeight,
-      }
-    }
-    const tick = () => {
-      current.current.x += (mouse.current.x - current.current.x) * 0.012
-      current.current.y += (mouse.current.y - current.current.y) * 0.012
-      if (ref.current) {
-        const x = (current.current.x * 100).toFixed(1)
-        const y = (current.current.y * 100).toFixed(1)
-        ref.current.style.background = `radial-gradient(circle 700px at ${x}% ${y}%, var(--color-glow), transparent 70%)`
-      }
-      raf.current = requestAnimationFrame(tick)
-    }
-    window.addEventListener('mousemove', onMove, { passive: true })
-    raf.current = requestAnimationFrame(tick)
-    return () => {
-      window.removeEventListener('mousemove', onMove)
-      if (raf.current) cancelAnimationFrame(raf.current)
-    }
-  }, [])
-
-  return (
-    <div
-      ref={ref}
-      style={{
-        position: 'fixed', inset: 0, zIndex: 0,
-        pointerEvents: 'none',
-        opacity: 0.28,
-        transition: 'opacity 1.5s ease',
-      }}
-    />
-  )
-}
-
-// ── Ambient environment layer — slow-drifting ember blobs ─────────────────────
-// Two radial gradient circles that drift on 48–55s cycles using CSS keyframes.
-// Pure CSS animation — no JS loop. Very low opacity: atmospheric warmth only.
-function AmbientLayer() {
-  return (
-    <div
-      aria-hidden="true"
-      style={{
-        position: 'fixed', inset: 0, zIndex: 0,
-        pointerEvents: 'none',
-        overflow: 'hidden',
-      }}
-    >
-      <div style={{
-        position: 'absolute',
-        top: '8%', left: '12%',
-        width: 640, height: 640,
-        borderRadius: '50%',
-        background: 'radial-gradient(circle, var(--color-glow), transparent 72%)',
-        opacity: 0.38,
-        animation: 'ambientDrift1 55s ease-in-out infinite',
-        willChange: 'transform',
-      }} />
-      <div style={{
-        position: 'absolute',
-        bottom: '10%', right: '8%',
-        width: 520, height: 520,
-        borderRadius: '50%',
-        background: 'radial-gradient(circle, var(--color-glow), transparent 72%)',
-        opacity: 0.28,
-        animation: 'ambientDrift2 48s ease-in-out infinite',
-        willChange: 'transform',
-      }} />
-    </div>
-  )
-}
+// Catalogue theme (Session 167): the drifting ember blobs and the mouse-following
+// glow are gone. Lantern is plain paper and cards now (no glow blobs).
 
 class ErrorBoundary extends Component {
   constructor(props) {
@@ -369,8 +290,6 @@ function AppShell() {
   return (
     <div className="min-h-screen" style={{ background: 'var(--color-bg)' }}>
       <ScrollToTop />
-      <AmbientLayer />
-      <AtmosphericGlow />
       <TopNav />
       <StorageBanner />
       {/* Gold rule — architectural divider below nav */}

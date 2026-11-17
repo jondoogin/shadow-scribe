@@ -494,32 +494,22 @@ export default function CompanionHeader({ book, onOpenUpdate, onUpdateBook }) {
           <button
             onClick={onOpenUpdate}
             style={{
-              fontFamily:    'var(--font-serif)',
-              fontSize:      14,
-              fontWeight:    400,
-              letterSpacing: '-0.01em',
-              color:         'var(--color-text-secondary)',
-              padding:       '10px 22px',
-              border:        '1px solid var(--color-hairline)',
-              borderRadius:  8,
-              background:    'transparent',
+              fontFamily:    'var(--font-mono)',
+              fontSize:      15,
+              fontWeight:    600,
+              color:         'var(--color-on-accent)',
+              padding:       '0 22px',
+              minHeight:     50,
+              border:        0,
+              borderRadius:  'var(--radius-card)',
+              background:    'var(--color-accent)',
               display:       'inline-flex',
               alignItems:    'center',
               gap:           8,
-              transition:    'background 700ms cubic-bezier(0.2,0.9,0.2,1), border-color 700ms, color 700ms, box-shadow 700ms',
+              transition:    'filter 300ms',
             }}
-            onMouseEnter={e => {
-              e.currentTarget.style.background = 'var(--color-accent)'
-              e.currentTarget.style.borderColor = 'var(--color-accent)'
-              e.currentTarget.style.color = 'var(--color-bg)'
-              e.currentTarget.style.boxShadow = '0 0 28px 6px var(--color-glow)'
-            }}
-            onMouseLeave={e => {
-              e.currentTarget.style.background = 'transparent'
-              e.currentTarget.style.borderColor = 'var(--color-hairline)'
-              e.currentTarget.style.color = 'var(--color-text-secondary)'
-              e.currentTarget.style.boxShadow = 'none'
-            }}
+            onMouseEnter={e => { e.currentTarget.style.filter = 'brightness(0.92)' }}
+            onMouseLeave={e => { e.currentTarget.style.filter = 'none' }}
           >
             {isPaused
               ? `Return to chapter ${book.currentChapter || 1}`
@@ -528,7 +518,7 @@ export default function CompanionHeader({ book, onOpenUpdate, onUpdateBook }) {
                 : book.currentChapter > 0
                   ? `Continue from chapter ${book.currentChapter}`
                   : 'Begin your first chapter'}
-            <span style={{ fontSize: 12, opacity: 0.55 }}>→</span>
+            <span aria-hidden="true">→</span>
           </button>
         </div>
       )}

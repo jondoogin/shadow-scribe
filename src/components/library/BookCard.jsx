@@ -56,39 +56,7 @@ export default function BookCard({ book, onClick, hero = false, primary = false,
     ? '0 2px 12px rgba(0,0,0,.13), 0 1px 3px rgba(0,0,0,.08)'
     : '0 3px 14px rgba(0,0,0,.18), 0 1px 4px rgba(0,0,0,.10)'
 
-  // ── Interior atmosphere — each card carries its own environmental weight ──────
-  // Presence and temporal state shape the internal rhythm of the card, not just
-  // the wrapper. A deeply inhabited book breathes differently from an abandoned one.
-
-  // Internal padding — hero/primary cards get extra room; default is compact
-  const innerPad = (hero || primary) ? 'gap-4 p-5' : 'gap-4 p-4'
-
-  // Author gap — deep books open slightly between title and author name
-  const authorMt = presence === 'deep' ? 'mt-1' : 'mt-0.5'
-
-  // Footer breathing — more room before progress/meta for inhabited books
-  const footerMt = presence === 'deep'     ? 'mt-4'
-    : presence === 'inhabited'             ? 'mt-3.5'
-    :                                        'mt-3'
-
-  // Chapter count color — warmer for active+deep reads, quieter for dormant ones
-  const chapterColor = (book.status === 'reading' && presence === 'deep')
-    ? 'var(--color-ink-500)'   // present, warm — this read is alive
-    : daysSince > 45
-    ? 'var(--color-ink-300)'   // cooling — the numbers recede with the book
-    : 'var(--color-ink-400)'   // default
-
-  // Progress bar height — heavier for inhabited active reads, thinner for dormant
-  const progressHeight = ((presence === 'deep' || presence === 'inhabited') && book.status === 'reading')
-    ? 'h-[3px]'      // inhabited active — visible weight
-    : daysSince > 90
-    ? 'h-px'         // very old — barely there
-    : 'h-0.5'        // default — 2px
-
-  // Chapter→progress bar gap — deep books breathe more, cooling books compress
-  const progressMb = presence === 'deep' ? 'mb-2'
-    : daysSince > 45             ? 'mb-1'
-    :                              'mb-1.5'
+  const chapterColor = daysSince > 45 ? 'var(--color-ink-300)' : 'var(--color-ink-400)'
 
   // Finished book reading record — echoes the CompletionBand at card scale
   const noteCount = book.status === 'finished' ? liveItems(book.notes).length : 0
@@ -96,136 +64,59 @@ export default function BookCard({ book, onClick, hero = false, primary = false,
     ? Math.max(1, Math.floor((new Date(book.completedAt) - new Date(book.firstOpenedAt)) / 86400000))
     : null
 
+  const STATUS = { reading: 'On loan · reading', finished: 'Returned', want: 'On the shelf', paused: 'Set aside' }
+  const status = STATUS[book.status] || 'On the shelf'
+  const call = (book.author || '').split(' ').filter(Boolean).slice(-1)[0]?.slice(0, 3).toUpperCase() || '—'
+  const large = hero || primary
+  const muted = book.status !== 'reading' || daysSince > 90
+
+  // Catalogue index card: call number and status, an accent rule, then the
+  // book, then catalogue fields and a progress bar.
   return (
     <button
       onClick={onClick}
-      className="w-full text-left group"
-      style={{ display: 'block', position: 'relative' }}
+      className="w-full text-left group catalogue-card"
+      data-status={book.status}
+      style={{ display: 'block', position: 'relative', padding: large ? '16px 18px 18px' : '14px 16px 16px' }}
     >
-      {/* Ember left stripe — playground is-reading signature */}
-      {book.status === 'reading' && (
-        <span
-          aria-hidden="true"
-          style={{
-            position: 'absolute',
-            left: 0, top: 18, bottom: 18,
-            width: 2,
-            background: 'var(--color-accent)',
-            borderRadius: 2,
-            boxShadow: '0 0 8px var(--color-glow)',
-          }}
-        />
-      )}
-      <div className={`flex ${innerPad}`}>
-
-        {/* Cover */}
-        <div
-          className="flex-shrink-0 self-start"
-          style={{
-            boxShadow: coverShadow,
-            borderRadius: 8,
-            opacity: coverOpacity,
-          }}
-        >
+      <div className="catalogue-card-head">
+        <span className="catalogue-call">{call}{book.series ? ` · ${book.series.position}` : ''}</span>
+        <span className="catalogue-label">{status}</span>
+      </div>
+      <div className="flex gap-4">
+        <div className="flex-shrink-0 self-start" style={{ boxShadow: coverShadow, borderRadius: 4, opacity: muted ? coverOpacity : 1 }}>
           <BookCover
             book={book}
-            className={(hero || primary) ? 'w-[84px] h-[126px]' : 'w-[68px] h-[102px]'}
-            rounded="rounded-[8px]"
+            className={large ? 'w-[72px] h-[108px]' : 'w-[56px] h-[84px]'}
+            rounded="rounded-[4px]"
           />
         </div>
-
-        {/* Content */}
-        <div className="flex-1 min-w-0 flex flex-col justify-between">
-          <div className="min-w-0">
-            {/* Title — inhabited books carry more typographic weight */}
-            <h3
-              className={`font-serif line-clamp-2 group-hover:text-gold transition-colors ${hero ? 'leading-normal' : 'leading-snug'}`}
-              style={{
-                fontSize: hero ? 17 : primary ? 16 : 15,
-                fontWeight: 400,
-                color: 'var(--color-text-primary)',
-                letterSpacing: '-0.01em',
-              }}
-            >
-              {book.title}
-            </h3>
-
-            {/* Author — recedes with temporal distance; breathes more under deep presence */}
-            <p
-              className={`font-serif italic ${authorMt} truncate transition-colors`}
-              style={{ fontSize: (hero || primary) ? 13 : 12, color: authorColor }}
-            >
-              {book.author}
-            </p>
-
-            {/* Series */}
-            {book.series && (
-              <p
-                className="mt-0.5 truncate"
-                style={{ fontSize: 11, color: 'var(--color-ink-400)', fontFamily: 'var(--font-sans)' }}
-              >
-                {book.series.name} #{book.series.position}
-              </p>
-            )}
-
-            {/* Re-read */}
-            {rereadCount > 0 && (
-              <p
-                className="italic mt-0.5"
-                style={{ fontSize: 11, color: 'var(--color-ink-300)', fontFamily: 'var(--font-serif)' }}
-              >
-                {ordinal(rereadCount + 1)} reading
-              </p>
-            )}
-          </div>
-
-          {/* Footer — presence and status shape the footer register */}
-          <div className={footerMt}>
-            {book.status === 'finished' ? (
-              /* Finished — archival footer with reading record echo */
-              <div style={{ marginTop: 4 }}>
-                <p className="italic" style={{ fontSize: 12, fontFamily: 'var(--font-serif)', color: 'var(--color-ink-400)' }}>
-                  closed {fmtDate(book.completedAt || book.lastUpdated)}
-                </p>
-                {(noteCount > 0 || (daySpan && daySpan > 1)) && (
-                  <div className="flex items-center gap-3 mt-1">
-                    {noteCount > 0 && (
-                      <span style={{ fontSize: 10, fontFamily: 'var(--font-sans)', color: 'var(--color-ink-300)' }}>
-                        {noteCount} {noteCount === 1 ? 'note' : 'notes'}
-                      </span>
-                    )}
-                    {daySpan && daySpan > 1 && (
-                      <span style={{ fontSize: 10, fontFamily: 'var(--font-sans)', color: 'var(--color-ink-300)' }}>
-                        {daySpan} days
-                      </span>
-                    )}
-                  </div>
-                )}
-              </div>
-            ) : book.status === 'want' ? (
-              /* Want — no chapter yet; just the date quietly */
-              <p className="transition-colors" style={{ fontSize: 10, fontFamily: 'var(--font-sans)', color: dateColor }}>
-                {fmtDate(book.lastUpdated)}
-              </p>
-            ) : (
-              <>
-                {/* Chapter + date — merged into one quiet line; no percentage text */}
-                <div className={`flex items-center justify-between ${progressMb}`}>
-                  <span style={{ fontSize: 11, fontFamily: 'var(--font-sans)', color: chapterColor }}>
-                    {book.format === 'audiobook' ? 'pt.' : 'ch.'} {book.currentChapter} of {book.totalChapters}
-                  </span>
-                  <span className="transition-colors" style={{ fontSize: 10, fontFamily: 'var(--font-sans)', color: dateColor }}>
-                    {fmtDate(book.lastUpdated)}
-                  </span>
-                </div>
-
-                {/* Progress bar — weight varies by inhabited depth and temporal state */}
-                <ProgressBar value={pct} height={progressHeight} accentVar />
-              </>
-            )}
-          </div>
+        <div className="flex-1 min-w-0">
+          <h3 className="catalogue-title line-clamp-2" style={{ fontSize: large ? 24 : 20 }}>{book.title}</h3>
+          <p className="catalogue-by truncate" style={{ color: authorColor === "var(--color-ink-500)" ? "var(--color-ink-700)" : "var(--color-ink-500)" }}>{book.author}</p>
+          {book.series && <p className="catalogue-label mt-1 truncate">{book.series.name} #{book.series.position}</p>}
+          {rereadCount > 0 && <p className="catalogue-label mt-1">{ordinal(rereadCount + 1)} reading</p>}
         </div>
       </div>
+
+      {book.status === 'finished' ? (
+        <dl className="catalogue-fields">
+          <div><dt>Closed</dt><dd>{fmtDate(book.completedAt || book.lastUpdated)}</dd></div>
+          <div><dt>Notes</dt><dd>{noteCount}</dd></div>
+          <div><dt>Days</dt><dd>{daySpan || '—'}</dd></div>
+        </dl>
+      ) : book.status === 'want' ? (
+        <p className="catalogue-label" style={{ marginTop: 12, color: dateColor }}>Added {fmtDate(book.lastUpdated)}</p>
+      ) : (
+        <>
+          <dl className="catalogue-fields">
+            <div><dt>{book.format === 'audiobook' ? 'Part' : 'Chapter'}</dt><dd>{book.currentChapter} of {book.totalChapters}</dd></div>
+            <div><dt>Read</dt><dd>{Math.round(pct)}%</dd></div>
+            <div><dt>Last lit</dt><dd style={{ color: chapterColor === 'var(--color-ink-300)' ? 'var(--color-ink-700)' : undefined }}>{fmtDate(book.lastUpdated)}</dd></div>
+          </dl>
+          <ProgressBar value={pct} height={large ? 'h-[6px]' : 'h-[5px]'} accentVar />
+        </>
+      )}
     </button>
   )
 }

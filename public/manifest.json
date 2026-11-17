@@ -4,8 +4,8 @@
   "description": "A personal space that sits alongside you as you read.",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#FAF6EE",
-  "theme_color": "#FAF6EE",
+  "background_color": "#E8E7E1",
+  "theme_color": "#E8E7E1",
   "icons": [
     {
       "src": "/icon-192.png",

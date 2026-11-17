@@ -7,6 +7,10 @@
 
 ---
 
+## SESSION 167 (2026-11-17): Catalogue theme in the real app
+
+John picked Catalogue III in `/design-lab` and tuned it (deep teal, Stone paper, Literata + Spline Sans Mono, bar progress, folder tabs). Those settings are now the app's theme: see `docs/DESIGN_SYSTEM.md` › Catalogue theme. The Vellum amber palette, glow blobs and frosted glass are gone. Branch `claude/project-thread-q1khuh`, PR #4, not merged.
+
 ## CURRENT STATE
 
 - **Product:** Companion-first reading environment running on Vellum design system (Libre Baskerville, warm amber/ember palette). CompanionBand is the primary interface surface. Cloud sync via Supabase magic-link is live and opt-in. Depth Level (Quiet/Resonant/Saturated) is per-book and wired to behavior.

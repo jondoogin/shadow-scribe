@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom'
 import { Ico } from '../shared/icons.jsx'
 import EmptyState from '../shared/EmptyState.jsx'
 import BookCard from './BookCard.jsx'
+import LanternMark from '../shared/LanternMark.jsx'
 import LibraryCompanion from './LibraryCompanion.jsx'
 import FirstBookInvitation from './FirstBookInvitation.jsx'
 import { useAuth } from '../../context/AuthContext.jsx'
@@ -33,7 +34,7 @@ function WelcomeBanner({ hasKey, onDismiss }) {
         }}
       >
         <p className="font-serif italic text-[13px] mb-3" style={{ color: 'var(--color-ink-400)', opacity: 0.85 }}>
-          <span style={{ fontSize: 8, color: 'var(--ca, #B8860B)', marginRight: 6 }}>✦</span>
+          <LanternMark size={12} className="inline-block align-[-1px] mr-1.5" />
           welcome
         </p>
         <p className="font-serif text-[16px] leading-relaxed mb-3" style={{ color: 'var(--color-ink-800)' }}>
@@ -549,7 +550,7 @@ export default function Library() {
                   ...(readingNowMass >= 6 ? { paddingTop: 26, paddingBottom: 18 } : {}),
                 }}
               >
-                <p className="shelf-title"><span style={{ fontSize: 8, opacity: 0.55, marginRight: 5, verticalAlign: 'middle' }}>✦</span>reading now</p>
+                <p className="shelf-title flex items-center gap-2"><LanternMark size={12} />Reading now</p>
                 {readingNow.length === 1 ? (
                   // Solo active book — full reading-zone width
                   <div>

@@ -1,4 +1,1 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">
-  <rect width="32" height="32" rx="7" fill="#FAF6EE"/>
-  <text x="16" y="22" text-anchor="middle" font-family="Georgia, serif" font-size="18" fill="#B8860B">✦</text>
-</svg>
+<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="-8 -8 116 116"><rect x="-8" y="-8" width="116" height="116" rx="25.5" fill="#E8E7E1"/><rect x="33" y="4" width="34" height="34" rx="8.5" fill="#B9C5BD" transform="rotate(45 50 21)"/><rect x="4" y="33" width="34" height="34" rx="8.5" fill="#395B60" transform="rotate(45 21 50)"/><rect x="62" y="33" width="34" height="34" rx="8.5" fill="#618283" transform="rotate(45 79 50)"/><rect x="33" y="62" width="34" height="34" rx="8.5" fill="#226074" transform="rotate(45 50 79)"/></svg>

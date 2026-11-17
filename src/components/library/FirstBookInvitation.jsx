@@ -126,7 +126,7 @@ export default function FirstBookInvitation({ onAddBook, onDismiss }) {
               }}
               onMouseEnter={e => {
                 e.currentTarget.style.opacity = '0.93'
-                e.currentTarget.style.boxShadow = '0 0 0 2px rgba(196,118,28,0.55), 0 0 16px rgba(168,94,16,.14)'
+                e.currentTarget.style.boxShadow = '0 0 0 2px color-mix(in srgb, var(--color-accent) 55%, transparent), 0 0 16px color-mix(in srgb, var(--color-accent) 14%, transparent)'
               }}
               onMouseLeave={e => {
                 e.currentTarget.style.opacity = '1'
