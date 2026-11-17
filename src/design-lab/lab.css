@@ -123,3 +123,4 @@ body:has(.lx)::after, body:has(.lab-overview)::after { display: none !important;
 .lab-tune-tog i { position: absolute; top: 3px; left: 3px; width: 22px; height: 22px; border-radius: 50%; background: #fff; transition: transform .2s; }
 .lab-tune-tog.is-on { background: #3E9B5C !important; }
 .lab-tune-tog.is-on i { transform: translateX(18px); }
+.lab-tune-copy { background: #fff !important; color: #111 !important; }

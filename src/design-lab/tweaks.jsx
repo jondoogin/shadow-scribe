@@ -34,7 +34,13 @@ export function tweakProps(dir, values, mode) {
 
 export function TweakPanel({ dir, values, set, reset }) {
   const [open, setOpen] = useState(false)
+  const [copied, setCopied] = useState(false)
   if (!dir?.tweaks) return null
+  const copy = async () => {
+    const text = settingsText(dir, values)
+    try { await navigator.clipboard.writeText(text) } catch { window.prompt('Copy your settings', text) }
+    setCopied(true); setTimeout(() => setCopied(false), 1800)
+  }
   return (
     <>
       <button className={`lab-tune-btn${open ? ' is-on' : ''}`} onClick={() => setOpen(o => !o)} aria-expanded={open}>
@@ -46,6 +52,7 @@ export function TweakPanel({ dir, values, set, reset }) {
           <header className="lab-tune-head">
             <b>Tune {dir.meta.name}</b>
             <div>
+              <button className="lab-tune-reset lab-tune-copy" onClick={copy}>{copied ? 'Copied' : 'Copy'}</button>
               <button className="lab-tune-reset" onClick={reset}>Reset</button>
               <button className="lab-tune-x" onClick={() => setOpen(false)} aria-label="Close">×</button>
             </div>
@@ -62,6 +69,20 @@ export function TweakPanel({ dir, values, set, reset }) {
       )}
     </>
   )
+}
+
+// Plain-language summary of every setting, for pasting into a message.
+function settingsText(dir, values) {
+  const lines = dir.tweaks.flatMap(g => g.items.map(it => {
+    const v = values[it.id]
+    let shown = v
+    if (it.type === 'swatch') { const name = it.options.find(o => o[1].toLowerCase() === String(v).toLowerCase())?.[0]; shown = name ? `${name} (${v})` : v }
+    else if (it.type === 'choice') shown = it.options.find(o => o[1] === v)?.[0] || v
+    else if (it.type === 'range') shown = `${v}${it.unit || ''}`
+    else if (it.type === 'toggle') shown = v ? 'on' : 'off'
+    return `- ${g.group} · ${it.label}: ${shown}${v === it.default ? '' : ' *'}`
+  }))
+  return `${dir.meta.name} settings (* = changed)\n${lines.join('\n')}\n${JSON.stringify(values)}`
 }
 
 function Control({ it, value, onChange }) {
