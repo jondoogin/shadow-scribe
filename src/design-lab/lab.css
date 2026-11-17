@@ -91,3 +91,35 @@ body:has(.lx)::after, body:has(.lab-overview)::after { display: none !important;
 .lx-cover--md { width: 92px; font-size: 13px; }
 .lx-cover--lg { width: 128px; font-size: 17px; }
 .lx-cover--xl { width: 184px; font-size: 24px; }
+
+/* ═══════════════ Style tweaker (lab chrome, solid sheet) ═══════════════ */
+.lab-tune-btn { position: fixed; z-index: 51; right: max(14px, calc(50% - 266px)); bottom: calc(108px + env(safe-area-inset-bottom)); height: 40px; padding: 0 14px; display: inline-flex; align-items: center; gap: 7px; border: 0; border-radius: 20px; background: #121214; color: #fff; font: 600 13px -apple-system, BlinkMacSystemFont, system-ui, sans-serif; box-shadow: 0 6px 20px rgba(0,0,0,.28), inset 0 0 0 1px rgba(255,255,255,.1); cursor: pointer; }
+.lab-tune-btn.is-on { background: #fff; color: #111; }
+.lab-tune { position: fixed; z-index: 52; left: 8px; right: 8px; bottom: calc(156px + env(safe-area-inset-bottom)); max-width: 552px; max-height: min(62dvh, 560px); margin: 0 auto; display: flex; flex-direction: column; border-radius: 18px; background: #161618; color: #F2F0EC; font-family: -apple-system, BlinkMacSystemFont, system-ui, sans-serif; box-shadow: 0 18px 50px rgba(0,0,0,.4), inset 0 0 0 1px rgba(255,255,255,.08); }
+.lab-tune button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.lab-tune-head { display: flex; justify-content: space-between; align-items: center; padding: 10px 10px 10px 16px; border-bottom: 1px solid rgba(255,255,255,.08); font-size: 15px; }
+.lab-tune-head div { display: flex; gap: 4px; }
+.lab-tune-reset { height: 34px; padding: 0 12px; border-radius: 10px; font-size: 13px !important; font-weight: 600 !important; background: rgba(255,255,255,.08) !important; }
+.lab-tune-x { width: 34px; height: 34px; border-radius: 10px; font-size: 20px !important; display: grid; place-items: center; }
+.lab-tune-body { overflow-y: auto; padding: 4px 16px 16px; overscroll-behavior: contain; }
+.lab-tune-group { border: 0; margin: 0; padding: 12px 0 4px; }
+.lab-tune-group + .lab-tune-group { border-top: 1px solid rgba(255,255,255,.07); }
+.lab-tune-group legend { padding: 0; margin-bottom: 4px; font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: rgba(242,240,236,.5); }
+.lab-tune-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 46px; }
+.lab-tune-row--stack { flex-direction: column; align-items: stretch; gap: 8px; padding: 8px 0; }
+.lab-tune-l { font-size: 14px; font-weight: 500; display: flex; justify-content: space-between; }
+.lab-tune-l em { font-style: normal; font-variant-numeric: tabular-nums; color: rgba(242,240,236,.6); }
+.lab-tune-seg { display: flex; gap: 2px; padding: 2px; border-radius: 10px; background: rgba(255,255,255,.07); }
+.lab-tune-seg button { height: 32px; padding: 0 11px; border-radius: 8px; font-size: 13px !important; font-weight: 600 !important; color: rgba(255,255,255,.7) !important; display: grid; place-items: center; }
+.lab-tune-seg button.is-on { background: #fff; color: #111 !important; }
+.lab-tune-sw { display: flex; flex-wrap: wrap; gap: 8px; }
+.lab-tune-sw button, .lab-tune-custom { width: 36px; height: 36px; border-radius: 50%; box-shadow: inset 0 0 0 1px rgba(255,255,255,.15); }
+.lab-tune-sw button.is-on { box-shadow: 0 0 0 2px #161618, 0 0 0 4px #fff; }
+.lab-tune-custom { position: relative; display: grid; place-items: center; overflow: hidden; cursor: pointer; font-size: 18px; color: rgba(255,255,255,.7); background: rgba(255,255,255,.07); }
+.lab-tune-custom input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+.lab-tune-range { width: 100%; accent-color: #fff; height: 24px; margin: 0; }
+.lab-tune-ends { display: flex; justify-content: space-between; margin-top: -4px; font-size: 12px; color: rgba(242,240,236,.5); }
+.lab-tune-tog { position: relative; width: 46px; height: 28px; border-radius: 14px; background: rgba(255,255,255,.16) !important; transition: background .2s; }
+.lab-tune-tog i { position: absolute; top: 3px; left: 3px; width: 22px; height: 22px; border-radius: 50%; background: #fff; transition: transform .2s; }
+.lab-tune-tog.is-on { background: #3E9B5C !important; }
+.lab-tune-tog.is-on i { transform: translateX(18px); }

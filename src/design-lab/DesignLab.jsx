@@ -8,12 +8,13 @@ import * as herbarium from './dirs/herbarium.jsx'
 import * as rack from './dirs/rack.jsx'
 import * as guide from './dirs/guide.jsx'
 import * as survey from './dirs/survey.jsx'
+import { useTweaks, tweakProps, TweakPanel } from './tweaks.jsx'
 import './lab.css'
 
-// Design lab, round eight: Catalogue pushed further, plus four directions
-// that cross Catalogue (archive, index cards) with Field Lab (lab notebook,
-// instruments, explorer), on real Lantern screens with sample, spoiler-safe
-// content.
+// Design lab, round nine: Catalogue III refined, with a style tweaker for any
+// direction that exports a `tweaks` schema. Herbarium, Sample Rack, Field
+// Guide and Survey Book stay from round eight, on real Lantern screens with
+// sample, spoiler-safe content.
 // Self-contained: it reads and writes no app data and is not linked from the app.
 
 const DIRS = [catalogue, herbarium, rack, guide, survey]
@@ -55,6 +56,7 @@ export default function DesignLab() {
   const [book, setBook] = useState(BOOKS[0])
   const [playing, setPlaying] = useState(false)
   const [t, setT] = useState(Math.round(CHAPTER_SEC * 0.64))
+  const tw = useTweaks(dir)
 
   useEffect(() => {
     if (!playing) return
@@ -82,10 +84,11 @@ export default function DesignLab() {
   if (dir.meta.immersive) return <dir.App ctx={ctx} screen={params.get('s') || 'library'} />
   const Screen = dir.screens[screen]
   return (
-    <div className={`lx lx--${dir.meta.family || dir.meta.id} lx--${dir.meta.id} lx--${mode}`} data-screen={screen}>
+    <div className={`lx lx--${dir.meta.family || dir.meta.id} lx--${dir.meta.id} lx--${mode}`} data-screen={screen} {...tweakProps(dir, tw.values, mode)}>
       <main className="lx-app" key={`${dir.meta.id}-${screen}`}>
         <Screen ctx={ctx} />
       </main>
+      <TweakPanel dir={dir} {...tw} />
       <LabBar dir={dir} mode={mode} screen={screen} set={set} />
     </div>
   )
@@ -122,7 +125,7 @@ function Overview({ onPick }) {
       <header className="lab-ov-head">
         <span className="lab-ov-logo"><FlameMark size={18} /> Lantern</span>
         <h1>Catalogue and Field Lab</h1>
-        <p>Catalogue, pushed further: a drawer you can see into, cards that pull up when you pick a book, a seal that stamps itself on and a loan record on Listen. Then four new directions from the Catalogue and Field Lab worlds: Herbarium, Sample Rack, Field Guide and Survey Book. Same readability rules as last round, and the tabs, filters, player and scrubber all work.</p>
+        <p>Catalogue III, refined from your notes: smaller pierced-tin holes for progress, softer contrast between paper and ink, tabs set into the card they filter, lantern details (a lit status while Lantern reads, a lamp log, a wick sleep timer), and a Lantern mark coloured from the theme accent. Open Catalogue III and tap Tune to change colour, type, shape and details; your settings are kept on this device. Herbarium, Sample Rack, Field Guide and Survey Book are unchanged from round eight.</p>
         <p className="lab-ov-avoid">Still avoided: purple gradients, frosted glass, glowing blobs, Inter, and identical card grids.</p>
       </header>
       <div className="lab-ov-list">
