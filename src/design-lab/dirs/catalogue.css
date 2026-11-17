@@ -116,3 +116,29 @@
 .c2--preview { padding: 18px; display: flex; flex-direction: column; gap: 12px; }
 .c2--preview .c2-card { margin: 0; }
 .c2--preview .c2-title { font-size: 24px; margin-bottom: 14px; }
+
+/* round 8: the drawer behind the card */
+.c2-stack { position: relative; padding-top: 22px; }
+.c2-peek { position: absolute; left: 10px; right: 10px; height: 40px; border-radius: 6px 6px 0 0; background: var(--card); box-shadow: 0 0 0 1px var(--line); }
+.c2-peek--1 { top: 10px; left: 6px; right: 6px; }
+.c2-peek--2 { top: 0; left: 14px; right: 14px; opacity: .7; }
+.c2-peek span { position: absolute; top: 4px; right: 14px; font-family: var(--mono); font-size: 11px; font-weight: 600; color: var(--ink-3); }
+.c2-stack .c2-card--hero { margin-top: 0; animation: c2Pull .45s cubic-bezier(.2,.8,.2,1); }
+@keyframes c2Pull { from { transform: translateY(24px); opacity: .4; } to { transform: none; opacity: 1; } }
+.c2-stamp { animation: c2Stamp .5s cubic-bezier(.3,1.6,.5,1) .2s both; }
+@keyframes c2Stamp { from { transform: rotate(-12deg) scale(1.6); opacity: 0; } to { transform: rotate(-4deg) scale(1); opacity: 1; } }
+.c2-row { transition: background .15s ease; }
+.c2-row:active { background: var(--bg); }
+
+/* listen: the loan record */
+.c2-loans { list-style: none; margin: 0; padding: 4px 18px; background: var(--card); border-radius: 6px; box-shadow: 0 0 0 1px var(--line); }
+.c2-loans li { display: flex; align-items: center; gap: 16px; min-height: 58px; }
+.c2-loans li + li { border-top: 1px dashed var(--line); }
+.c2-loans b { display: block; font-size: 17px; font-weight: 600; }
+.c2-loans small { font-family: var(--mono); font-size: 12px; color: var(--ink-3); }
+.c2-datestamp { flex-shrink: 0; width: 76px; padding: 4px 0; text-align: center; border: 1.5px solid var(--blue); border-radius: 3px; color: var(--blue); font-family: var(--mono); font-size: 13px; font-weight: 700; letter-spacing: .06em; transform: rotate(var(--r)); }
+@media (prefers-reduced-motion: reduce) { .c2-stack .c2-card--hero, .c2-stamp { animation: none; } }
+.c2-keys button { display: grid; place-items: center; }
+.c2-stack { padding-top: 30px; }
+.c2-peek--1 { top: 14px; }
+.c2-peek span { top: 2px; }

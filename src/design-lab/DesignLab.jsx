@@ -4,19 +4,19 @@ import { BOOKS } from './sample.js'
 import { CHAPTER_SEC } from './shared.jsx'
 import { FlameMark } from './brand.jsx'
 import * as catalogue from './dirs/catalogue.jsx'
-import * as spectrum from './dirs/spectrum.jsx'
-import * as swatch from './dirs/swatch.jsx'
-import * as ticket from './dirs/ticket.jsx'
-import * as thumb from './dirs/thumb.jsx'
+import * as herbarium from './dirs/herbarium.jsx'
+import * as rack from './dirs/rack.jsx'
+import * as guide from './dirs/guide.jsx'
+import * as survey from './dirs/survey.jsx'
 import './lab.css'
 
-// Design lab, round seven: Catalogue and Spectrum (John's picks from round
-// five) evolved to be cleaner and easier to read and use, plus three new
-// directions built from their cues, on real Lantern screens with sample,
-// spoiler-safe content.
+// Design lab, round eight: Catalogue pushed further, plus four directions
+// that cross Catalogue (archive, index cards) with Field Lab (lab notebook,
+// instruments, explorer), on real Lantern screens with sample, spoiler-safe
+// content.
 // Self-contained: it reads and writes no app data and is not linked from the app.
 
-const DIRS = [catalogue, spectrum, swatch, ticket, thumb]
+const DIRS = [catalogue, herbarium, rack, guide, survey]
 const SCREENS = [
   { id: 'library', label: 'Library' },
   { id: 'companion', label: 'Companion' },
@@ -121,8 +121,8 @@ function Overview({ onPick }) {
     <div className="lab-overview">
       <header className="lab-ov-head">
         <span className="lab-ov-logo"><FlameMark size={18} /> Lantern</span>
-        <h1>Catalogue and Spectrum, evolved</h1>
-        <p>The two round five directions you liked, edited for reading and use: fewer type sizes, body text at 17px or more, one obvious action per screen, and ornaments only where they carry meaning. Then three new directions that cross them: Swatch, Ticket and Thumb Index. Tabs, filters, the player and the scrubber all work.</p>
+        <h1>Catalogue and Field Lab</h1>
+        <p>Catalogue, pushed further: a drawer you can see into, cards that pull up when you pick a book, a seal that stamps itself on and a loan record on Listen. Then four new directions from the Catalogue and Field Lab worlds: Herbarium, Sample Rack, Field Guide and Survey Book. Same readability rules as last round, and the tabs, filters, player and scrubber all work.</p>
         <p className="lab-ov-avoid">Still avoided: purple gradients, frosted glass, glowing blobs, Inter, and identical card grids.</p>
       </header>
       <div className="lab-ov-list">

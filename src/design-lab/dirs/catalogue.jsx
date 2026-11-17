@@ -12,10 +12,10 @@ import './catalogue.css'
 // meaning: the red rule, the call number, the punched rod hole and the seal.
 
 export const meta = {
-  id: 'catalogue', name: 'Catalogue II', defaultMode: 'light',
-  tagline: 'The card catalogue, edited down',
-  signature: 'One crisp card per book, punched-hole progress, a seal stamp that never covers text',
-  research: 'Kept: the index card, call numbers, the red rule, the rubber-stamp seal. Changed: body text moves from Courier to a reading serif, labels to a clean 12px mono, the ruled lines leave the data cards, and every screen gets one obvious primary action. Progress is a row of punched holes, like the rod hole at the foot of a catalogue card.',
+  id: 'catalogue', name: 'Catalogue III', defaultMode: 'light',
+  tagline: 'The card catalogue, edited down and set in motion',
+  signature: 'A drawer you can see into, punched-hole progress, a loan record stamped as you listen',
+  research: 'Round eight pushes it further: the next cards in the drawer peek out behind the one you’re reading, choosing a book pulls its card up, the spoiler seal stamps itself on, and Listen keeps a loan record of your sessions as date stamps. Kept from round seven: the index card, call numbers, the red rule, the rubber-stamp seal. Changed: body text moves from Courier to a reading serif, labels to a clean 12px mono, the ruled lines leave the data cards, and every screen gets one obvious primary action. Progress is a row of punched holes, like the rod hole at the foot of a catalogue card.',
 }
 
 const STATUS = { listening: 'On loan · listening', reading: 'On loan · reading', finished: 'Returned', next: 'On the shelf' }
@@ -43,7 +43,10 @@ function Library({ ctx }) {
     <div className="c2">
       <Top left={<Lockup />} right={<><button className="c2-ic" aria-label="Search"><Icon name="search" /></button><button className="c2-ic" aria-label="Add a book"><Icon name="plus" /></button></>} />
       <p className="c2-label">Now reading</p>
-      <article className="c2-card c2-card--hero">
+      <div className="c2-stack">
+      <span className="c2-peek c2-peek--2" aria-hidden="true" />
+      <span className="c2-peek c2-peek--1" aria-hidden="true"><span>{call(BOOKS[(BOOKS.indexOf(b) + 1) % BOOKS.length])}</span></span>
+      <article className="c2-card c2-card--hero" key={b.id}>
         <div className="c2-card-head"><span className="c2-call">{call(b)}</span><span className="c2-label">{STATUS[b.status]}</span></div>
         <h1 className="c2-title">{b.title}</h1>
         <p className="c2-by">{b.author}</p>
@@ -58,6 +61,7 @@ function Library({ ctx }) {
           <button className="c2-btn" onClick={() => ctx.go('companion')}>Companion</button>
         </div>
       </article>
+      </div>
 
       <div className="c2-sec"><h2>Your drawer</h2><span className="c2-label">{pad2(BOOKS.length)} cards</span></div>
       <nav className="c2-tabs" aria-label="Filter">
@@ -170,6 +174,12 @@ function Listen({ ctx }) {
           return <p key={idx} className={idx === line ? 'is-now' : ''}>{p}</p>
         })}
       </section>
+      <div className="c2-sec"><h2>Loan record</h2><span className="c2-label">Ch. 1</span></div>
+      <ol className="c2-loans">
+        {[['16 NOV', '9:12 PM', 'Listened 2 min'], ['15 NOV', '10:40 PM', 'Read 4 pages'], ['14 NOV', '8:05 AM', 'Borrowed']].map(([d, h, w], i) => (
+          <li key={d}><span className="c2-datestamp" style={{ '--r': `${[-3, 2, -1][i]}deg` }}>{d}</span><span><b>{w}</b><small>{h}</small></span></li>
+        ))}
+      </ol>
       <div className="c2-sec"><h2>Reading room</h2></div>
       <div className="c2-chips">{AMBIENT.map(a => <button key={a} className={amb === a ? 'is-on' : ''} onClick={() => setAmb(a)}>{a}</button>)}</div>
       <p className="c2-fine">Your companion stays at chapter 1 until you move it.</p>
