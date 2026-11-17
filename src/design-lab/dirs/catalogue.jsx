@@ -22,16 +22,16 @@ export const meta = {
 // on the page; the rest become CSS variables through tweakVars().
 export const tweaks = [
   { group: 'Colour', items: [
-    { id: 'accent', label: 'Accent', type: 'swatch', default: '#C2512E', options: [
-      ['Ember', '#C2512E'], ['Lamp oil', '#B7791F'], ['Brass', '#8F7536'], ['Ink blue', '#33598F'], ['Moss', '#4E7440'], ['Oxblood', '#8C2F2B'],
+    { id: 'accent', label: 'Accent', type: 'swatch', default: '#236D86', options: [
+      ['Deep teal', '#236D86'], ['Ember', '#C2512E'], ['Lamp oil', '#B7791F'], ['Brass', '#8F7536'], ['Ink blue', '#33598F'], ['Moss', '#4E7440'], ['Oxblood', '#8C2F2B'],
     ] },
-    { id: 'paper', label: 'Paper', type: 'choice', default: 'linen', options: [['Linen', 'linen'], ['Bone', 'bone'], ['Stone', 'stone']] },
-    { id: 'contrast', label: 'Contrast', type: 'range', min: 0, max: 100, default: 30, ends: ['Soft', 'Crisp'] },
-    { id: 'warm', label: 'Lamplight', type: 'range', min: 0, max: 100, default: 25, ends: ['Daylight', 'Warm'] },
+    { id: 'paper', label: 'Paper', type: 'choice', default: 'stone', options: [['Linen', 'linen'], ['Bone', 'bone'], ['Stone', 'stone']] },
+    { id: 'contrast', label: 'Contrast', type: 'range', min: 0, max: 100, default: 25, ends: ['Soft', 'Crisp'] },
+    { id: 'warm', label: 'Lamplight', type: 'range', min: 0, max: 100, default: 20, ends: ['Daylight', 'Warm'] },
   ] },
   { group: 'Type', items: [
-    { id: 'title', label: 'Titles', type: 'choice', default: 'caslon', options: [['Caslon', 'caslon'], ['Young', 'young'], ['Literata', 'literata']] },
-    { id: 'label', label: 'Labels', type: 'choice', default: 'plex', options: [['Plex', 'plex'], ['DM', 'dm'], ['Spline', 'spline']] },
+    { id: 'title', label: 'Titles', type: 'choice', default: 'literata', options: [['Caslon', 'caslon'], ['Young', 'young'], ['Literata', 'literata']] },
+    { id: 'label', label: 'Labels', type: 'choice', default: 'spline', options: [['Plex', 'plex'], ['DM', 'dm'], ['Spline', 'spline']] },
     { id: 'body', label: 'Text size', type: 'range', min: 16, max: 22, default: 18, unit: 'px' },
   ] },
   { group: 'Shape', items: [
@@ -40,11 +40,11 @@ export const tweaks = [
     { id: 'density', label: 'Spacing', type: 'choice', default: 'comfy', attr: true, options: [['Compact', 'compact'], ['Comfy', 'comfy'], ['Roomy', 'roomy']] },
   ] },
   { group: 'Details', items: [
-    { id: 'progress', label: 'Progress', type: 'choice', default: 'holes', attr: true, options: [['Pierced', 'holes'], ['Bar', 'bar'], ['Ticks', 'ticks']] },
-    { id: 'hole', label: 'Hole size', type: 'range', min: 4, max: 12, default: 7, unit: 'px' },
-    { id: 'tabs', label: 'Tabs', type: 'choice', default: 'line', attr: true, options: [['Line', 'line'], ['Inset', 'inset'], ['Guide', 'guide']] },
+    { id: 'progress', label: 'Progress', type: 'choice', default: 'bar', attr: true, options: [['Pierced', 'holes'], ['Bar', 'bar'], ['Ticks', 'ticks']] },
+    { id: 'hole', label: 'Hole size', type: 'range', min: 4, max: 12, default: 9, unit: 'px' },
+    { id: 'tabs', label: 'Tabs', type: 'choice', default: 'guide', attr: true, options: [['Line', 'line'], ['Inset', 'inset'], ['Guide', 'guide']] },
     { id: 'glow', label: 'Lit holes glow', type: 'toggle', default: true, attr: true },
-    { id: 'peek', label: 'Drawer cards', type: 'toggle', default: true, attr: true },
+    { id: 'peek', label: 'Drawer cards', type: 'toggle', default: false, attr: true },
     { id: 'motion', label: 'Motion', type: 'toggle', default: true, attr: true },
   ] },
 ]

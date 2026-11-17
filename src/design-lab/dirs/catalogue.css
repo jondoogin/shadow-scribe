@@ -2,9 +2,9 @@
    tweaker (and the Lantern mark) follow one setting. --k is contrast 0–100,
    --warm is lamplight 0–100. Defaults here; the tweaker overrides inline. */
 .lx--catalogue {
-  --accent: #C2512E; --paper: #EEE9DF; --k: 30; --warm: 25;
-  --title: "Libre Caslon Text", Georgia, serif; --mono: "IBM Plex Mono", ui-monospace, monospace; --serif: "Source Serif 4", Georgia, serif;
-  --body: 18px; --r: 6px; --hole: 7px;
+  --accent: #236D86; --paper: #E8E8E3; --k: 25; --warm: 20;
+  --title: "Literata", Georgia, serif; --mono: "Spline Sans Mono", ui-monospace, monospace; --serif: "Source Serif 4", Georgia, serif;
+  --body: 18px; --r: 6px; --hole: 9px;
   --shadow: 0 0 0 1px var(--line), 0 10px 22px -18px rgba(40,25,10,.35);
 
   --bg: color-mix(in srgb, var(--paper), #F2C27E calc(var(--warm) * .2%));
@@ -22,7 +22,7 @@
   font-family: var(--serif);
 }
 .lx--catalogue.lx--dark {
-  --paper: #171512;
+  --paper: #131515;
   --bg: color-mix(in srgb, var(--paper), #5A3814 calc(var(--warm) * .28%));
   --card: color-mix(in srgb, #FFFFFF calc(4% + var(--k) * .05%), var(--bg));
   --ink: color-mix(in srgb, #F2EEE6 calc(78% + var(--k) * .22%), var(--bg));
