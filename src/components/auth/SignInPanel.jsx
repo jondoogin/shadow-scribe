@@ -120,9 +120,9 @@ export default function SignInPanel({ onDeleteCloudData }) {
         style={{ background: 'var(--color-card-base)', border: '1px solid var(--color-hairline)' }}
       >
         <p className="italic leading-relaxed" style={{ fontSize: 12, color: 'var(--color-ink-500)' }}>
-          Cloud sync isn't configured yet. Your library lives in this browser only.
-          To enable cross-device sync, follow the setup in{' '}
-          <code style={{ fontFamily: 'var(--font-sans)', fontSize: 11 }}>docs/SUPABASE_SETUP.md</code>.
+          Your library lives in this browser only.
+          {import.meta.env.DEV && <> To enable cross-device sync, follow the setup in{' '}
+          <code style={{ fontFamily: 'var(--font-sans)', fontSize: 11 }}>docs/SUPABASE_SETUP.md</code>.</>}
         </p>
       </div>
     )

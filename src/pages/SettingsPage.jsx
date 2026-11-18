@@ -412,7 +412,7 @@ export default function SettingsPage() {
         </SettingsRow>
         <SettingsRow
           label={confirmReset ? 'Are you sure? This cannot be undone.' : 'Reset to Demo Data'}
-          description={confirmReset ? undefined : "Restores the five original sample companions."}
+          description={confirmReset ? undefined : "Restores the sample companions."}
           danger={confirmReset}
         >
           <div className="flex items-center gap-2">
