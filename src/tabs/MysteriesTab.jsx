@@ -6,43 +6,10 @@ import { useSettings } from '../context/SettingsContext.jsx'
 import { bookDepth } from '../utils/depthLevel.js'
 import { track } from '../utils/analytics.js'
 import { fmtDate } from '../utils/date.js'
-import { mysteryHauntScore, hauntLevel } from '../utils/hauntScore.js'
 import { uid } from '../utils/uid.js'
 import { liveItems } from '../utils/live.js'
 
 const today = () => new Date().toISOString().split('T')[0]
-
-// Companion gravity line — varies by mystery status and age.
-// Communicates active narrative movement, not just archival persistence.
-// Earlier threshold (6ch) so momentum language appears sooner.
-function getMysteryGravity(m, currentCh) {
-  if (m.resolved || m._veiled) return null
-  const age = currentCh - (m.chapter || 0)
-  if (age < 6) return null
-
-  if (m.status === 'suspected') {
-    if (age >= 12) return 'Your suspicion has been circling this for a long time.'
-    if (age >= 8)  return 'Your suspicion keeps returning here.'
-    return 'Something is circling.'
-  }
-  if (m.status === 'evolving') {
-    if (age >= 12) return 'The question keeps changing shape. It hasn\'t stayed still.'
-    return 'Each chapter seems to reframe this slightly.'
-  }
-  if (m.status === 'hinted') {
-    if (age >= 8) return 'The story has gestured at an answer. The resolution may be closer than it seems.'
-    return 'The story has gestured at this. The answer may already be in view.'
-  }
-  if (m.status === 'dormant') {
-    if (age >= 15) return 'The story hasn\'t returned to this. Neither have you. But it\'s still here.'
-    return 'Still drifting. The story hasn\'t answered it — and you haven\'t returned to it.'
-  }
-  // Generic age-based (open/unknown status)
-  if (age >= 20) return 'This has been with you a long time. The story hasn\'t closed it.'
-  if (age >= 15) return 'Still open, deep in the story. Something is being held back.'
-  if (age >= 10) return 'Open for a long stretch now. The story is still carrying this.'
-  return 'Still here. The story hasn\'t addressed it yet.'
-}
 
 const STATUS_STYLE = {
   open:      'bg-ember-bg border-ember-pale text-ember',
@@ -72,16 +39,6 @@ function generateMysteryResponse(text) {
 export default function MysteriesTab({ book, onUpdateBook, flashItemId }) {
   // Live mysteries — tombstoned items stay in book.mysteries for sync but are hidden
   const liveMysteries = useMemo(() => liveItems(book.mysteries), [book.mysteries])
-
-  // ── Note density by chapter — for companion residue echo ─────────────────
-  const notesByChapter = useMemo(() => {
-    const map = {}
-    for (const n of liveItems(book.notes)) {
-      if (n.chapter) map[n.chapter] = (map[n.chapter] || 0) + 1
-    }
-    return map
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [book.notes])
 
   const [showing,          setShowing]          = useState('active')
   const [adding,           setAdding]           = useState(false)
@@ -205,20 +162,6 @@ export default function MysteriesTab({ book, onUpdateBook, flashItemId }) {
   const currentMysteries  = liveMysteries.filter(m => m.archivedEra === undefined)
   const archivedMysteries = liveMysteries.filter(m => m.archivedEra !== undefined)
 
-  // Book temporal state — mysteries inherit the environmental silence of an abandoned book.
-  // A mystery in a book that hasn't been touched for 90+ days recedes with it.
-  // Haunted mysteries resist this pull more than cooling ones — they stay slightly more alive.
-  const bookDaysSince = book.lastUpdated
-    ? Math.floor((Date.now() - new Date(book.lastUpdated)) / 86400000)
-    : 0
-
-  // Cross-surface residue — theory notes bleeding into mystery surface
-  const theoryNoteCount = useMemo(
-    () => liveItems(book.notes).filter(n => n.tag === 'theory').length,
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [book.notes]
-  )
-
   // Spoiler gate — veiled mysteries (ahead of reader's chapter) are never shown
   // individually. They surface naturally as the reader arrives. A single ambient
   // note at the bottom tells the reader how many are waiting ahead.
@@ -293,12 +236,6 @@ export default function MysteriesTab({ book, onUpdateBook, flashItemId }) {
         </button>
       </div>
 
-      {/* Cross-surface residue — theories from Notes bleeding into Mysteries */}
-      {theoryNoteCount >= 3 && active.length >= 2 && !adding && (
-        <p className="text-[11px] text-ink-400 italic mb-5 leading-relaxed">
-          Some of what you've been theorising may already be moving toward these.
-        </p>
-      )}
 
       {adding && (
         <div className="bg-cream-50 border rounded-2xl p-4 mb-5 animate-slide-up" style={{ borderColor:'var(--ca-border, #E8D090)' }}>
@@ -349,31 +286,6 @@ export default function MysteriesTab({ book, onUpdateBook, flashItemId }) {
             const showPicker  = statusPickerId === m.id
             const isDeleting  = deletingId   === m.id
 
-            const mysteryGravity = getMysteryGravity(m, book.currentChapter || 0)
-            const mHauntScore    = m.resolved || m._veiled ? 0 : mysteryHauntScore(m, book)
-            const mHauntLevel    = hauntLevel(mHauntScore)
-
-            // Environmental cooling — mysteries recede when their book has gone quiet.
-            // Explicit dormant status always applies. Book abandonment (90+ days) applies
-            // to all mysteries in that book. Haunted mysteries resist the pull slightly.
-            const isEnvironmentallyQuiet = !m.resolved && !m._veiled
-              && (m.status === 'dormant' || bookDaysSince > 90)
-            const isBookCooling = !m.resolved && !m._veiled
-              && bookDaysSince > 45 && bookDaysSince <= 90
-
-            // Haunted mysteries resist environmental cooling — they stay more visible
-            // than quiet threads even in dormant books. Something here persists.
-            const mysteryOpacity = isEnvironmentallyQuiet
-              ? mHauntLevel === 'haunted'    ? 0.75  // was 0.60 — resists dormancy
-              : mHauntLevel === 'persistent' ? 0.60  // was 0.50 — some resistance
-              :                                0.40
-              : isBookCooling ? 0.78
-              : undefined
-
-            const mysteryFilter = isEnvironmentallyQuiet && mHauntLevel !== 'haunted'
-              ? 'saturate(0.50)'
-              : undefined
-
             return (
               <div key={m.id}
                 className={`note-card p-4 transition-all ${
@@ -385,9 +297,6 @@ export default function MysteriesTab({ book, onUpdateBook, flashItemId }) {
                 } ${flashItemId != null && flashItemId === m.id ? 'item-glow' : ''}`}
                 style={{
                   background:  m.resolved ? 'var(--color-cream-200)' : 'var(--color-card-base)',
-                  opacity:     mysteryOpacity,
-                  filter:      mysteryFilter,
-                  transition:  'opacity .35s ease, filter .35s ease',
                 }}>
                 <div className="flex items-start gap-3">
                   {/* Checkbox */}
@@ -439,12 +348,6 @@ export default function MysteriesTab({ book, onUpdateBook, flashItemId }) {
                         {!m._veiled && (
                           <span className="text-[11px] text-ink-400">
                             ch. {m.chapter}
-                            {notesByChapter[m.chapter] >= 2 && (
-                              <span className="companion-echo" style={{ fontSize: 10 }}> · {notesByChapter[m.chapter]} thoughts then</span>
-                            )}
-                            {!m.resolved && !finished && (book.currentChapter - m.chapter) >= 8 && (
-                              <span className="text-ink-300 italic"> · {book.currentChapter - m.chapter} ch. open</span>
-                            )}
                           </span>
                         )}
 
@@ -487,19 +390,6 @@ export default function MysteriesTab({ book, onUpdateBook, flashItemId }) {
                     )}
 
                     {/* Companion gravity — suppressed for finished books (story references don't hold) */}
-                    {mysteryGravity && !isRefining && !isObserving && !isDeleting && !finished && (
-                      <p className={`text-[11px] italic mt-2 leading-relaxed ${
-                        mHauntLevel === 'haunted'    ? 'text-ink-500'
-                        : mHauntLevel === 'persistent' ? 'text-ink-400'
-                        : mHauntLevel === 'cooling'    ? 'text-ink-300'
-                        : 'text-ink-400'
-                      }`}>
-                        {mHauntLevel === 'haunted' && (
-                          <span className="mr-1 text-[9px] opacity-60" style={{ color: 'var(--ca, #B8860B)' }}>✦</span>
-                        )}
-                        {mysteryGravity}
-                      </p>
-                    )}
 
                     {/* Observation display */}
                     {!m._veiled && m.observation && !isObserving && (

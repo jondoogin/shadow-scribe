@@ -11,12 +11,12 @@ import SignInPanel from '../components/auth/SignInPanel.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
 import { track } from '../utils/analytics.js'
 
-function SettingsSection({ title, description, children }) {
+// Sections carry a heading only; the rows explain themselves.
+function SettingsSection({ title, children }) {
   return (
     <section className="mb-10">
       <div className="mb-4">
         <h2 className="font-serif text-[15px] font-semibold text-ink-800">{title}</h2>
-        {description && <p className="text-[12px] text-ink-400 mt-0.5">{description}</p>}
       </div>
       <div className="bg-cream-50 rounded-2xl border border-ink-200 divide-y divide-ink-100 overflow-hidden">
         {children}
@@ -150,7 +150,6 @@ export default function SettingsPage() {
     <main className="max-w-2xl mx-auto px-5 sm:px-8 py-10 pb-20">
       <div className="mb-10">
         <h1 className="font-serif text-2xl font-bold text-ink-900 mb-1">Settings</h1>
-        <p className="text-[13px] text-ink-500">Your preferences travel with your companions.</p>
       </div>
 
       {/* ── Sync — sign in for cross-device library ── */}

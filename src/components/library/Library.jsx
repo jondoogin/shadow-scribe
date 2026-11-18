@@ -7,7 +7,6 @@ import BookCover from '../shared/BookCover.jsx'
 import { usePlayback } from '../../context/PlaybackContext.jsx'
 import { fmtDate } from '../../utils/date.js'
 import { callNumber, statusLabel, unitWord, Holes, Field, Tabs, LitLabel, Mark } from '../../catalogue/parts.jsx'
-import LibraryCompanion from './LibraryCompanion.jsx'
 import FirstBookInvitation from './FirstBookInvitation.jsx'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { useBooks } from '../../context/BooksContext.jsx'
@@ -40,32 +39,9 @@ function WelcomeBanner({ hasKey, onDismiss }) {
           <LanternMark size={12} className="inline-block align-[-1px] mr-1.5" />
           welcome
         </p>
-        <p className="font-serif text-[16px] leading-relaxed mb-3" style={{ color: 'var(--color-ink-800)' }}>
-          Lantern sits alongside you as you read.
+        <p className="font-serif text-[16px] leading-relaxed mb-4" style={{ color: 'var(--color-ink-800)' }}>
+          Lantern keeps what you notice as you read, and never shows what's ahead. The sample books below show how it looks.
         </p>
-        <p className="text-[13px] leading-relaxed mb-3" style={{ color: 'var(--color-ink-500)', lineHeight: 1.7 }}>
-          Not a tracker. Not a to-do list. A personal space that accumulates what you notice — chapters covered, questions that linger, theories that later collapse — and holds the texture of your reading long after the book is closed.
-        </p>
-        <p className="text-[13px] leading-relaxed mb-4" style={{ color: 'var(--color-ink-500)', lineHeight: 1.7 }}>
-          The companion is quiet by design. It notices patterns — recurring words, interpretive shifts, emotional weather — and occasionally surfaces them without being asked. It speaks rarely, and only when something specific has earned being said.
-        </p>
-        {!hasKey ? (
-          <p className="text-[12px] leading-relaxed mb-5 italic" style={{ color: 'var(--color-ink-400)', lineHeight: 1.7 }}>
-            The companion responds through an{' '}
-            <Link to="/settings" onClick={onDismiss} className="underline hover:opacity-80 transition-opacity" style={{ color: 'var(--color-ink-500)' }}>
-              Anthropic API key
-            </Link>
-            {' '}— your key and all your reading data are stored locally and never leave this device. Without one, notes and chapter tracking still work; the companion simply stays quiet. The sample companions below show what a reading looks like once it's lived-in.
-          </p>
-        ) : (
-          <p className="text-[12px] leading-relaxed mb-5 italic" style={{ color: 'var(--color-ink-400)', lineHeight: 1.7 }}>
-            The example books below show what an annotated reading looks like. To begin your own, import an EPUB or add a book manually with the{' '}
-            <Link to="/new" onClick={onDismiss} className="underline hover:opacity-80 transition-opacity" style={{ color: 'var(--color-ink-500)' }}>
-              Add a book
-            </Link>
-            {' '}button above.
-          </p>
-        )}
         <div className="flex items-center gap-5">
           <button
             onClick={onDismiss}
@@ -231,21 +207,6 @@ function SignUpNudge({ totalNotes, onDismiss }) {
   )
 }
 
-// Chapters marked in the last seven days, for the drawer's footnote.
-function chaptersThisWeek(books) {
-  const since = Date.now() - 7 * 86400000
-  let chapters = 0
-  const lit = new Set()
-  for (const b of books) {
-    for (const s of b.readingLog || []) {
-      if (!s.date || new Date(s.date).getTime() < since) continue
-      chapters += Math.max(0, (s.endChapter || 0) - (s.startChapter || 0))
-      lit.add(b.id)
-    }
-  }
-  return { chapters, books: lit.size }
-}
-
 const FILTERS = [
   ['all', 'All'], ['reading', 'On loan'], ['paused', 'Set aside'], ['finished', 'Returned'], ['want', 'Shelf'], ['archived', 'Archive'],
 ]
@@ -355,7 +316,6 @@ export default function Library() {
     requestAnimationFrame(() => heroRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }))
   }
 
-  const week = chaptersThisWeek(books)
   const hasBooks = books.length > 0
 
   return (
@@ -400,8 +360,6 @@ export default function Library() {
               </>
             )}
 
-            <LibraryCompanion books={books} />
-
             <section className="c3-box" aria-label="Your drawer">
               <header className="c3-box-head">
                 <h2>Your drawer</h2>
@@ -429,7 +387,6 @@ export default function Library() {
                         onClick={() => pick(b.id)}
                         aria-current={hero && b.id === hero.id ? 'true' : undefined}
                       >
-                        <span className="c2-call">{callNumber(b)}</span>
                         <span className="c2-row-t"><b>{b.title}</b><span>{b.author}</span></span>
                         <span className="c2-row-s">
                           {b.id === playingId && lit ? <Mark size={14} live />
@@ -441,16 +398,8 @@ export default function Library() {
                   ))}
                 </ol>
               )}
-              <div style={{ padding: '6px 16px 16px' }}>
-                <Link to="/new" className="c2-btn" style={{ width: '100%' }}>+ Add a book</Link>
-              </div>
             </section>
 
-            <p className="c2-fine">
-              {week.chapters > 0
-                ? `Lit ${week.chapters} ${week.chapters === 1 ? 'chapter' : 'chapters'} across ${week.books} ${week.books === 1 ? 'book' : 'books'} this week.`
-                : `${books.length} ${books.length === 1 ? 'card' : 'cards'} in the drawer. ${totalLiveNotes} ${totalLiveNotes === 1 ? 'note' : 'notes'} kept.`}
-            </p>
           </>
         )}
       </main>

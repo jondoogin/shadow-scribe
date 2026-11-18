@@ -16,7 +16,6 @@ import { bookDepth } from '../../utils/depthLevel.js'
 import { computePresenceVisibility, shouldYieldToBook } from '../../utils/invisiblePresence.js'
 import { isMysteryVisible, getEffectiveMode } from '../../utils/spoiler.js'
 import { mysteryHauntScore, hauntLevel }       from '../../utils/hauntScore.js'
-import { getProgress }   from '../../utils/progress.js'
 import { useSettings }   from '../../context/SettingsContext.jsx'
 import { useBooks }      from '../../context/BooksContext.jsx'
 import { liveItems }     from '../../utils/live.js'
@@ -34,40 +33,7 @@ function fallbackResponse() {
   return FALLBACK_RESPONSES[Math.floor(Math.random() * FALLBACK_RESPONSES.length)]
 }
 
-// ── Chapter context greeting (rule-based, no AI required) ─────────────────────
-// Quiet depth: interpretive tails suppressed — just the factual position.
-function buildChapterGreeting(book, depth = 'resonant') {
-  const ch     = book.currentChapter || 0
-  const total  = book.totalChapters  || 0
-  const notes  = liveItems(book.notes).length
-  const open   = liveItems(book.mysteries).filter(m => !m.resolved).length
-
-  if (ch === 0) return null
-
-  const position = total > 0 ? Math.round((ch / total) * 100) : null
-  let line = `Chapter ${ch}`
-  if (total > 0) line += ` of ${total}`
-
-  // Quiet: the position is enough — companion doesn't interpret the story's shape
-  if (depth === 'quiet') return `${line}.`
-
-  if (position !== null) {
-    if (position <= 15) return `${line}. Early days — everything is still possibility.`
-    if (position <= 35) return `${line}. The story is finding its footing. Patterns are beginning to form.`
-    if (position <= 55) return `${line}. The middle territory — where the story earns or loses what it promised.`
-    if (position <= 75) {
-      const tail = open >= 2 ? ` There are ${open} open threads still pulling.` : ''
-      return `${line}. Deeper in now.${tail}`
-    }
-    if (position <= 90) return `${line}. The final stretch. The story is deciding what it was.`
-    return `${line}. Nearly done. The ending is already determining how the whole thing will settle.`
-  }
-
-  if (notes >= 10) return `${line}. A well-annotated manuscript — the companion has been accumulating.`
-  return `${line}.`
-}
-
-export default function CompanionBand({ book, onUpdateBook, onTabChange }) {
+export default function CompanionBand({ book, onTabChange }) {
   const { settings }   = useSettings()
   const { updateBook } = useBooks()
   const mode           = getEffectiveMode(book, settings)
@@ -270,26 +236,7 @@ export default function CompanionBand({ book, onUpdateBook, onTabChange }) {
   const showAmbient    = depth !== 'quiet'
   const showChat       = depth !== 'quiet'
 
-  // ── Depth picker ───────────────────────────────────────────────────────────
-  const [depthOpen, setDepthOpen] = useState(false)
-  const depthRef = useRef(null)
-  useEffect(() => {
-    if (!depthOpen) return
-    const handler = e => { if (!depthRef.current?.contains(e.target)) setDepthOpen(false) }
-    document.addEventListener('mousedown', handler)
-    return () => document.removeEventListener('mousedown', handler)
-  }, [depthOpen])
-
-  const DEPTH_OPTS = [
-    { k: 'quiet',     icon: '○', label: 'Quiet',     desc: 'The companion watches in silence.' },
-    { k: 'resonant',  icon: '◐', label: 'Resonant',  desc: 'Present and responsive. The default.' },
-    { k: 'saturated', icon: '●', label: 'Saturated', desc: 'Fully engaged. More observations, higher density.' },
-  ]
-  const depthOpt = DEPTH_OPTS.find(o => o.k === depth) || DEPTH_OPTS[1]
-
   // ── Derived display values ─────────────────────────────────────────────────
-  const chapterGreeting = buildChapterGreeting(book, depth)
-  const pct             = getProgress(book)
   const hasConversation = messages.length > 0
 
   // First arrival — brand-new book: reading, no sessions, no notes yet
@@ -308,51 +255,6 @@ export default function CompanionBand({ book, onUpdateBook, onTabChange }) {
     <div className="px-5 sm:px-10" style={{ maxWidth: 1000, margin: '20px auto 0' }}>
       <div className={`companion-band companion-band-body${thinking ? ' companion-band--thinking' : ''}`}>
 
-        {/* ── Header row: chapter context + progress ── */}
-        {chapterGreeting && (
-          <div className="flex items-start justify-between mb-4 gap-3">
-            <p style={{
-              fontFamily: 'var(--font-sans)',
-              fontSize: 10,
-              letterSpacing: '0.10em',
-              textTransform: 'uppercase',
-              color: 'var(--color-text-dim)',
-              fontWeight: 400,
-              lineHeight: 1.5,
-              flex: 1,
-              minWidth: 0,
-            }}>
-              {chapterGreeting}
-            </p>
-            {pct > 0 && (
-              <div className="flex items-center gap-2 flex-shrink-0 mt-0.5">
-                <div style={{
-                  width: 56, height: 2,
-                  background: 'var(--color-hairline)',
-                  borderRadius: 2,
-                  overflow: 'hidden',
-                }}>
-                  <div style={{
-                    width: `${pct}%`,
-                    height: '100%',
-                    background: 'var(--color-accent)',
-                    borderRadius: 2,
-                    boxShadow: '0 0 8px var(--color-glow)',
-                    transition: 'width 1.0s ease',
-                  }} />
-                </div>
-                <span style={{
-                  fontFamily: 'var(--font-sans)',
-                  fontSize: 10,
-                  color: 'var(--color-text-dim)',
-                  whiteSpace: 'nowrap',
-                }}>
-                  {pct}%
-                </span>
-              </div>
-            )}
-          </div>
-        )}
 
         {/* ── Main band content ── */}
         <div className="flex flex-col lg:flex-row gap-8">
@@ -675,76 +577,6 @@ export default function CompanionBand({ book, onUpdateBook, onTabChange }) {
 
         </div>
 
-        {/* ── Depth indicator — ambient footer, always visible ── */}
-        <div ref={depthRef} style={{ position: 'relative', display: 'flex', justifyContent: 'flex-end', marginTop: 20 }}>
-          <button
-            onClick={() => setDepthOpen(v => !v)}
-            style={{
-              display: 'flex', alignItems: 'center', gap: 5,
-              fontFamily: 'var(--font-sans)',
-              fontSize: 9, letterSpacing: '0.10em', textTransform: 'uppercase',
-              color: depthOpen ? 'var(--color-accent)' : 'var(--color-text-dim)',
-              opacity: depthOpen ? 1 : 0.55,
-              transition: 'opacity 0.2s ease, color 0.2s ease',
-              cursor: 'pointer',
-              padding: '2px 0',
-            }}
-            aria-label="Change companion depth"
-          >
-            <span style={{ fontSize: 11 }}>{depthOpt.icon}</span>
-            {depthOpt.label}
-          </button>
-
-          {depthOpen && (
-            <div style={{
-              position: 'absolute', bottom: 'calc(100% + 8px)', right: 0,
-              background: 'var(--color-card-base)',
-              border: '1px solid var(--color-separator-soft)',
-              borderRadius: 12,
-              overflow: 'hidden',
-              boxShadow: '0 4px 20px rgba(0,0,0,0.12), 0 1px 4px rgba(0,0,0,0.06)',
-              zIndex: 20,
-              width: 232,
-              animation: 'menuDrop 0.18s ease',
-            }}>
-              {DEPTH_OPTS.map((opt, i) => {
-                const active = depth === opt.k
-                return (
-                  <button
-                    key={opt.k}
-                    onClick={() => { onUpdateBook({ depthLevel: opt.k }); setDepthOpen(false) }}
-                    style={{
-                      display: 'flex', alignItems: 'flex-start', gap: 10,
-                      width: '100%', textAlign: 'left',
-                      padding: '10px 14px',
-                      background: active ? 'color-mix(in srgb, var(--color-accent) 7%, transparent)' : 'transparent',
-                      borderBottom: i < DEPTH_OPTS.length - 1 ? '1px solid var(--color-separator-soft)' : 'none',
-                      transition: 'background 0.15s ease',
-                    }}
-                  >
-                    <span style={{
-                      fontSize: 13, flexShrink: 0, marginTop: 1,
-                      color: active ? 'var(--color-accent)' : 'var(--color-text-dim)',
-                      opacity: active ? 1 : 0.5,
-                    }}>{opt.icon}</span>
-                    <div>
-                      <p style={{
-                        fontFamily: 'var(--font-sans)', fontSize: 11, fontWeight: 600,
-                        color: active ? 'var(--color-accent)' : 'var(--color-text-primary)',
-                        marginBottom: 2,
-                      }}>{opt.label}</p>
-                      <p style={{
-                        fontFamily: 'var(--font-serif)', fontStyle: 'italic',
-                        fontSize: 10, lineHeight: 1.45,
-                        color: 'var(--color-text-dim)',
-                      }}>{opt.desc}</p>
-                    </div>
-                  </button>
-                )
-              })}
-            </div>
-          )}
-        </div>
 
       </div>
     </div>

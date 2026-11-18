@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import BookCover from '../shared/BookCover.jsx'
-import ReadingMomentum from './ReadingMomentum.jsx'
 import { Ico } from '../shared/icons.jsx'
 import { getProgress } from '../../utils/progress.js'
 import { fmtDate } from '../../utils/date.js'
@@ -277,6 +276,11 @@ export default function CompanionHeader({ book, onOpenUpdate, onUpdateBook }) {
     actions.push({ key: 'begin',   label: 'begin reading',          confirm: false })
   }
 
+  // Status changes (put aside, mark finished, archive…) live in the ⋯ menu;
+  // only the ones that are the next step for the book stay on the card.
+  const cardActions = actions.filter(a => a.key === 'begin' || a.key === 'restore')
+  const menuActions = actions.filter(a => !cardActions.includes(a))
+
   // Quiet annotation: series position + reread count
   const metaAnnotation = [
     book.series?.name && `${book.series.name} · book ${book.series.position}${book.series.total > 0 ? ` of ${book.series.total}` : ''}`,
@@ -532,9 +536,9 @@ export default function CompanionHeader({ book, onOpenUpdate, onUpdateBook }) {
       )}
 
       {/* ── Lifecycle actions ── */}
-      {actions.length > 0 && !pendingAction && !editingMeta && (
+      {cardActions.length > 0 && !pendingAction && !editingMeta && (
         <div className="c2-links">
-          {actions.map(a => (
+          {cardActions.map(a => (
             <button key={a.key} type="button" className="c2-link"
               onClick={() => a.confirm ? setPendingAction(a.key) : performAction(a.key)}>
               {a.label.charAt(0).toUpperCase() + a.label.slice(1)}
@@ -543,8 +547,6 @@ export default function CompanionHeader({ book, onOpenUpdate, onUpdateBook }) {
         </div>
       )}
 
-      {/* ── Reading momentum ── */}
-      {!isFinished && <ReadingMomentum book={book} />}
 
       {/* ── Re-extraction status ── */}
       {reextracting && (
@@ -576,13 +578,19 @@ export default function CompanionHeader({ book, onOpenUpdate, onUpdateBook }) {
         <div>
           <button type="button" className="c2-ic" onClick={() => navigate('/library')} aria-label="Back to library"><Ico.Left /></button>
         </div>
-        <div className="c2-top-c"><span className="c2-label">{callNumber(book)} · Companion</span></div>
+        <div className="c2-top-c" />
         <div className="c2-top-r c3-menu" ref={menuRef}>
           <button type="button" className="c2-ic" onClick={() => { setMenuOpen(v => !v); setConfirmDelete(false) }} aria-label="Manage companion" aria-expanded={menuOpen}>
             <Ico.Dots />
           </button>
           {menuOpen && (
             <div className="c3-menu-pop animate-fade-in">
+              {menuActions.map(a => (
+                <button key={a.key} type="button" onClick={() => { setMenuOpen(false); a.confirm ? setPendingAction(a.key) : performAction(a.key) }}>
+                  {a.label.charAt(0).toUpperCase() + a.label.slice(1)}
+                </button>
+              ))}
+              {menuActions.length > 0 && <hr />}
               <button type="button" onClick={openEditMeta}>Edit details</button>
               <button type="button" onClick={() => { handleExport(); setMenuOpen(false) }}>Save a copy</button>
               {hasAiKey && <button type="button" onClick={handleReextractClick}>Re-extract with Claude…</button>}
@@ -608,7 +616,6 @@ export default function CompanionHeader({ book, onOpenUpdate, onUpdateBook }) {
       <article className="c2-card">
         <div className="c2-card-head">
           <span className="c2-call">{callNumber(book)}{book.series ? ` · ${book.series.position}` : ''}</span>
-          <span className="c2-label">Reader’s card</span>
         </div>
 
         {editingMeta ? (

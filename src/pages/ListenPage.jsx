@@ -16,13 +16,6 @@ import { getFullContent, deleteAudiobook, getSectionBlocks, storageEstimate } fr
 import { segmentBlocks } from '../narration/segmenter.js'
 import { sectionLabel, chapterReached, formatClock, formatDuration, formatBytes } from '../narration/sectionLabels.js'
 
-// "16 NOV" for the lamp log's date stamps. Dates are stored as YYYY-MM-DD.
-function stampDate(d) {
-  if (!d) return '—'
-  const t = new Date(d.length <= 10 ? `${d}T12:00:00` : d)
-  return Number.isNaN(t.getTime()) ? '—' : t.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }).toUpperCase()
-}
-
 const RATES = [0.8, 0.9, 1, 1.1, 1.25, 1.5, 1.75, 2]
 
 function downloadJson(data, filename) {
@@ -135,13 +128,12 @@ export default function ListenPage() {
   const sleepMin = pb.sleep.mode === 'minutes' ? Math.ceil((pb.sleep.remainingMs || 0) / 60000) : 0
   const wickOn = pb.sleep.mode === 'minutes' ? (SLEEP_OPTIONS.find(o => o.minutes && o.minutes >= sleepMin)?.id || '60') : pb.sleep.mode
   const wickPct = pb.sleep.mode === 'minutes' ? Math.min(100, ((pb.sleep.remainingMs || 0) / 3_600_000) * 100) : pb.sleep.mode === 'chapter' ? 100 : 0
-  const log = (book.readingLog || []).slice(-3).reverse()
 
   return (
     <div className="cat c2 listen-page">
       <header className="c2-top">
         <div><Link to={`/book/${bookId}`} className="c2-ic" aria-label={`Back to ${book.title}`}><Ico.Left /></Link></div>
-        <div className="c2-top-c"><span className="c2-label">{voiceName ? `Listening · ${voiceName}` : 'Listen'}</span></div>
+        <div className="c2-top-c">{voiceName && <span className="c2-label">Listening · {voiceName}</span>}</div>
         <div className="c2-top-r">
           {ps && <button type="button" className="c2-ic" onClick={() => setShowChapters(v => !v)} aria-expanded={showChapters} aria-label={`Chapters (${sections.length})`}><Ico.Menu /></button>}
         </div>
@@ -262,24 +254,6 @@ export default function ListenPage() {
         </>
       )}
 
-      {/* ── Lamp log: recent sessions from the reading log ── */}
-      {log.length > 0 && (
-        <>
-          <div className="c2-sec"><h2>Lamp log</h2><span className="c2-label">Ch. {book.currentChapter || 0}</span></div>
-          <ol className="c2-loans">
-            {log.map((e, i) => (
-              <li key={e.id || i}>
-                <span className="c2-datestamp" style={{ '--rot': `${[-3, 2, -1][i % 3]}deg` }}>{stampDate(e.date)}</span>
-                <span>
-                  <b>{e.endChapter > e.startChapter ? `Lit ch. ${e.startChapter + 1}–${e.endChapter}` : `Lit ch. ${e.endChapter || e.startChapter || 1}`}</b>
-                  <small>{e.durationEstimate ? `${e.durationEstimate} session` : 'reading session'}</small>
-                </span>
-              </li>
-            ))}
-          </ol>
-        </>
-      )}
-
       {/* ── Reading room: ambience ── */}
       {ps && (
         <>
@@ -378,8 +352,6 @@ export default function ListenPage() {
           </div>
         </section>
       )}
-
-      <p className="c2-fine">Your companion stays at chapter {book.currentChapter || 0} until you move it.</p>
 
       {showUpdate && <ChapterUpdateModal book={book} onClose={() => setShowUpdate(false)} onUpdateBook={onUpdateBook} />}
     </div>

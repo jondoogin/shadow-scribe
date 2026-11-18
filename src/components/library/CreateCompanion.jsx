@@ -23,6 +23,7 @@ export default function CreateCompanion({ onCreate, onCancel }) {
   const { settings } = useSettings()
   const { books, updateBook } = useBooks()
   const [step, setStep] = useState(1)
+  const [showDepth, setShowDepth] = useState(false)
   const [form, setForm] = useState({
     title:'', author:'', isbn:'', format: settings.defaultFormat ?? 'print', mood:'gold',
     depthLevel: settings.defaultDepthLevel ?? 'resonant',
@@ -104,9 +105,9 @@ export default function CreateCompanion({ onCreate, onCancel }) {
   }
 
   const formats = [
-    { k:'print',     l:'Print',     icon:'📖' },
-    { k:'ebook',     l:'E-Book',    icon:'📱' },
-    { k:'audiobook', l:'Audiobook', icon:'🎧' },
+    { k:'print',     l:'Print' },
+    { k:'ebook',     l:'E-Book' },
+    { k:'audiobook', l:'Audiobook'},
   ]
   const spoilerModes = [
     { k:'strict',  l:'Strict',        desc:'Never show upcoming chapter info' },
@@ -234,26 +235,28 @@ export default function CreateCompanion({ onCreate, onCancel }) {
               <div className="flex gap-3">
                 {formats.map(f => (
                   <button key={f.k} onClick={() => set('format', f.k)}
-                    className={`flex-1 py-3.5 rounded-xl border-2 text-[13px] font-medium transition-all ${
+                    className={`flex-1 py-2.5 rounded-xl border-2 text-[14px] font-medium transition-all ${
                       form.format === f.k
                         ? 'border-gold bg-gold-bg text-gold'
                         : 'border-ink-200 text-ink-600 hover:border-ink-300 bg-cream-200'
                     }`}>
-                    <div className="text-xl mb-1">{f.icon}</div>
                     {f.l}
                   </button>
                 ))}
               </div>
             </div>
 
-            {/* Companion depth — ritual choice, not a settings dial */}
+            {/* Companion depth: Resonant by default, the choice is one tap away */}
             <div className="mb-6">
-              <p className="font-serif mb-1.5" style={{ fontSize: 17, fontWeight: 400, color: 'var(--color-ink-900)' }}>
-                How should your companion be present?
-              </p>
-              <p className="italic mb-4" style={{ fontSize: 12, color: 'var(--color-ink-500)', lineHeight: 1.6 }}>
-                This shapes how Lantern holds space as you read. You can change it any time.
-              </p>
+              <div className="flex items-baseline justify-between gap-3 mb-2">
+                <label className="block text-[10px] font-semibold text-ink-500 uppercase tracking-widest">Companion</label>
+                {!showDepth && (
+                  <button type="button" onClick={() => setShowDepth(true)} className="text-[13px] text-ink-600 underline underline-offset-2">
+                    {form.depthLevel.charAt(0).toUpperCase() + form.depthLevel.slice(1)} · change
+                  </button>
+                )}
+              </div>
+              {showDepth && (
               <div className="space-y-2">
                 {[
                   {
@@ -316,6 +319,7 @@ export default function CreateCompanion({ onCreate, onCancel }) {
                   )
                 })}
               </div>
+              )}
             </div>
 
             <button onClick={() => form.title && setStep(2)}

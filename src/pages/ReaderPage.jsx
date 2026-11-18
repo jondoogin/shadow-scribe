@@ -117,7 +117,7 @@ export default function ReaderPage() {
     <div className="cat c2 c2--reader reader-page">
       <header className="c2-top">
         <div><Link to={`/book/${bookId}`} className="c2-ic" aria-label={`Back to ${book.title}`}><Ico.Left /></Link></div>
-        <div className="c2-top-c"><span className="c2-label">{section ? `${sectionLabel(section, sectionIndex, book)} · ${Math.round(readPct)}%` : 'Reader'}</span></div>
+        <div className="c2-top-c">{section && <span className="c2-label">{sectionLabel(section, sectionIndex, book)} · {Math.round(readPct)}%</span>}</div>
         <div className="c2-top-r">
           {section && <button type="button" className="c2-ic" onClick={listenHere} aria-label="Listen from here"><Ico.Headphones /></button>}
         </div>

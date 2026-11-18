@@ -1,44 +1,9 @@
-import { useState, useMemo } from 'react'
+import { useState } from 'react'
 import { Ico } from '../components/shared/icons.jsx'
 import WeightedProgressBar from '../components/shared/WeightedProgressBar.jsx'
 import SectionHeading from '../components/shared/SectionHeading.jsx'
 import { getProgress } from '../utils/progress.js'
-import { useSettings } from '../context/SettingsContext.jsx'
 import { fmtDate } from '../utils/date.js'
-import { generateOrientationLines } from '../utils/companionPresence.js'
-import { liveItems } from '../utils/live.js'
-import { bookDepth } from '../utils/depthLevel.js'
-
-// ── CompanionOrientation — steadying / re-entry / "you are here" ─────────────
-// Shows above the progress block when there's reading context.
-// Emotionally distinct from CompanionPresenceZone — quieter, more grounding.
-// Does NOT source from cached reflections (those belong to the carousel above).
-// Short, present-tense sentences. Locates the reader without interpretation.
-
-function CompanionOrientation({ book, settings }) {
-  const lines = useMemo(
-    () => generateOrientationLines(book, settings),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [book.currentChapter, book.readingLog?.length, settings.insightStyle]
-  )
-
-  const hasContext = (book.currentChapter > 0) || (liveItems(book.notes).length > 0)
-  if (!lines.length || !hasContext) return null
-
-  return (
-    <div className="companion-orientation-block mb-6 animate-fade-in">
-      <div className="flex items-start gap-2.5">
-        <span className="text-[9px] mt-[5px] flex-shrink-0 opacity-50" style={{ color: 'var(--ca, #B8860B)' }}>✦</span>
-        <div>
-          <p className="font-serif italic leading-relaxed" style={{ fontSize: 13, color: 'var(--color-ink-500)' }}>{lines[0]}</p>
-          {lines[1] && (
-            <p className="leading-relaxed mt-1.5" style={{ fontSize: 11, color: 'var(--color-ink-300)' }}>{lines[1]}</p>
-          )}
-        </div>
-      </div>
-    </div>
-  )
-}
 
 const DURATION_LABELS = {
   brief:    'A brief return',
@@ -49,8 +14,6 @@ const DURATION_LABELS = {
 const SESSION_PAGE = 8
 
 export default function ProgressTab({ book, onUpdateBook }) {
-  const { settings } = useSettings()
-  const depth = bookDepth(book, settings)
   const pct   = getProgress(book)
   const [showAllSess, setShowAllSess] = useState(false)
 
@@ -79,7 +42,6 @@ export default function ProgressTab({ book, onUpdateBook }) {
     <div className="max-w-2xl">
 
       {/* ── Companion orientation — re-entry warmth + continuity ── */}
-      {depth !== 'quiet' && book.status !== 'finished' && <CompanionOrientation book={book} settings={settings} />}
 
       {/* ── Progress — editorial spine (active books only) ── */}
       {book.status !== 'finished' && (
@@ -103,11 +65,6 @@ export default function ProgressTab({ book, onUpdateBook }) {
             </span>
           </div>
           <WeightedProgressBar book={book} height="h-px" />
-          {pct >= 85 && pct < 100 && depth !== 'quiet' && (
-            <p className="companion-echo mt-2" style={{ fontSize: 10 }}>
-              The weight shifts toward the end.
-            </p>
-          )}
         </div>
       )}
 
@@ -180,24 +137,15 @@ export default function ProgressTab({ book, onUpdateBook }) {
                 : s.startChapter === s.endChapter
                   ? `${label} ${s.endChapter}`
                   : `${label} ${s.startChapter + 1}–${s.endChapter}`
-              // Temporal aging — older visits settle progressively into silence
-              const sessionAge = s.date ? Math.floor((Date.now() - new Date(s.date)) / 86400000) : 0
-              const sessionOpacity = sessionAge > 90 ? 0.28
-                : sessionAge > 60 ? 0.42
-                : sessionAge > 30 ? 0.65
-                : 1
-              const aged     = sessionAge > 30
-              const deepAged = sessionAge > 60
               return (
                 <div key={s.id || i}
                   className="session-row flex items-start gap-4 py-2.5"
-                  style={{ opacity: sessionOpacity, transition: 'opacity 0.2s ease' }}
                 >
                   <span
                     className="w-20 flex-shrink-0 pt-0.5 tabular-nums"
                     style={{
-                      fontSize: deepAged ? 10 : 11,
-                      color: deepAged ? 'var(--color-ink-200)' : aged ? 'var(--color-ink-300)' : 'var(--color-ink-400)',
+                      fontSize: 13,
+                      color: 'var(--color-ink-500)',
                     }}
                   >
                     {fmtDate(s.date)}
@@ -205,20 +153,20 @@ export default function ProgressTab({ book, onUpdateBook }) {
                   <div className="flex-1 min-w-0">
                     {chRange && (
                       <span style={{
-                        fontSize: deepAged ? 11 : 12,
-                        color: deepAged ? 'var(--color-ink-300)' : aged ? 'var(--color-ink-400)' : 'var(--color-ink-700)',
+                        fontSize: 15,
+                        color: 'var(--color-ink-700)',
                       }}>{chRange}</span>
                     )}
                     {s.durationEstimate && (
                       <span
                         className="italic"
-                        style={{ fontSize: deepAged ? 10 : 11, color: 'var(--color-ink-400)', marginLeft: chRange ? 8 : 0 }}
+                        style={{ fontSize: 14, color: 'var(--color-ink-500)', marginLeft: chRange ? 8 : 0 }}
                       >
                         {DURATION_LABELS[s.durationEstimate]}
                       </span>
                     )}
                     {!chRange && !s.durationEstimate && (
-                      <span style={{ fontSize: deepAged ? 11 : 12, color: 'var(--color-ink-400)', fontStyle: 'italic' }}>a visit</span>
+                      <span style={{ fontSize: 15, color: 'var(--color-ink-400)', fontStyle: 'italic' }}>a visit</span>
                     )}
                   </div>
                 </div>
@@ -235,11 +183,7 @@ export default function ProgressTab({ book, onUpdateBook }) {
         </>
       ) : (
         <p className="font-serif italic leading-relaxed" style={{ fontSize: 14, color: 'var(--color-ink-500)' }}>
-          {depth === 'quiet'
-            ? 'Sessions accumulate here as you read.'
-            : depth === 'saturated'
-            ? 'Every session settles here. The companion traces the shape of the reading as it forms.'
-            : 'Every session settles here — a record of how this book was read.'}
+          Your reading sessions appear here.
         </p>
       )}
 
