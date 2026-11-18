@@ -5,6 +5,36 @@
 
 ## Active Milestone Queue
 
+### Milestone: Neural Narration (Listen + Reader) — Session 163 — in review
+- [x] Local generator CLI (Kokoro / Pocket TTS / Qwen3) with resume, cache, loudness, `.lantern-audio` packaging
+- [x] IndexedDB content + audio storage, stable locators
+- [x] Listen player, mini-player, sleep timer, Media Session, ambience with ducking
+- [x] Reader view with shared position and live highlight
+- [x] Retarget for MacBook Pro M5 Pro 48 GB, keep M2 Air 16 GB supported (Session 164)
+- [x] Mac benchmark on the M5 Pro (Kokoro, Pocket, Qwen3 0.6B + 1.7B; 2026-11-13)
+- [ ] Rerun `kokoro-mlx` on the M5 Pro after the `misaki` fix
+- [x] Listen to the M5 Pro samples: Qwen3 1.7B chosen as the Pro's default engine (Session 164)
+- [x] Voice chosen per book (`audition`, remembered choice, `--style`)
+- [x] Audition the 9 Qwen3 voices on the Mac: Aiden is the default
+- [x] Custom voice builder: `design` + `qwen3-designed` (built and tested with a stand-in engine)
+- [ ] Run the voice builder on the Mac: 3 test voices, consistency and speed
+- [ ] iPhone test of Listen on the preview (lock screen, background ambience, import)
+- [ ] Optional: same benchmark on the M2 Air for the lower-spec numbers
+- [ ] iPhone verification: lock-screen playback, ambience in background, 7-day eviction behaviour
+- [ ] Optional: in-app progress UI for generation (currently CLI only)
+
+### Milestone: Follow-along transcript — Sessions 165, 168 — built, not merged
+Design: `docs/TRANSCRIPT.md` (§12: as built).
+- [x] Design doc: timing sources, package sidecar, playback sync, animation, spoilers
+- [x] John's decisions (2026-11-16): motion exception approved, word-level by default, reveal-as-spoken optional and off, Text view inside Listen
+- [x] Phase 1: sentence-level transcript in Listen, built Session 165; restyled for Catalogue III in Session 168
+- [x] Phase 3: word tokens in the script, wav2vec2 CTC aligner, `generate --words`, sidecars (Session 168)
+- [x] Phase 4: word ink-fill in the Text view, device-voice word boundaries (Session 168; no sync-offset setting, no coverage label)
+- [x] Phase 5 (reduced): the Reader tints the sentence being narrated (Session 168)
+- [x] Phase 2: aligner on real speech on the M5 Pro, 69/69 sentences aligned (2026-11-18); two bugs fixed
+- [ ] iPhone check of the Text view (scrolling, light pool, word fill, lock and wake, AirPods drift)
+- [ ] Later: `--retry-misreads`; re-aligning a package outside its job folder
+
 ### Milestone: LibraryCompanion Atmosphere Pass — ✓ Session 147 — complete
 
 Visual and language pass on the cross-book companion surface at the library entrance.

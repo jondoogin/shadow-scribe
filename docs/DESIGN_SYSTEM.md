@@ -1,7 +1,22 @@
 # Lantern — Design System
-**Last updated:** 2026-05-21 (Session 81)
+**Last updated:** 2026-11-17 (Session 167, Catalogue theme)
 
 ---
+
+## Catalogue theme (Session 167, 2026-11-17)
+
+John settled on **Catalogue III** in the design lab and asked for it in the real app. The theme block at the end of `src/index.css` overrides the Vellum tokens:
+
+- **Four inputs drive every colour:** `--lantern-accent` (deep teal `#236D86`), `--lantern-paper` (Stone `#E8E8E3`, dark `#131515`), `--lantern-k` (contrast 25) and `--lantern-warm` (lamplight 20). Background, cards, the ink scale, separators, `--ca*`, the old gold scale and the Lantern mark panes (`--mk-t/l/r/b`) are all `color-mix()` from these. Change the accent and everything follows, including the mark.
+- **Type:** Literata for titles (`--font-serif`, `--font-title`), Source Serif 4 for text (`--font-sans`), Spline Sans Mono for labels, fields, tabs and buttons (`--font-mono`). Inter, Libre Baskerville, Playfair and JetBrains Mono are no longer loaded.
+- **Shape:** 6px corners (`--radius-card`), one card shadow (hairline plus a soft drop), folder tabs with an accent top edge (`.tab-btn`), accent-filled primary buttons.
+- **Removed:** the drifting ember blobs and mouse-following glow (`App.jsx`), the body glow gradients, the paper grain and the frosted glass on the companion band and sticky bars.
+- **Library cards** (`BookCard.jsx`) are catalogue index cards: call number and status, accent rule, title and author, three catalogue fields (chapter, % read, last lit) and a bar.
+- **Mark:** `src/components/shared/LanternMark.jsx` (header, library, menu). `public/favicon.svg` and `icon-192/512.png` use the teal panes (static colours, regenerate if the accent changes).
+- Small inline `✦` bullets inside companion text are still present (accent coloured); swapping them for the mark is a follow-up.
+
+---
+
 
 ## CSS Architecture
 
@@ -395,11 +410,37 @@ Used via `style={{ boxShadow: 'var(--shadow-modal)' }}`.
 
 ---
 
+## Atmosphere motion (Visual Journey, Session 165)
+
+The Visual Journey stage runs on story time, not interface time, so its values are far longer than the UI animations below on purpose. Audits should not flag them as outliers. Values live in `src/atmosphere/visual/motion.js`.
+
+| Token | Value | Use |
+|---|---|---|
+| `--visual-paint-in` | 14 s (Reader backdrop 20 s) | A new painting paints itself in along its brushstrokes |
+| `--visual-min-on-screen` | 90 s, no maximum | A context shift sooner than this waits |
+| `--visual-drift-scale` | 1.03 → 1.07 over 240 s, then back | Slow drift and zoom about the painting's focus |
+| `--visual-shimmer` | 1.5 px | Living-paint shimmer |
+| `--visual-grain` | 0.06 | Paper grain |
+| Reduced Motion | 1 s opacity fade, no drift or shimmer | |
+
+Behind body text (Reader backdrop) motion is off by default, the painting is at most 40% strength, blurred, and veiled by the page colour behind the text column.
+
+---
+
+
+### Plates in the Catalogue screens (Session 168)
+
+- **Listen:** the painting is a tipped-in colour plate at the top of the loan slip card: 16:10, inner radius `calc(var(--r) - 2px)`, a 1px `--line` hairline, and a small mono plate number ("Pl. IV") on a card-coloured tag. Tapping the plate shows "about this painting" (setting, time, weather; light and mood; and a line saying it was made only from the passage already heard). With a plate the slip's clock drops from 64px to 48px so the play key stays above the fold on a phone.
+- **Paintings section** (after Reading room): chips Off, Listen, Listen and Reader; "Living paint" checkbox; a strength slider only when the Reader backdrop is on; "Plates so far" as a row of 64×40 thumbnails with roman numerals (only plates already allowed); import, replace and remove as mono links.
+- **Reader:** the painting sits behind the page; the page card becomes 84% opaque (88% in dark mode) and the top bar 92%, so the painting shows around and faintly through the page. Body text stays well above WCAG AA. An eye icon in the top bar is Clear page. `prefers-contrast: more` removes the backdrop. No frosted glass and no glow, as John asked of Catalogue III.
+
 ## Animation System
 
 All keyframes defined in `index.css`. Applied via custom `animate-*` Tailwind utilities.
 
 **Philosophy:** Motion should feel *remembered*, not triggered. Emergence is slow. Fades linger. Nothing snaps.
+
+**Listening register (approved by John, 2026-11-16; not built yet).** The follow-along transcript (`docs/TRANSCRIPT.md`) and the Reader's read-along may exceed the 0.5 s limit, because their motion follows the narrator's voice and stops when it stops. Allowed: the lantern-light pool gliding to the next sentence (520 ms, critically damped, no overshoot) and an ink fill that runs while a word is spoken. Nothing else moves; no bounce, stagger or particles. Reduced motion turns all of it off. No other surface may use this register.
 
 | Animation | Class | Duration | Use |
 |-----------|-------|----------|-----|
@@ -651,3 +692,13 @@ background: isCurrentReflection
 - Do not render raw book counts as UI copy ("3 companions") — remove metric labels; let the content speak
 - Do not make the TopNav CTA a loud gold button — use the soft gold-bg/gold-border/gold-text hover style
 - Do not use repeated opener patterns in companion language ("Something in…", "You've been…", "What you…", "The story…", "Still…") — vary structure; lead with the observation, not the subject
+
+
+### Catalogue screens (Session 167, second pass)
+
+The real screens now use the prototype's layout, not just its colours. Markup follows `src/design-lab/dirs/catalogue.jsx`; styles are `src/catalogue/catalogue.css` (imported in `main.jsx`), aliased to the theme tokens so the accent drives everything. Shared pieces live in `src/catalogue/parts.jsx` (`callNumber`, `statusLabel`, `Holes` bar, `Field`, `Tabs`, `LitLabel`, `Mark`). Note `.cat button` resets backgrounds, so filled controls are styled as `.cat .c2-btn--primary` etc.
+
+- **Library:** one index card pulled from the drawer (whatever is playing, else the reader's pick, else the latest book on loan) with call number, status ("Lit · listening" with a flickering mark while narration plays), Chapter/Read/Last lit fields, progress bar, and one primary action (Resume to the reader if an EPUB is linked, otherwise the companion). Below it, "Your drawer": sort, search, filter tabs (All / On loan / Set aside / Returned / Shelf / Archive, shown only when non-empty) and rows; tapping a row pulls that card up. Welcome, snapshot, sign-up and first-book notices are kept.
+- **Book page:** a top bar (back, call · Companion, manage menu), the reader's card (fields, bar, spoiler seal stamp "Sealed after ch. N", primary chapter update, Read and Listen, lifecycle links, absence notes), then one card with tabs set into its top: Ask (the companion band; "Record" for finished books), Notes, People, Plot, Threads, Themes, Chronicle.
+- **Reader:** top bar with chapter and percent, the chapter as a page card with chapter navigation in its head, an "Unseal" prompt at the end of a reached chapter, and a sticky progress footer.
+- **Listen:** a loan-slip card (clock, scrub, chapter), keys (chapter, −15, play, +15, chapter), speed / chapters / read along, the wick sleep timer (all `SLEEP_OPTIONS`), the current sentence, a lamp log from `book.readingLog`, the reading room (ambience chips and levels), and narration sources.

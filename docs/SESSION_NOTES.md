@@ -3,6 +3,164 @@ Reverse-chronological log of what was built, fixed, and decided in each working 
 
 ---
 
+## Session 168 — 2026-11-18
+**Theme:** Visual journey built end to end and fitted to Catalogue III (PR #2, rebased onto PR #4's branch `claude/project-thread-q1khuh`; not merged)
+
+**CHANGES**
+- Web: `.lantern-visuals` reader and validator (`src/atmosphere/visual/visualPackage.js`), import (`visualImport.js`), `lantern_content` schema v2 (`visualSets`, `visualImages`), plate on Listen, Paintings section, Reader backdrop with Clear page, per-book preferences in `lantern_listen`.
+- Fixes: the gate now refuses images or positions in unknown sections; `ReaderPage` tracks every block in the reading band (it used to take the topmost changed entry and could run ahead).
+- Mac CLI: `lantern-narrate visuals plan|generate|doctor|benchmark` and `clean --visuals` (`tools/narrator/lantern_narrator/visuals/`): context-shift planner with a 90 s guard, style profile from the first 2,000 words, keyword or Qwen3 describer, template prompts, FLUX.2 klein via mflux or the code-drawn fixture painter, stroke maps, Apple Vision checks, resumable jobs.
+- Found while building: the planner's running context can be ahead of a deferred scene's window, which would have leaked later weather into a painting. Scene context is now rebuilt from the previous scene plus its own window only, and a test checks every descriptor word against the text read so far.
+- Test book: an original story, `src/test/storyEpub.js` (`node scripts/make-story-epub.mjs`).
+- Polish fixes found by the browser sweep: a scene's window now always leaves at least one segment of its scene unread (the last painting of the book could never appear, because the gate is strictly past `visibleAfter`); the painted stage no longer loses its WebGL context when React mounts it twice (dispose released the context on a canvas still on the page, so every stage fell back to a flat image in development); fallback layers use a counter key, not `Date.now()`; object URLs leaving the prefetch queue are revoked 30 s later so an outgoing crossfade never loses its picture.
+
+**VERIFIED**
+- 92 Vitest, 59 pytest, lint unchanged per file, build passes. Playwright on the real app (phone size): imported the story, a fake-voice narration and a fixture paintings package through the UI, then swept every chapter on Listen and scrolled every chapter in the Reader checking the gate at each step.
+
+**FIRST REAL RUN (M5 Pro 48 GB, 2026-11-18, over Remote Control)**
+- FLUX.2 klein 4B 8-bit via mflux: about 16 to 24 s per 1600×1000 painting warm, peak about 8.2 to 8.9 GB resident; first download about 15 GB (full-precision weights, quantised on load) into the narrator home's hf-cache. Qwen3-4B-Instruct-2507-4bit describer: about 2 GB download.
+- The test story in gouache, watercolour, oil sketch, ink and wash (keyword describer) and gouache with qwen3-4b: 8 of 8 scenes each, 2 to 3 minutes per set, no Vision rejections or retries, no faces (only small silhouettes and distant walkers).
+- Found and fixed: fake painter's signatures in corners that Vision can't read (prompt now says unsigned, and paintings are rendered 6% larger and trimmed); lighthouse scenes framed as a room (the lamp room is now its own interior setting, the lighthouse an exterior); the LLM describer drifted off the book's palette (the palette is now fixed, plus at most one colour of the model's own); a removed name left "harbour at , with a quay" (dangling words are dropped); doctor and the painter didn't find mflux unless the venv was on PATH.
+- Installing the visuals extra moves huggingface-hub to 1.33.0 (mflux's pin) in the shared narrator venv; narration still ran fine.
+
+**NOT VERIFIED**
+- The fixes above have not been re-run on the Mac yet. Apple Vision's face check rejects any face whatever its size, so a tiny distant figure could be repainted needlessly (none was in this run). No iPhone GPU or battery numbers.
+
+---
+
+## Session 165 — 2026-11-15
+**Theme:** Visual journey architecture (design doc only, branch off `feature/lantern-neural-narration`)
+
+**CHANGES**
+- New `docs/VISUAL_JOURNEY.md`: local versus hosted image generation (cost, quality, speed), scene planning and description from the text at the current position, spoiler gate (`visibleAfter`), queueing and prefetch, caching and storage, Ken Burns and crossfade timing tokens, `.lantern-visuals` package format, CLI and web code map, build order.
+- CLAUDE.md: short visual journey section with the spoiler invariants.
+
+**DECISIONS (proposed, awaiting John)**
+- Local generation on the Mac with FLUX.2 [klein] 4B (Apache-2.0); Z-Image Turbo to audition. Hosted (about $0.005 to $0.04 per image) only as an opt-in fallback.
+- Images shown only after the current position passes the end of their source window.
+
+**REVISED 2026-11-16 (John's answers)**
+- Painterly look, animated in a painterly way: WebGL paint-in along per-image stroke maps, faint living-paint shimmer, slow drift, paper grain.
+- Images change on context shifts (setting, time, weather, mood) detected by the local describer, never on a timer; 90 s minimum, no maximum.
+- Reader backdrop moves into the first build. Distant figures and silhouettes allowed, faces never.
+
+**BUILT 2026-11-16 (step 1, John said build it)**
+- `src/atmosphere/visual/`: spoiler gate and pacing (`eligibility.js`), drift maths (`motion.js`), WebGL painterly renderer (`paintRenderer.js`), `VisualStage.jsx` with an `<img>` fallback, `ReaderBackdrop.jsx`, `useVisualJourney.js`, `sampleJourney.js`.
+- Preview page `/preview/visuals` (`src/pages/VisualPreviewPage.jsx`, unlinked): sample story written for it, Listen and Reader backdrop modes, 5× story speed, scene jumps, Clear page, motion toggles.
+- Sample paintings drawn by code (`tools/visual-samples/`, headless Chromium) with real stroke-order maps; about 450 KB in `public/visual-samples/`.
+- Verified: 79 Vitest tests pass (19 new). No per-file lint change. Build passes. Playwright (Chromium, SwiftShader WebGL): image on stage eligible at every 400 ms step over the whole story, all five paintings in order, jump back replaces at once, Reader backdrop follows the reading band, no console errors; WebGL-less fallback and Reduced Motion run clean.
+- Found: `ReaderPage`'s IntersectionObserver picks the topmost of the paragraphs that changed, not of all paragraphs in the band, so the saved read locator can run ahead. Must be fixed before the backdrop is wired into the real Reader.
+
+**NOT YET VERIFIED**
+- Everything. Speeds in the doc are estimates scaled from one published M1 Max number; no image model has run on either Mac.
+
+## Session 168 — 2026-11-18 — Follow-along transcript brought up to spec (transcript thread)
+**Theme:** Word-level follow-along, the Catalogue III look, and polish before going live
+
+**BUILT**
+- Rebased onto Catalogue III (PR #4). The Text view now sits in the Listen card's tabs (Now playing | Text), in Catalogue type and colours: a soft accent tint with the Reader's accent rule behind the sentence being read, no glow. "Tap a sentence to listen" moved into the scroller's label to cut on-screen text.
+- Word tokens: `src/narration/words.js` (`WORDS_VERSION` 1); the narration script gives every segment `words` with display offsets and spoken forms.
+- Narrator: `align.py` (wav2vec2 CTC, our numpy Viterbi, number/abbreviation verbalising, per-sentence confidence checks). `generate --words auto|on|off`; re-running aligns earlier chapters without re-synthesis. Sidecars `timings/<section>.words.json` (offsets and ms, no text) and a manifest `timings` block. `[align]` extra.
+- Lantern: sidecars are validated and stored as `words` on each chapter's `audio` record (no DB version bump). In the sentence being read, words ink in as they are spoken; a "Word by word" switch appears when the chapter has word timing. The device voice lights words from the speech engine's own boundary events. The Reader tints the sentence being narrated.
+- Not built, on purpose: a sync-offset setting and a coverage label (clutter, see TRANSCRIPT.md §12).
+
+**VERIFIED**
+- Vitest 99 pass; narrator pytest 67 pass; build passes; no new lint errors in changed files.
+- Headless Chromium at 390×844: Text view light and dark, word ink with fixture word times, device-voice words with a fake speech engine, the Reader's sentence tint.
+- Later the same day on the M5 Pro: the aligner timed 69/69 sentences of P&P chapters I–II (Qwen3 1.7B, Aiden), about 250× realtime. Two bugs found there and fixed with regression tests (TRANSCRIPT.md §13).
+- Not verified: iPhone Safari.
+
+---
+
+## Session 165 — 2026-11-15 — Follow-along transcript (design)
+**Theme:** Architecture for a transcript that follows the narration sentence by sentence and word by word
+
+**DECISIONS (proposed, awaiting John's review)**
+- Sentence timings already exist in every package (segment `t0`/`t1`), so a sentence-level transcript needs no narrator change.
+- Word timings: forced alignment per sentence clip on the Mac, after synthesis, for every engine (Qwen3 1.7B has no native timings). Candidates: Qwen3-ForcedAligner-0.6B or wav2vec2 CTC; a spike picks one. `lantern-narrate align` upgrades existing packages without re-synthesis.
+- Words are defined by Lantern's JS segmenter (`words` per segment, display offsets + spoken forms). Timings ship as per-chapter sidecars with offsets and milliseconds only, no text; IndexedDB gets a `timings` store.
+- Sync: a frame clock over `audio.currentTime` plus a user sync offset; React renders once, a small conductor moves classes and one CSS variable.
+- Look: a lantern-light pool glides behind the current sentence; the spoken word fills with ink. Word animation only where alignment passed its confidence check.
+- John's decisions (2026-11-16): the "listening register" motion exception is approved (520 ms glide, fill while a word is spoken; added to DESIGN_SYSTEM and MOTION_SYSTEM); words animate by default where measured; reveal-as-spoken is optional and off by default; the transcript is a Text view inside Listen.
+
+**PHASE 1 BUILT (2026-11-16, after John said go)**
+- Listen has a **Now Playing ↔ Text** switch. Text shows the narrated chapter in EB Garamond; a soft light pool glides (520 ms) behind the sentence being read, read text settles, text ahead is quieter. Works with neural packages (frame clock over `audio.currentTime`) and the device voice (follows the player's sentence).
+- Follow-scroll keeps the voice near 38% of the view and moves only when it leaves a 25–55% band. Scrolling by hand pauses it and shows **Back to narration**; it resumes after 8 s. Tap a sentence to play from it. Big jumps don't glide.
+- **Reveal as spoken** (off by default) veils everything after the next sentence. Strict spoiler mode veils an unreached chapter's heading until it is spoken. Only the current chapter is ever rendered.
+- New: `src/narration/clock.js`, `src/narration/transcript.js`, `src/components/transcript/`. `GeneratedAudioPlayer.mediaTime()`. Prefs `listenView`, `transcriptReveal`.
+
+**VERIFIED**
+- 81 Vitest tests pass (21 new: transcript model, segment states, follow-scroll band, media clock, conductor, player clock). Build passes. Lint unchanged at 49 errors / 9 warnings, none in changed files.
+- Headless Chromium at phone size with the real Kokoro sample package: the light follows the audio, tap-to-play, Back to narration, reveal-as-spoken and the saved prefs all worked; across the chapter change too.
+- Not verified: iPhone Safari, light theme by eye.
+
+**FILES**
+- New `docs/TRANSCRIPT.md`. ROADMAP milestone added.
+
+---
+
+## Session 164 — 2026-11-13
+**Theme:** Retarget the narrator for the new MacBook Pro (M5 Pro, 48 GB); keep the M2 Air (16 GB) supported
+
+**CHANGES**
+- `tools/narrator`: hardware tiers in `doctor` (`small` < 12 GB, `standard` < 24 GB, `large`).
+- New `qwen3-1.7b` engine (Qwen3-TTS 1.7B CustomVoice, bf16) with per-engine memory needs (`ENGINE_MIN_MEMORY_GB`). The default benchmark skips engines a machine can't fit and records why.
+- All narrator files now stay in `~/.lantern-narrator/`: Hugging Face and PyTorch caches are redirected there, and packages and benchmark runs default there.
+- New `lantern-narrate clean` command, which is a dry run unless given `--yes`.
+- Docs: hardware targets table and a work-machine storage section in `NARRATION.md`; CLAUDE.md and the narrator README updated.
+
+**VERIFIED**
+- 28 pytest tests pass (11 new: tiers, memory gating, cache redirection, clean safety, benchmark defaults for 16 GB and 48 GB).
+- `doctor`, `clean` and a Kokoro benchmark run worked on Linux.
+
+- **M5 Pro benchmark (2026-11-13, via Remote Control):** 8 of 9 engine/voice runs produced audio. Kokoro ONNX about 8× realtime, Pocket about 11×, Qwen3 0.6B about 4–4.7×, Qwen3 1.7B about 2.5× (peak about 10 GB GPU memory). Models took about 6.3 GB. Full table in `NARRATION.md`; samples in project files `narration-benchmark/m5pro/`.
+- Fixes from that run: `misaki[en]` added to the `[mlx]` extra (Kokoro MLX failed without it), and the benchmark's model-size column no longer double-counts Hugging Face symlinks.
+- On the Mac, the run used portable Python 3.12 and Node 22 inside `~/Lantern/toolchain`, and narrator data in `~/Lantern/narrator-data`; no Homebrew and no ffmpeg (`afconvert` handled AAC).
+
+- **Voice per book (after John listened):** John liked Qwen3 1.7B's quality and expressiveness but not the Ryan voice, and wants the voice chosen per book. So `qwen3-1.7b` is now the default engine on Apple Silicon with 24 GB or more (Kokoro elsewhere). New `audition` command reads a book's opening in every voice. `generate` remembers engine, voice, style and speed per book in `books.json`. New `--style` passes Qwen3 1.7B a delivery instruction. Qwen3's full 9-speaker list is in `voices`. After hearing all 9 on the Mac, John picked **Aiden** as the default voice. Listen shows the style next to each narration. Also fixed: WAV fallback copied a file onto itself when no AAC encoder was installed. 36 pytest tests pass.
+
+- **Designed voices (Session 164, after John chose "design, then lock it in"):** new `lantern-narrate design` (VoiceDesign takes, `--keep`, `--list`) and the `qwen3-designed` engine (Qwen3 1.7B Base cloning the kept take). Clones only Lantern-designed voices, checked by provenance and SHA-256. Package manifest gains `narration.voiceInfo`. `clean --voices`. 8 new tests (44 in total), stand-in engine only.
+- **iPhone:** the narration import no longer filters by file type on iPhone/iPad, because iOS greys out `.lantern-audio` (an unregistered extension) when `accept` is set. The package reader still rejects wrong files.
+
+**QUEUED FOR THE MAC (it was offline)**
+1. `git pull`, then `uv pip install -e '.[kokoro,mlx,pocket,dev]'` in `tools/narrator` (adds `misaki` for Kokoro MLX).
+2. `lantern-narrate benchmark --only kokoro-mlx:af_heart` (the run that failed).
+3. `--style` check: audition Aiden with and without `--style "warm, unhurried audiobook narration"`.
+4. Design 3 voices, 3 takes each (VoiceDesign, ~4.5 GB): Margaret ("warm, low-pitched British woman in her fifties, measured pace, a hint of dry humour"), Walter ("calm, deep American man in his forties, unhurried and intimate, slightly gravelly"), Niamh ("bright, clear young Irish woman with a gentle lilt, expressive but steady").
+5. Keep take 1 of each provisionally, then narrate the benchmark passage with `qwen3-designed` (Base, ~4.5 GB) and record speed. Also render the same passage with VoiceDesign alone, sentence by sentence, to hear the drift.
+6. Copy every sample to `~/Lantern/benchmark-results-m5pro/designed-voices/` for John.
+
+**NOT YET VERIFIED**
+- The designed-voice path with real models (quality, consistency across a book, speed).
+- Whether the Mac's mlx-audio accepts the `instruct` style argument, and how the non-English-native Qwen3 speakers sound reading English.
+- Kokoro MLX speed (needs a rerun after the fix), any M2 Air number, and subjective voice quality (nobody has rated the samples).
+- Pocket's `alba` voice licence is still unconfirmed; `charles` is CC-BY.
+
+---
+
+## Session 163 — 2026-10-26
+**Theme:** Neural narration: local audiobook generation, Listen player, Reader, ambience (branch `feature/lantern-neural-narration`)
+
+**FILES CHANGED**
+- New: `src/content/*`, `src/narration/*`, `src/atmosphere/ambientEngine.js`, `src/context/PlaybackContext.jsx`, `src/hooks/useBookContent.js`, `src/pages/ListenPage.jsx`, `src/pages/ReaderPage.jsx`, `src/components/listen/*`, `src/test/*`, `scripts/*`, `tools/narrator/*`, `docs/NARRATION.md`
+- Modified: `src/utils/epubParser.js` (durable content model, `parseEpubContent`, `dc:` prefix fix under non-browser DOMs), `src/App.jsx` (routes, PlaybackProvider, MiniPlayer), `CompanionHeader.jsx` (Read/Listen entry points), `EpubImportReview.jsx` (retains text in IndexedDB), `icons.jsx`, `index.css`, `vite.config.js`, `package.json` (vitest)
+
+**DECISIONS**
+- Hybrid: generate on the Mac (Kokoro primary, Pocket TTS fallback, Qwen3 optional) → `.lantern-audio` package → import on any device. The browser speech fallback needs no setup.
+- Book text/audio only in IndexedDB `lantern_content`; companion record gains only `contentId`. Nothing new syncs to Supabase.
+- Narration never advances companion progress; it offers the ChapterUpdateModal.
+
+**VERIFIED**
+- 60 Vitest + 17 pytest tests passing.
+- The Kokoro CLI generated a package from a public-domain EPUB at −18 LUFS. Ctrl-C followed by a rerun resumed from cache.
+- 14/14 browser checks in Chromium: import, play, ±15 s, speed, chapters, resume after reload, Read along highlight, mini-player.
+- Lint unchanged from main (49 errors / 9 warnings, all pre-existing).
+
+**NOT YET VERIFIED**
+- Apple Silicon (MLX, Pocket, Qwen benchmarks), iPhone Safari playback, lock-screen behaviour, and storage eviction.
+
+---
+
 ## Session 147 — 2026-05-30
 **Theme:** LibraryCompanion atmosphere pass (Session B)
 

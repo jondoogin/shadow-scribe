@@ -1,14 +1,17 @@
 import { unzipSync } from 'fflate'
+import { buildBookContent, sha256Hex } from '../content/epubContent.js'
 
 const decode = bytes => new TextDecoder('utf-8', { fatal: false }).decode(bytes)
 const parseXml = str => new DOMParser().parseFromString(str, 'application/xml')
 
-// Namespace-safe: find first element with a given localName
+// Namespace-safe: find first element with a given localName.
+// (Some DOM implementations report "dc:title" as the localName; strip prefixes.)
+const bareName = el => (el.localName || '').replace(/^.*:/, '')
 function findEl(doc, localName) {
-  return Array.from(doc.querySelectorAll('*')).find(el => el.localName === localName) ?? null
+  return Array.from(doc.querySelectorAll('*')).find(el => bareName(el) === localName) ?? null
 }
 function findEls(doc, localName) {
-  return Array.from(doc.querySelectorAll('*')).filter(el => el.localName === localName)
+  return Array.from(doc.querySelectorAll('*')).filter(el => bareName(el) === localName)
 }
 function getText(doc, localName) {
   return findEl(doc, localName)?.textContent?.trim() ?? null
@@ -132,26 +135,33 @@ function buildFileMap(files) {
 }
 
 // ──────────────────────────────────────────────────
-// Main export
+// Package structure (shared by the import wizard and the Node narration tool)
 // ──────────────────────────────────────────────────
 const MAX_EPUB_BYTES = 150 * 1024 * 1024  // 150 MB hard limit
+const MAX_UNZIPPED_BYTES = 800 * 1024 * 1024  // decompression-bomb guard
 
-export async function parseEpub(file) {
-  if (file.size > MAX_EPUB_BYTES) {
-    throw new Error(`This file is too large to import (${Math.round(file.size / 1024 / 1024)} MB). Maximum supported size is 150 MB.`)
-  }
-
-  const buffer = await file.arrayBuffer()
-
-  let rawFiles
+export function unzipEpub(bytes) {
+  let total = 0
   try {
-    rawFiles = unzipSync(new Uint8Array(buffer))
-  } catch {
-    throw new Error('Could not read this file. It may be corrupted or DRM-protected.')
+    return unzipSync(bytes, {
+      filter: f => {
+        total += f.originalSize || 0
+        if (total > MAX_UNZIPPED_BYTES) throw new Error('too-large')
+        return true
+      },
+    })
+  } catch (err) {
+    if (err?.message === 'too-large') throw new Error('This EPUB expands to an unusually large size and was not imported.', { cause: err })
+    throw new Error('Could not read this file. It may be corrupted or DRM-protected.', { cause: err })
   }
+}
 
+/**
+ * Open container.xml + OPF and resolve the spine and raw TOC.
+ * Returns { fs, opf, opfDir, spine, rawToc, tocSource, decode, resolve, encrypted }.
+ */
+export function readEpubStructure(rawFiles) {
   const fs = buildFileMap(rawFiles)
-  const warnings = []
 
   // 1. container.xml → find OPF path
   const containerBytes = fs.get('META-INF/container.xml')
@@ -165,11 +175,66 @@ export async function parseEpub(file) {
 
   const opf = parseXml(decode(opfBytes))
   const opfDir = opfPath.includes('/') ? opfPath.slice(0, opfPath.lastIndexOf('/') + 1) : ''
+  const resolve = href => {
+    let h = href || ''
+    try { h = decodeURIComponent(h) } catch { /* keep raw */ }
+    return normalizePath(resolvePath(opfDir, h))
+  }
 
-  // 2. Metadata
+  // Spine = canonical reading order
+  const manifest = {}
+  findEls(opf, 'item').forEach(el => {
+    manifest[el.getAttribute('id')] = { href: el.getAttribute('href') || '', mediaType: el.getAttribute('media-type') || '' }
+  })
+  const spine = findEls(opf, 'itemref')
+    .map(el => {
+      const idref = el.getAttribute('idref')
+      const m = manifest[idref]
+      return m ? { idref, href: m.href, mediaType: m.mediaType, linear: el.getAttribute('linear') !== 'no' } : null
+    })
+    .filter(Boolean)
+
+  // TOC: EPUB3 nav.xhtml, then EPUB2 toc.ncx
+  let rawToc = []
+  let tocSource = null
+  const navItem = findEls(opf, 'item').find(el => {
+    const props = el.getAttribute('properties') || ''
+    const mt = el.getAttribute('media-type') || ''
+    return props.includes('nav') || (mt.includes('xhtml') && (el.getAttribute('id') || '').toLowerCase().includes('nav'))
+  })
+  if (navItem) {
+    const navHref = navItem.getAttribute('href') || ''
+    const navBytes = fs.get(resolvePath(opfDir, navHref))
+    if (navBytes) {
+      // nav hrefs are relative to the nav document, not the OPF
+      const navDir = navHref.includes('/') ? navHref.slice(0, navHref.lastIndexOf('/') + 1) : ''
+      rawToc = parseNav(decode(navBytes)).map(e => ({ ...e, src: e.src && !e.src.startsWith('#') ? navDir + e.src : e.src }))
+      tocSource = 'nav'
+    }
+  }
+  if (!rawToc.length) {
+    const ncxItem = findEls(opf, 'item').find(el => (el.getAttribute('media-type') || '').includes('dtbncx'))
+    if (ncxItem) {
+      const ncxHref = ncxItem.getAttribute('href') || ''
+      const ncxBytes = fs.get(resolvePath(opfDir, ncxHref)) ?? fs.get(opfDir + 'toc.ncx') ?? fs.get('toc.ncx')
+      if (ncxBytes) {
+        const ncxDir = ncxHref.includes('/') ? ncxHref.slice(0, ncxHref.lastIndexOf('/') + 1) : ''
+        rawToc = parseNcx(decode(ncxBytes)).map(e => ({ ...e, src: e.src ? ncxDir + e.src : e.src }))
+        tocSource = 'ncx'
+      }
+    }
+  }
+
+  // Font obfuscation also lives in encryption.xml; only encrypted *text* means DRM.
+  const encXml = fs.get('META-INF/encryption.xml')
+  const encrypted = !!encXml && findEls(parseXml(decode(encXml)), 'CipherReference')
+    .some(el => /\.(x?html?|xml)$/i.test(el.getAttribute('URI') || ''))
+
+  return { fs, opf, opfDir, spine, rawToc, tocSource, decode, resolve, encrypted }
+}
+
+function readMetadata(opf) {
   const title = getText(opf, 'title') ?? 'Untitled'
-
-  // Prefer creator with opf:role="aut"; fall back to first creator; then Unknown Author
   const allCreators = findEls(opf, 'creator')
   const primaryCreator =
     allCreators.find(el => (el.getAttribute('opf:role') || el.getAttribute('role') || '').toLowerCase() === 'aut') ??
@@ -177,6 +242,53 @@ export async function parseEpub(file) {
     allCreators[0] ??
     null
   const author = primaryCreator?.textContent?.trim() || 'Unknown Author'
+  const language = getText(opf, 'language') || 'en'
+  return { title, author, language }
+}
+
+/**
+ * Content-only parse for tools (no cover processing, no companion chapters).
+ * Used by scripts/narration-script.mjs. Returns the content model.
+ */
+export async function parseEpubContent(bytes) {
+  const u8 = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes)
+  const pkg = readEpubStructure(unzipEpub(u8))
+  if (pkg.encrypted) throw new Error('This EPUB is DRM-protected or encrypted. Lantern only reads DRM-free books.')
+  const meta = readMetadata(pkg.opf)
+  const contentId = 'sha256:' + await sha256Hex(u8)
+  return buildBookContent(pkg, { ...meta, contentId, chapterSources: chapterSourcesFromToc(pkg) })
+}
+
+// Companion chapter list, as the import wizard derives it from the TOC
+function chapterSourcesFromToc(pkg) {
+  let raw = pkg.rawToc
+  if (!raw.length) raw = pkg.spine.map((s, i) => ({ title: `Chapter ${i + 1}`, src: s.href }))
+  raw = raw.slice(0, MAX_CHAPTERS)
+  const meaningful = raw.filter(ch => ch.title.trim().length > 0 && !NOISE_TITLES.test(ch.title.trim()))
+  return meaningful.length > 0 ? meaningful : raw
+}
+
+const MAX_CHAPTERS = 500
+// Filter noise: skip entries with structural/non-narrative titles
+const NOISE_TITLES = /^(cover|title\s*page|copyright|contents|toc|table of contents|dedication|acknowledgements?|bibliography|index|about the author|colophon|half.?title|front matter|back matter|notes?|foreword|preface|afterword|introduction|also by|further reading|glossary|maps?|permissions?|author.s note|note to (the )?reader|a note on|note on|from the author|by the same author|other (books|titles|works)|endorsements?|praise for|series page|newsletter|subscribe|connect)$/i
+
+// ──────────────────────────────────────────────────
+// Main export
+// ──────────────────────────────────────────────────
+export async function parseEpub(file) {
+  if (file.size > MAX_EPUB_BYTES) {
+    throw new Error(`This file is too large to import (${Math.round(file.size / 1024 / 1024)} MB). Maximum supported size is 150 MB.`)
+  }
+
+  const buffer = await file.arrayBuffer()
+  const bytes = new Uint8Array(buffer)
+  const rawFiles = unzipEpub(bytes)
+  const pkg = readEpubStructure(rawFiles)
+  const { fs, opf, opfDir } = pkg
+  const warnings = []
+
+  // 2. Metadata
+  const { title, author, language } = readMetadata(opf)
 
   // ISBN — look for dc:identifier with ISBN scheme or 13-digit value
   let isbn = null
@@ -232,38 +344,8 @@ export async function parseEpub(file) {
   }
 
   // 4. Table of contents
-  let rawChapters = []
-  let tocSource = null
-
-  // Find nav.xhtml (EPUB3)
-  const navItem = findEls(opf, 'item').find(el => {
-    const props = el.getAttribute('properties') || ''
-    const mt = el.getAttribute('media-type') || ''
-    return props.includes('nav') || (mt.includes('xhtml') && (el.getAttribute('id') || '').toLowerCase().includes('nav'))
-  })
-  if (navItem) {
-    const navPath = resolvePath(opfDir, navItem.getAttribute('href') || '')
-    const navBytes = fs.get(navPath)
-    if (navBytes) {
-      rawChapters = parseNav(decode(navBytes))
-      tocSource = 'nav'
-    }
-  }
-
-  // Fall back to toc.ncx (EPUB2)
-  if (!rawChapters.length) {
-    const ncxItem = findEls(opf, 'item').find(el =>
-      (el.getAttribute('media-type') || '').includes('dtbncx')
-    )
-    if (ncxItem) {
-      const ncxPath = resolvePath(opfDir, ncxItem.getAttribute('href') || '')
-      const ncxBytes = fs.get(ncxPath) ?? fs.get(opfDir + 'toc.ncx') ?? fs.get('toc.ncx')
-      if (ncxBytes) {
-        rawChapters = parseNcx(decode(ncxBytes))
-        tocSource = 'ncx'
-      }
-    }
-  }
+  let rawChapters = pkg.rawToc
+  let tocSource = pkg.tocSource
 
   // Fall back to spine order
   if (!rawChapters.length) {
@@ -278,17 +360,14 @@ export async function parseEpub(file) {
   }
 
   // Cap degenerate chapter counts — some EPUBs encode footnotes or sections as TOC entries
-  const MAX_CHAPTERS = 500
   if (rawChapters.length > MAX_CHAPTERS) {
     rawChapters = rawChapters.slice(0, MAX_CHAPTERS)
     warnings.push(`This book has an unusually large number of sections. Only the first ${MAX_CHAPTERS} were imported.`)
   }
 
-  // Filter noise: skip entries with structural/non-narrative titles
-  const noisePatterns = /^(cover|title\s*page|copyright|contents|toc|table of contents|dedication|acknowledgements?|bibliography|index|about the author|colophon|half.?title|front matter|back matter|notes?|foreword|preface|afterword|introduction|also by|further reading|glossary|maps?|permissions?|author.s note|note to (the )?reader|a note on|note on|from the author|by the same author|other (books|titles|works)|endorsements?|praise for|series page|newsletter|subscribe|connect)$/i
   const meaningful = rawChapters.filter(ch => {
     const t = ch.title.trim()
-    return t.length > 0 && !noisePatterns.test(t)
+    return t.length > 0 && !NOISE_TITLES.test(t)
   })
 
   // If filtering removed everything, keep all (better than nothing)
@@ -358,6 +437,20 @@ export async function parseEpub(file) {
     warnings.push('Chapter content could not be read. The companion will start without auto-extracted characters or summaries.')
   }
 
+  // 7. Durable reading content (spine order, text-only blocks) for Reader/Listen.
+  // Stored in IndexedDB by contentRepository, never in localStorage or Supabase.
+  let content = null
+  if (pkg.encrypted) {
+    warnings.push('This EPUB uses encryption (DRM). Lantern can create a companion but cannot keep its text for reading or listening.')
+  } else {
+    try {
+      const contentId = 'sha256:' + await sha256Hex(bytes)
+      content = buildBookContent(pkg, { title, author, language, contentId, chapterSources: source })
+    } catch (err) {
+      warnings.push(`Book text could not be retained for reading/listening (${err?.message || 'unknown error'}).`)
+    }
+  }
+
   return {
     title,
     author,
@@ -367,6 +460,7 @@ export async function parseEpub(file) {
     totalChapters: chapters.length || 20,
     structureType,
     chapterContents,  // { [num]: rawHtmlString } — transient, not for localStorage
+    content,          // durable text model — IndexedDB only (see src/content/)
     warnings,
   }
 }

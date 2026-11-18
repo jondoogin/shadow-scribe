@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useMemo } from 'react'
 import { useBooks }    from '../../context/BooksContext.jsx'
 import { useSettings } from '../../context/SettingsContext.jsx'
 import { liveItems }   from '../../utils/live.js'
-import { Ico }         from '../shared/icons.jsx'
+import LanternMark     from '../shared/LanternMark.jsx'
 import CompanionHeader from './CompanionHeader.jsx'
 import CompanionBand    from './CompanionBand.jsx'
 import CompletionBand  from './CompletionBand.jsx'
@@ -15,8 +15,9 @@ import MysteriesTab    from '../../tabs/MysteriesTab.jsx'
 import DiscussionTab   from '../../tabs/DiscussionTab.jsx'
 
 const TABS = [
+  { id: 'ask',        label: 'Ask'        },
   { id: 'notes',      label: 'Notes'      },
-  { id: 'characters', label: 'Characters' },
+  { id: 'characters', label: 'People'     },
   { id: 'plot',       label: 'Plot'       },
   { id: 'questions',  label: 'Threads'    },
   { id: 'themes',     label: 'Themes'     },
@@ -28,7 +29,7 @@ export default function BookDashboard({ bookId }) {
   const { settings } = useSettings()
   const book = books.find(b => b.id === bookId)
 
-  const [tab,           setTab]          = useState(() => book?.status === 'finished' ? 'progress' : 'notes')
+  const [tab,           setTab]          = useState('ask')
   const [tabFlash,      setTabFlash]     = useState(null)
   const [flashItemId,   setFlashItemId]  = useState(null)
   const [showUpdate,    setShowUpdate]   = useState(false)
@@ -40,9 +41,7 @@ export default function BookDashboard({ bookId }) {
     setTab(tabId)
     setTabFlash(tabId)
     setFlashItemId(itemId ?? null)
-    setTimeout(() => {
-      tabRefs.current[tabId]?.scrollIntoView({ behavior: 'smooth', inline: 'nearest', block: 'nearest' })
-    }, 20)
+    setTimeout(() => revealTab(tabId), 20)
     setTimeout(() => setTabFlash(null), 1400)
     setTimeout(() => setFlashItemId(null), 4200)
   }
@@ -51,7 +50,7 @@ export default function BookDashboard({ bookId }) {
   useEffect(() => {
     if (prevStatus.current !== 'finished' && book?.status === 'finished') {
       setJustFinished(true)
-      setTab('progress')
+      setTab('ask')
       const t = setTimeout(() => setJustFinished(false), 2600)
       return () => clearTimeout(t)
     }
@@ -73,10 +72,19 @@ export default function BookDashboard({ bookId }) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bookId])
 
-  // Scroll active tab into view
-  useEffect(() => {
-    tabRefs.current[tab]?.scrollIntoView({ behavior: 'smooth', inline: 'nearest', block: 'nearest' })
-  }, [tab])
+  // Scroll the active tab into view inside the tab strip only. scrollIntoView
+  // also scrolled the window, so the page opened ~160px down with the title
+  // hidden under the nav.
+  const revealTab = (tabId) => {
+    const el = tabRefs.current[tabId]
+    const strip = el?.parentElement
+    if (!el || !strip) return
+    const left = el.offsetLeft - strip.offsetLeft
+    const right = left + el.offsetWidth
+    if (left < strip.scrollLeft) strip.scrollTo({ left, behavior: 'smooth' })
+    else if (right > strip.scrollLeft + strip.clientWidth) strip.scrollTo({ left: right - strip.clientWidth, behavior: 'smooth' })
+  }
+  useEffect(() => { revealTab(tab) }, [tab])
 
   // Tab content counts — surfaces when companion has populated a tab.
   // Placed before the `if (!book)` guard to satisfy Rules of Hooks.
@@ -103,56 +111,37 @@ export default function BookDashboard({ bookId }) {
       {/* ── Full-width book header ── */}
       <CompanionHeader book={book} onOpenUpdate={() => setShowUpdate(true)} onUpdateBook={onUpdateBook} />
 
-      {/* ── Companion Band / Completion Band ── */}
-      {/* Finished books show the settled reading record; active books show the companion. */}
-      {/* Both keyed on book.id so they cleanly remount when switching books. */}
-      {book.status === 'finished'
-        ? <CompletionBand key={book.id} book={book} />
-        : <CompanionBand  key={book.id} book={book} onUpdateBook={onUpdateBook} onTabChange={handleTabChange} />
-      }
-
-      {/* ── Tab bar — sticky below the band ── */}
-      <div className="sticky-bar top-14 mt-5 mb-0">
-        <div className="overflow-x-auto tab-scroll-fade">
-          <div className="flex min-w-max px-5 sm:px-10 max-w-[1000px] mx-auto">
+      {/* ── One card: tabs set into its top, the section below ── */}
+      <div className="cat c2" style={{ paddingTop: 0 }}>
+        <section className="c3-box" aria-label="Companion">
+          <nav className="c3-tabs" aria-label="Sections">
             {TABS.map(t => (
               <button
                 key={t.id}
+                type="button"
                 ref={el => { tabRefs.current[t.id] = el }}
                 onClick={() => setTab(t.id)}
-                className={`tab-btn ${tab === t.id ? 'active' : ''} ${tabFlash === t.id ? 'tab-flash' : ''}`}
+                aria-pressed={tab === t.id}
+                className={`${tab === t.id ? 'is-on' : ''}${tabFlash === t.id ? ' tab-flash' : ''}`}
               >
-                {t.label}
-                {(tabCounts[t.id] ?? 0) > 0 && (
-                  <span style={{
-                    fontSize: 9,
-                    marginLeft: 4,
-                    color: 'var(--color-ink-400)',
-                    opacity: tab === t.id ? 0.55 : 0.65,
-                    fontStyle: 'normal',
-                  }}>
-                    {tabCounts[t.id]}
-                  </span>
-                )}
+                {t.id === 'ask' && book.status === 'finished' ? 'Record' : t.label}
+                {(tabCounts[t.id] ?? 0) > 0 && <span className="c3-tab-n">{tabCounts[t.id]}</span>}
               </button>
             ))}
+          </nav>
+          <div key={tab} className="c2-sheet c2-sheet--app animate-tab-in min-w-0">
+            {/* Ask: the companion itself. Finished books show the settled record. */}
+            {tab === 'ask' && (book.status === 'finished'
+              ? <CompletionBand key={book.id} book={book} />
+              : <CompanionBand  key={book.id} book={book} onUpdateBook={onUpdateBook} onTabChange={handleTabChange} />)}
+            {tab === 'notes'      && <NotesTab      book={book} onUpdateBook={onUpdateBook} />}
+            {tab === 'characters' && <CharactersTab book={book} onUpdateBook={onUpdateBook} flashItemId={flashItemId} />}
+            {tab === 'plot'       && <PlotTab       book={book} onUpdateBook={onUpdateBook} />}
+            {tab === 'questions'  && <MysteriesTab  book={book} onUpdateBook={onUpdateBook} flashItemId={flashItemId} />}
+            {tab === 'themes'     && <DiscussionTab book={book} onUpdateBook={onUpdateBook} />}
+            {tab === 'progress'   && <ProgressTab   book={book} onUpdateBook={onUpdateBook} />}
           </div>
-        </div>
-      </div>
-
-      {/* ── Tab content — single full-width column ── */}
-      <div
-        className="mx-auto px-5 sm:px-10 pt-12 pb-safe"
-        style={{ maxWidth: 1000 }}
-      >
-        <div key={tab} className="animate-tab-in min-w-0">
-          {tab === 'notes'      && <NotesTab      book={book} onUpdateBook={onUpdateBook} />}
-          {tab === 'characters' && <CharactersTab book={book} onUpdateBook={onUpdateBook} flashItemId={flashItemId} />}
-          {tab === 'plot'       && <PlotTab       book={book} onUpdateBook={onUpdateBook} />}
-          {tab === 'questions'  && <MysteriesTab  book={book} onUpdateBook={onUpdateBook} flashItemId={flashItemId} />}
-          {tab === 'themes'     && <DiscussionTab book={book} onUpdateBook={onUpdateBook} />}
-          {tab === 'progress'   && <ProgressTab   book={book} onUpdateBook={onUpdateBook} />}
-        </div>
+        </section>
       </div>
 
       {showUpdate && (
@@ -177,10 +166,8 @@ export default function BookDashboard({ bookId }) {
             <span style={{
               display:       'block',
               fontSize:      11,
-              color:         'var(--color-accent)',
-              opacity:       0.5,
-              letterSpacing: '0.3em',
-            }}>✦</span>
+              opacity:       0.8,
+            }}><LanternMark size={22} /></span>
           </div>
         </div>
       )}

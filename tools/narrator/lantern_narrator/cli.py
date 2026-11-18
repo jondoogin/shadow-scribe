@@ -1,0 +1,555 @@
+"""`lantern-narrate` — local neural audiobook generation for Lantern."""
+from __future__ import annotations
+
+import argparse
+import json
+import sys
+import time
+import urllib.request
+from pathlib import Path
+
+from . import benchmark
+from . import books
+from . import voice_design as VD
+from . import audio as A
+from .engines import ENGINE_IDS, EngineUnavailable, create_engine, memory_shortfall
+from .generate import GenerationInterrupted, Generator, SegmentFailed, StopFlag, _spoken, assemble, slug
+from .hardware import default_engine, recommend, report
+from .package import write_m4b, write_package
+from . import storage
+from .paths import benchmarks_dir, isolate_caches, models_dir, output_dir
+from .script import ScriptError, narrated_sections, script_from_source
+from .visuals.style import PRESETS as STYLE_PRESETS
+
+DEFAULT_BENCH_COMBOS = [
+    ("kokoro", "af_heart"), ("kokoro", "bf_emma"), ("kokoro", "am_michael"),
+    ("kokoro-mlx", "af_heart"),
+    ("pocket", "alba"), ("pocket", "charles"),
+    ("qwen3", "Ryan"), ("qwen3", "Aiden"),
+    ("qwen3-1.7b", "Ryan"),  # skipped automatically below 24 GB of memory
+]
+
+
+def _fmt_dur(s: float | None) -> str:
+    if s is None:
+        return "?"
+    s = int(s)
+    return f"{s // 3600}h{(s % 3600) // 60:02d}m" if s >= 3600 else f"{s // 60}m{s % 60:02d}s"
+
+
+def cmd_doctor(args) -> int:
+    r = report()
+    print(json.dumps(r, indent=1) if args.json else "\n".join(f"{k:>18}: {v}" for k, v in r.items()))
+    if not args.json:
+        u = storage.usage()
+        print(f"{'storage':>18}: {storage.fmt_bytes(u['totalBytes'])} in {u['home']}")
+    for tip in recommend(r):
+        print(f"• {tip}")
+    return 0
+
+
+def cmd_clean(args) -> int:
+    u = storage.usage()
+    print(f"Narrator folder: {u['home']}")
+    for name, c in u["categories"].items():
+        print(f"  {name:<11} {storage.fmt_bytes(c['bytes']):>9}  {c['about']}")
+    print(f"  {'total':<11} {storage.fmt_bytes(u['totalBytes']):>9}")
+    for var, path in u["sharedCaches"].items():
+        print(f"  (not managed) {var}={path}: shared cache, delete it yourself if you want")
+    chosen = [c for c in storage.CATEGORIES if getattr(args, c)] or (list(storage.CATEGORIES) if args.all else [])
+    if not chosen:
+        print("Nothing deleted. Choose what to remove, e.g. `lantern-narrate clean --jobs --yes`, "
+              "or `--all --yes` for everything.")
+        return 0
+    if not args.yes:
+        print(f"Would delete: {', '.join(chosen)}. Add --yes to do it.")
+        return 0
+    for d in storage.clean(chosen):
+        print(f"✓ removed {d}")
+    return 0
+
+
+def cmd_download(args) -> int:
+    if args.model != "kokoro":
+        print("Only Kokoro weights are fetched by this command; Pocket TTS and MLX models download on first use.")
+        return 1
+    from .engines.kokoro_onnx import MODEL_FILES, RELEASE_URL, VOICES_FILE
+
+    dest = models_dir() / "kokoro"
+    dest.mkdir(parents=True, exist_ok=True)
+    files = [MODEL_FILES["int8" if args.int8 else "fp32"], VOICES_FILE]
+    for name in files:
+        target = dest / name
+        if target.exists() and target.stat().st_size > 0:
+            print(f"✓ {name} already present")
+            continue
+        tmp = target.with_suffix(target.suffix + ".partial")
+        print(f"↓ {RELEASE_URL}{name}")
+        with urllib.request.urlopen(RELEASE_URL + name) as resp, open(tmp, "wb") as f:
+            while chunk := resp.read(1 << 20):
+                f.write(chunk)
+        tmp.replace(target)
+        print(f"✓ {name} ({target.stat().st_size / 1e6:.0f} MB)")
+    print(f"Kokoro weights in {dest}")
+    return 0
+
+
+def resolve_choice(content_id: str, engine: str | None, voice: str | None, style: str | None,
+                   speed: float | None, hw: dict | None = None) -> dict:
+    """Flags win, then the book's remembered choice, then the machine default.
+    A remembered voice or style only carries over when the engine is the same."""
+    saved = books.get(content_id)
+    eng = engine or saved.get("engine") or default_engine(hw if hw is not None else report())
+    same = saved.get("engine") == eng
+    return {
+        "engine": eng,
+        "voice": voice if voice else (saved.get("voice", "") if same else ""),
+        "style": style if style is not None else (saved.get("style", "") if same else ""),
+        "speed": speed if speed is not None else (saved.get("speed", 1.0) if same else 1.0),
+        "remembered": bool(saved) and not engine and not voice,
+    }
+
+
+def cmd_voices(args) -> int:
+    eng = create_engine(args.engine or default_engine(report()))
+    voices = eng.voices()
+    if not voices and eng.id == "qwen3-designed":
+        print('No designed voices yet. Create one: lantern-narrate design "calm, low American man" --name Walter')
+    for v in voices:
+        print(f"{v.id:<14} {v.label:<32} {v.language:<6} {v.license or '':<28} {v.notes or ''}")
+    return 0
+
+
+def cmd_script(args) -> int:
+    data = script_from_source(Path(args.source), Path(args.output), include_all=args.include_all)
+    secs = narrated_sections(data)
+    chars = sum(len(seg.get("spoken") or seg["text"]) for s in secs for seg in s["segments"])
+    print(f"✓ {args.output}: {len(secs)} narrated sections of {len(data['sections'])}, {chars:,} characters "
+          f"(≈ {_fmt_dur(chars / 15)} of speech at a typical narration pace)")
+    return 0
+
+
+def _progress_printer():
+    last = {"t": 0.0}
+
+    def on_progress(p):
+        import time
+        now = time.monotonic()
+        if now - last["t"] < 0.5 and p.segment_index != p.segment_count:
+            return
+        last["t"] = now
+        rtf = f"{p.realtime_factor:.1f}x realtime" if p.realtime_factor else "warming up"
+        print(f"\r[{p.section_index}/{p.section_count}] {p.section_title[:38]:<38} "
+              f"{p.segment_index}/{p.segment_count} · {rtf} · ETA {_fmt_dur(p.eta_seconds)}   ",
+              end="", flush=True)
+    return on_progress
+
+
+def make_aligner(mode: str, script: dict):
+    """Word timings for the follow-along transcript: on, off, or auto (on when installed and English)."""
+    from .align import Aligner, Wav2Vec2Emitter, script_has_words
+    if mode == "off":
+        return None, ""
+    if not script_has_words(script):
+        return None, "this script has no word tokens (make it with a newer Lantern)"
+    lang = (script["book"].get("language") or "en").lower()
+    if not lang.startswith("en"):
+        return None, f"the word aligner is English-only (book language: {lang})"
+    if not Wav2Vec2Emitter.available():
+        if mode == "on":
+            raise EngineUnavailable('Word timings need the align extra: pip install -e ".[align]"')
+        return None, 'not installed (pip install -e ".[align]")'
+    return Aligner(Wav2Vec2Emitter()), ""
+
+
+def cmd_generate(args) -> int:
+    script = script_from_source(Path(args.source), include_all=args.include_all)
+    book = script["book"]
+    c = resolve_choice(book["contentId"], args.engine, args.voice, args.style, args.speed)
+    engine = create_engine(c["engine"])
+    try:
+        aligner, why_not = make_aligner(getattr(args, "words", "auto"), script)
+        gen = Generator(script, engine, c["voice"], c["speed"], bitrate=args.bitrate * 1000,
+                        on_progress=_progress_printer(), selection=args.sections, style=c["style"],
+                        job_dir=Path(args.job_dir) if args.job_dir else None, aligner=aligner)
+    except (ValueError, EngineUnavailable) as e:
+        print(f"✗ {e}")
+        return 2
+    books.remember(book["contentId"], book.get("title"), engine=engine.id, voice=gen.voice,
+                   style=gen.style, speed=c["speed"])
+    stop = gen.stop.install()
+    print(f"Book: {book.get('title')} — {book.get('author')}")
+    print(f"Engine: {engine.label} · voice {gen.voice} · speed {c['speed']}"
+          + (f" · style \"{gen.style}\"" if gen.style else "")
+          + (" (this book's saved choice)" if c["remembered"] else ""))
+    print(f"Word timings: {aligner.info()}" if aligner else f"Word timings: off{' (' + why_not + ')' if why_not else ''}")
+    print(f"Job folder: {gen.job_dir}")
+    try:
+        state = gen.run()
+    except EngineUnavailable as e:
+        print(f"\n✗ {e}")
+        return 2
+    except GenerationInterrupted:
+        print(f"\n⏸  Stopped. Progress saved in {gen.job_dir}. Re-run the same command to resume.")
+        return 130
+    except SegmentFailed as e:
+        print(f"\n✗ {e}\nFinished chapters are kept; re-run to retry from this sentence.")
+        return 3
+    finally:
+        stop.uninstall()
+    print()
+    out = write_package(script, state, gen.job_dir, Path(args.output) if args.output else None,
+                        include_text=not args.no_text, include_words=getattr(args, "words", "auto") != "off")
+    total = sum(s.get("durationSec", 0) for s in state["sections"].values() if s.get("status") == "done")
+    print(f"✓ Package: {out}  ({out.stat().st_size / 1e6:.1f} MB, {_fmt_dur(total)} of narration)")
+    worded = [st["words"] for st in state["sections"].values() if st.get("words")]
+    if worded and getattr(args, "words", "auto") != "off":
+        ok, tot = sum(w["aligned"] for w in worded), sum(w["total"] for w in worded)
+        print(f"  Word timings: {ok}/{tot} sentences ({ok / max(tot, 1):.0%}); the rest follow by sentence.")
+    print("  Import it in Lantern: open the book → Listen → Import narration.")
+    if args.m4b:
+        m4b = write_m4b(script, state, gen.job_dir, out.with_suffix(".m4b"))
+        print(f"✓ M4B: {m4b}")
+    return 0
+
+
+def audition_text(script: dict, max_chars: int = 400) -> list[dict]:
+    """The opening sentences of the first narrated chapter, about 25 seconds of speech."""
+    picked, n = [], 0
+    for sec in narrated_sections(script):
+        for seg in sec["segments"]:
+            picked.append(seg)
+            n += len(_spoken(seg))
+            if n >= max_chars:
+                return picked
+        if picked:
+            return picked
+    return picked
+
+
+def cmd_audition(args) -> int:
+    script = script_from_source(Path(args.source), include_all=args.include_all)
+    book = script["book"]
+    c = resolve_choice(book["contentId"], args.engine, None, args.style, args.speed)
+    engine = create_engine(c["engine"])
+    style = (c["style"] or "").strip()
+    if style and not engine.supports_style:
+        print(f"✗ {engine.label} does not take a style instruction; use qwen3-1.7b or drop --style.")
+        return 2
+    engine.style = style
+    wanted = [v.strip() for v in args.voices.split(",")] if args.voices else [v.id for v in engine.voices()]
+    segments = audition_text(script, args.chars)
+    if not segments:
+        print("✗ No narrated text found in this book.")
+        return 2
+    out = Path(args.output) if args.output else output_dir() / "auditions" / slug(book.get("title") or "book")
+    out.mkdir(parents=True, exist_ok=True)
+    print(f"Book: {book.get('title')} — {book.get('author')}")
+    print(f"Engine: {engine.label}" + (f" · style \"{style}\"" if style else ""))
+    print(f"Reading the opening ({sum(len(_spoken(s)) for s in segments)} characters) in {len(wanted)} voices…")
+    try:
+        engine.load()
+    except EngineUnavailable as e:
+        print(f"✗ {e}")
+        return 2
+    sr = engine.info().sample_rate
+    made = []
+    for v in wanted:
+        t = time.perf_counter()
+        try:
+            pieces = [engine.synthesize(_spoken(seg), v, c["speed"]) for seg in segments]
+        except Exception as e:  # one bad voice should not stop the rest
+            print(f"  ✗ {v}: {e}")
+            continue
+        _timings, pcm = assemble(segments, pieces, sr)
+        pcm, _gain = A.normalize(pcm, sr)
+        stem = f"{engine.id}-{v}" + ("-styled" if style else "")
+        wav = out / f"{stem}.wav"
+        A.write_wav_atomic(wav, pcm, sr)
+        f = A.encode_aac(wav, out / f"{stem}.m4a")
+        if f != wav:
+            wav.unlink(missing_ok=True)
+        made.append(f)
+        print(f"  ✓ {v:<10} {f.name}  ({len(pcm) / sr:.0f} s of audio in {time.perf_counter() - t:.0f} s)")
+    if not made:
+        return 1
+    print(f"Samples in {out}")
+    print(f"Pick one: lantern-narrate generate {args.source} --engine {engine.id} --voice <name>"
+          + (f" --style \"{style}\"" if style else "") + "  (remembered for this book)")
+    return 0
+
+
+def cmd_design(args) -> int:
+    if args.list:
+        rows = VD.list_all()
+        if not rows:
+            print('No designed voices yet. Try: lantern-narrate design "warm, low British woman in her fifties" --name Margaret')
+        for r in rows:
+            kept = f" · take {r['keptTake']}" if r.get("keptTake") else ""
+            print(f"{r['name']:<16} {r['status']:<8}{kept}  {r['description']}")
+        return 0
+    if not args.name:
+        print("✗ Give the voice a name with --name.")
+        return 2
+    try:
+        if args.keep is not None:
+            v = VD.keep(args.name, args.keep)
+            print(f"✓ '{v.name}' now uses take {args.keep}. Narrate with it:")
+            print(f"  lantern-narrate generate book.epub --engine qwen3-designed --voice \"{v.name}\"")
+            return 0
+        if not args.description:
+            print('✗ Describe the voice, e.g. lantern-narrate design "calm, low American man, dry humour" --name Walter')
+            return 2
+        reason = memory_shortfall("qwen3-designed", report().get("memory_gb"))
+        if reason and not args.force:
+            print(f"✗ Voice design {reason.split(' (use')[0]}. Add --force to try anyway.")
+            return 2
+        print(f"Designing '{args.name}': {args.description}")
+        print(f"Rendering {args.takes} takes with {VD.DESIGN_MODEL} (first run downloads about 4.5 GB)…")
+        try:
+            designer = VD.mlx_designer()
+        except EngineUnavailable as e:
+            print(f"✗ {e}")
+            return 2
+        takes = VD.design(args.name, args.description, designer, takes=args.takes, seed=args.seed)
+    except VD.VoiceError as e:
+        print(f"✗ {e}")
+        return 2
+    for i, t in enumerate(takes, 1):
+        print(f"  take {i}: {t}")
+    print(f"Listen, then keep one: lantern-narrate design --name \"{args.name}\" --keep <1-{len(takes)}>")
+    return 0
+
+
+def cmd_benchmark(args) -> int:
+    skipped = []
+    if args.only:
+        combos = [tuple(c.split(":", 1)) for c in args.only.split(",")]
+    else:
+        mem = report().get("memory_gb")
+        combos = []
+        for engine_id, voice in DEFAULT_BENCH_COMBOS:
+            reason = memory_shortfall(engine_id, mem)
+            if reason:
+                skipped.append({"engine": engine_id, "voice": voice, "ok": False, "error": reason})
+            else:
+                combos.append((engine_id, voice))
+    if not args.output:
+        args.output = str(benchmarks_dir() / time.strftime("%Y%m%d-%H%M%S"))
+    script_path = Path(args.script)
+    if script_path.suffix != ".json":
+        data = script_from_source(script_path, include_all=True)
+        script_path = Path(args.output) / "passage.script.json"
+        script_path.parent.mkdir(parents=True, exist_ok=True)
+        script_path.write_text(json.dumps(data, indent=1), encoding="utf-8")
+    rep = benchmark.run(script_path.resolve(), combos, Path(args.output), args.speed, skipped=skipped)
+    print(f"✓ {Path(args.output) / 'RESULTS.md'}")
+    return 0 if any(r.get("ok") for r in rep["results"]) else 1
+
+
+def cmd_bench_one(args) -> int:
+    r = benchmark.bench_one(Path(args.script), args.engine, args.voice, Path(args.output), args.speed)
+    print(json.dumps(r))
+    return 0
+
+
+def _visual_script(args):
+    return script_from_source(Path(args.book))
+
+
+def cmd_visuals_plan(args) -> int:
+    from .visuals.generate import plan_book, plan_summary
+    planned = plan_book(_visual_script(args), args.style_preset, args.describer, args.sections)
+    rows = plan_summary(planned)
+    if args.json:
+        print(json.dumps({"style": planned["profile"], "scenes": rows}, ensure_ascii=False, indent=1))
+        return 0
+    p = planned["profile"]
+    print(f"Style: {p['preset']} · palette {', '.join(p['palette'])} (from the first {p['sourceWords']} words only)")
+    gaps = [b["at"] - a["at"] for a, b in zip(rows, rows[1:])]
+    if gaps:
+        print(f"{len(rows)} scenes · a new painting about every {_fmt_dur(sum(gaps) / len(gaps))} of narration (estimate)")
+    for r in rows:
+        va = r["visibleAfter"]
+        print(f"  {r['id']:<6} {_fmt_dur(r['at']):>7}  {r['reason']:<22} {r['setting'] or '':<18} shown after {va['sectionId']}:{va['segmentId']}")
+    return 0
+
+
+def cmd_visuals_generate(args) -> int:
+    from .visuals.generate import generate
+    from .visuals.painters import PAINTER_MIN_MEMORY_GB
+    script = _visual_script(args)
+    mem = report().get("memory_gb") or 0
+    need = PAINTER_MIN_MEMORY_GB.get(args.model, 0)
+    if need and mem and mem < need:
+        print(f"✗ {args.model} needs about {need} GB of memory; this machine has {mem} GB.", file=sys.stderr)
+        return 2
+    kw = {} if args.model == "fixture" else {"quantize": args.quantize or None}
+    try:
+        res = generate(script, painter=args.model, preset=args.style_preset, describer=args.describer,
+                       selection=args.sections, out_path=Path(args.output) if args.output else None, painter_kw=kw)
+    except (RuntimeError, ValueError) as e:
+        print(f"✗ {e}", file=sys.stderr)
+        return 2
+    m = res["manifest"]
+    print(f"✓ {len(m['images'])} paintings in {_fmt_dur(res['seconds'])} → {res['path']}")
+    if m["generator"]["codeDrawn"]:
+        print("  (drawn by code with the fixture painter: for testing the pipeline, not for reading)")
+    print("  Import it in Lantern: Listen → Paintings → Import paintings.")
+    return 0
+
+
+def cmd_visuals_doctor(args) -> int:
+    import importlib.util as iu
+    from .visuals.painters import find_mflux
+    from .visuals.validate import vision_available
+    r = report()
+    print(f"{'memory':>14}: {r.get('memory_gb')} GB · Apple Silicon: {r.get('apple_silicon')}")
+    print(f"{'mflux':>14}: {'yes' if find_mflux() else 'no (pip install -e .[visuals])'}")
+    print(f"{'mlx-lm':>14}: {'yes' if iu.find_spec('mlx_lm') else 'no (keyword describer only)'}")
+    print(f"{'Apple Vision':>14}: {'yes' if vision_available() else 'no (face and text checks skipped)'}")
+    mem = r.get("memory_gb") or 0
+    tier = "large" if mem >= 24 else "standard" if mem >= 16 else "small"
+    print(f"{'tier':>14}: {tier} → " + {"large": "FLUX.2 klein 4B (8-bit) + Qwen3 8B describer",
+                                         "standard": "FLUX.2 klein 4B (4-bit) + Qwen3 4B describer, one after the other",
+                                         "small": "keyword describer only"}[tier])
+    return 0
+
+
+def cmd_visuals_benchmark(args) -> int:
+    from .visuals.generate import generate
+    script = _visual_script(args)
+    t0 = time.time()
+    res = generate(script, painter=args.model, preset=args.style_preset, describer=args.describer, selection=args.sections or "1",
+                   out_path=benchmarks_dir() / f"visuals-{time.strftime('%Y%m%d-%H%M%S')}.lantern-visuals",
+                   painter_kw={} if args.model == "fixture" else {"quantize": args.quantize or None})
+    n = len(res["manifest"]["images"])
+    secs = [i.get("seconds") or 0 for i in res["manifest"]["images"]]
+    print(json.dumps({"model": args.model, "images": n, "secondsPerImage": round(sum(secs) / max(1, n), 2),
+                      "totalSeconds": round(time.time() - t0, 1), "machine": report().get("model"),
+                      "memoryGb": report().get("memory_gb")}, indent=1))
+    return 0
+
+
+def _visual_args(s, with_model=True):
+    s.add_argument("book", help="EPUB, TXT, or a narration script .json")
+    s.add_argument("--style-preset", default="gouache", choices=list(STYLE_PRESETS))
+    s.add_argument("--describer", default="keywords", help="keywords (no model), qwen3-4b or qwen3-8b")
+    s.add_argument("--sections", help="narrated sections to cover, like 1-3,7")
+    if with_model:
+        s.add_argument("--model", default="flux2-klein-4b", help="flux2-klein-4b, or fixture (drawn by code, for testing)")
+        s.add_argument("--quantize", type=int, default=8, help="mflux quantisation bits (8 or 4; 0 for none)")
+
+
+def main(argv=None) -> int:
+    p = argparse.ArgumentParser(prog="lantern-narrate", description=__doc__)
+    sub = p.add_subparsers(dest="cmd", required=True)
+
+    s = sub.add_parser("doctor", help="show hardware, installed engines and tools")
+    s.add_argument("--json", action="store_true")
+    s.set_defaults(fn=cmd_doctor)
+
+    s = sub.add_parser("download", help="download model weights")
+    s.add_argument("model", choices=["kokoro"])
+    s.add_argument("--int8", action="store_true", help="~88 MB quantised model (plus ~27 MB voices) instead of ~310 MB fp32")
+    s.set_defaults(fn=cmd_download)
+
+    s = sub.add_parser("voices", help="list voices for an engine")
+    s.add_argument("--engine", choices=ENGINE_IDS, help="default: this machine's default engine")
+    s.set_defaults(fn=cmd_voices)
+
+    s = sub.add_parser("script", help="EPUB/TXT → narration script JSON (uses Lantern's own parser)")
+    s.add_argument("source")
+    s.add_argument("-o", "--output", required=True)
+    s.add_argument("--include-all", action="store_true", help="also narrate front/back matter")
+    s.set_defaults(fn=cmd_script)
+
+    s = sub.add_parser("generate", help="generate chapter audio and a .lantern-audio package")
+    s.add_argument("source", help=".epub, .txt or narration script .json")
+    s.add_argument("--engine", choices=ENGINE_IDS,
+                   help="default: this book's saved choice, else qwen3-1.7b on Apple Silicon with 24 GB+, else kokoro")
+    s.add_argument("--voice", default="", help="default: this book's saved voice, else the engine's default")
+    s.add_argument("--style", default=None,
+                   help='qwen3-1.7b only: delivery instruction, e.g. "warm, unhurried audiobook narration" ("" clears)')
+    s.add_argument("--speed", type=float, default=None)
+    s.add_argument("--sections", help="narrated sections to generate, e.g. 1-3,7 (default: all)")
+    s.add_argument("--bitrate", type=int, default=64, help="AAC kbps (default 64)")
+    s.add_argument("-o", "--output", help=f"package path (default {output_dir()}/<title>-<voice>.lantern-audio)")
+    s.add_argument("--job-dir", help="override job/cache folder")
+    s.add_argument("--include-all", action="store_true")
+    s.add_argument("--no-text", action="store_true", help="omit caption text from the package")
+    s.add_argument("--m4b", action="store_true", help="also write a single .m4b with chapters (ffmpeg)")
+    s.add_argument("--words", choices=["auto", "on", "off"], default="auto",
+                   help="measure word timings for the follow-along text (default: auto, when the align extra is installed)")
+    s.set_defaults(fn=cmd_generate)
+
+    s = sub.add_parser("audition", help="read a book's opening in every voice, to choose one for that book")
+    s.add_argument("source", help=".epub, .txt or narration script .json")
+    s.add_argument("--engine", choices=ENGINE_IDS, help="default: as for generate")
+    s.add_argument("--voices", help="comma-separated voices (default: all for the engine)")
+    s.add_argument("--style", default=None, help="qwen3-1.7b only: delivery instruction to try")
+    s.add_argument("--speed", type=float, default=None)
+    s.add_argument("--chars", type=int, default=400, help="how much of the opening to read (default 400 characters)")
+    s.add_argument("-o", "--output", help=f"folder (default {output_dir()}/auditions/<title>/)")
+    s.add_argument("--include-all", action="store_true")
+    s.set_defaults(fn=cmd_audition)
+
+    s = sub.add_parser("design", help="design a voice from a description, then keep the take you like")
+    s.add_argument("description", nargs="?", help='e.g. "warm, low British woman in her fifties, measured"')
+    s.add_argument("--name", help="what to call the voice (used with --voice)")
+    s.add_argument("--takes", type=int, default=3, help="how many versions to render (default 3)")
+    s.add_argument("--seed", type=int, help="make takes reproducible")
+    s.add_argument("--keep", type=int, help="make take N this voice's reference clip")
+    s.add_argument("--list", action="store_true", help="list designed voices")
+    s.add_argument("--force", action="store_true", help="try even if this Mac has less than 24 GB")
+    s.set_defaults(fn=cmd_design)
+
+    s = sub.add_parser("benchmark", help="compare engines on the same passage")
+    s.add_argument("--script", default=str(Path(__file__).resolve().parents[1] / "benchmark" / "passage.script.json"))
+    s.add_argument("--only", help="engine:voice list, e.g. kokoro:af_heart,pocket:alba")
+    s.add_argument("--speed", type=float, default=1.0)
+    s.add_argument("-o", "--output", help=f"results folder (default {benchmarks_dir()}/<timestamp>)")
+    s.set_defaults(fn=cmd_benchmark)
+
+    v = sub.add_parser("visuals", help="paintings that follow the story (.lantern-visuals)")
+    vs = v.add_subparsers(dest="vcmd", required=True)
+    s = vs.add_parser("plan", help="show where the scenes change and their prompts (no image model)")
+    _visual_args(s, with_model=False)
+    s.add_argument("--json", action="store_true")
+    s.set_defaults(fn=cmd_visuals_plan)
+    s = vs.add_parser("generate", help="paint the scenes and write a .lantern-visuals package")
+    _visual_args(s)
+    s.add_argument("-o", "--output", help=f"package path (default {output_dir()}/<book>-<style>.lantern-visuals)")
+    s.set_defaults(fn=cmd_visuals_generate)
+    s = vs.add_parser("doctor", help="image model, describer, memory tier and Apple Vision")
+    s.set_defaults(fn=cmd_visuals_doctor)
+    s = vs.add_parser("benchmark", help="seconds per painting on this Mac")
+    _visual_args(s)
+    s.set_defaults(fn=cmd_visuals_benchmark)
+
+    s = sub.add_parser("clean", help="show what the narrator stores and remove it")
+    for c, about in storage.CATEGORIES.items():
+        s.add_argument(f"--{c}", action="store_true", help=f"remove {about}")
+    s.add_argument("--all", action="store_true", help="remove everything in the narrator folder")
+    s.add_argument("--yes", action="store_true", help="actually delete (otherwise only shows what would go)")
+    s.set_defaults(fn=cmd_clean)
+
+    s = sub.add_parser("_bench-one", help=argparse.SUPPRESS)
+    s.add_argument("script")
+    s.add_argument("--engine", required=True)
+    s.add_argument("--voice", required=True)
+    s.add_argument("--speed", type=float, default=1.0)
+    s.add_argument("-o", "--output", required=True)
+    s.set_defaults(fn=cmd_bench_one)
+
+    args = p.parse_args(argv)
+    isolate_caches()  # before any engine import, so model downloads stay in the narrator folder
+    try:
+        return args.fn(args)
+    except ScriptError as e:
+        print(f"✗ {e}", file=sys.stderr)
+        return 2
+
+
+if __name__ == "__main__":
+    sys.exit(main())

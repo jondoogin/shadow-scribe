@@ -1,9 +1,7 @@
-import { useState, useMemo } from 'react'
+import { useState } from 'react'
 import { getEffectiveMode, getDiscussionQuestionView } from '../utils/spoiler.js'
 import { useSettings } from '../context/SettingsContext.jsx'
 import { generateDiscussionQuestions } from '../utils/aiExtractor.js'
-import { fmtDate } from '../utils/date.js'
-import { liveItems } from '../utils/live.js'
 import { aiEnabled, bookDepth } from '../utils/depthLevel.js'
 
 export default function DiscussionTab({ book, onUpdateBook }) {
@@ -15,30 +13,6 @@ export default function DiscussionTab({ book, onUpdateBook }) {
   const mode  = getEffectiveMode(book, settings)
   const depth = bookDepth(book, settings)
 
-  // Discussion companion line — forward-facing, present-tense, NOT a cached reflection.
-  // The carousel above already shows reflections. This should feel different:
-  // active, interrogative, derived from current reading state rather than past synthesis.
-  const discussionLine = useMemo(() => {
-    const notes      = liveItems(book.notes)
-    const mysteries  = liveItems(book.mysteries)
-    const theoryNotes    = notes.filter(n => n.tag === 'theory')
-    const confusingNotes = notes.filter(n => n.tag === 'confusing')
-    const openMyst       = mysteries.filter(m => !m.resolved)
-    if (theoryNotes.length >= 3 && openMyst.length >= 2)
-      return "The theories and the open questions are accumulating together."
-    if (theoryNotes.length >= 2 && confusingNotes.length >= 2)
-      return "You've been building explanations and holding confusion at the same time."
-    if (theoryNotes.length >= 2)
-      return "Some of what you've been theorising is worth following."
-    if (confusingNotes.length >= 2 && openMyst.length >= 1)
-      return "Several things still don't quite fit together."
-    if (openMyst.length >= 3)
-      return "There are more open threads than answers right now."
-    if (notes.length >= 5)
-      return "The reading has left a record. Some of it is worth sitting with."
-    return "Something in this story is worth sitting with."
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [book.notes?.length, book.mysteries?.length])
   const userQuestions = book.userDiscussionQuestions || []
   const hasAiKey = true // proxy available for alpha testers without personal key
   const hasGenerated = book.aiQuestionsGenerated
@@ -74,14 +48,6 @@ export default function DiscussionTab({ book, onUpdateBook }) {
     setInput('')
   }
 
-  // Cross-surface residue — oldest questioning note as ambient echo
-  const oldestNote = useMemo(() => {
-    const candidateNotes = liveItems(book.notes).filter(n => n.tag === 'theory' || n.tag === 'confusing')
-    if (candidateNotes.length < 1) return null
-    return [...candidateNotes].sort((a, b) => new Date(a.date) - new Date(b.date))[0]
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [book.notes])
-
   return (
     <div className="max-w-2xl">
 
@@ -91,9 +57,6 @@ export default function DiscussionTab({ book, onUpdateBook }) {
         <p className="text-[12px] text-ink-500 italic mb-6 leading-relaxed">
           Questions the reading opened. Some take longer to settle than the story did.
         </p>
-      )}
-      {discussionLine && depth !== 'quiet' && book.status !== 'finished' && liveItems(book.notes).length >= 3 && (
-        <p className="text-[12px] text-ink-500 italic mb-6 leading-relaxed">{discussionLine}</p>
       )}
 
       {/* Claude generate — minimal text link only. Quiet depth: AI is off. */}
@@ -182,16 +145,6 @@ export default function DiscussionTab({ book, onUpdateBook }) {
         </div>
       )}
 
-      {/* Cross-surface residue — oldest theory/confusing note as ambient echo */}
-      {/* Quiet depth: companion doesn't surface observations from other tabs. */}
-      {depth !== 'quiet' && liveItems(book.notes).length >= 5 && oldestNote && (
-        <div className="mt-2 mb-6 pl-4 border-l-2 border-ink-100" style={{ opacity: 0.55 }}>
-          <p className="text-[12px] text-ink-500 italic leading-relaxed">
-            "{oldestNote.text.length > 120 ? oldestNote.text.slice(0, 120) + '…' : oldestNote.text}"
-          </p>
-          <p className="text-[11px] text-ink-300 mt-1">{fmtDate(oldestNote.date)}</p>
-        </div>
-      )}
 
       {/* Question input — written into the page, not mounted onto it */}
       <div className="border-t border-ink-100 pt-5 mt-2">

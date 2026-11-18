@@ -1,0 +1,28 @@
+[project]
+name = "lantern-narrator"
+version = "1.0.0"
+description = "Local neural audiobook generation for Lantern (Kokoro, Pocket TTS, Qwen3-TTS)"
+requires-python = ">=3.10,<3.14"
+dependencies = ["numpy>=1.26", "soundfile>=0.12"]
+
+[project.optional-dependencies]
+kokoro = ["kokoro-onnx>=0.4.9"]
+pocket = ["pocket-tts>=1.0"]
+mlx = ["mlx-audio>=0.2", "misaki[en]>=0.9"]
+visuals = ["Pillow>=10", "mflux>=0.16", "mlx-lm>=0.20", "pyobjc-framework-Vision>=10; sys_platform == 'darwin'"]
+# word timings for the follow-along transcript (wav2vec2, Apache-2.0)
+align = ["torch>=2.2", "transformers>=4.40"]
+dev = ["pytest>=8", "Pillow>=10"]
+
+[project.scripts]
+lantern-narrate = "lantern_narrator.cli:main"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["lantern_narrator*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

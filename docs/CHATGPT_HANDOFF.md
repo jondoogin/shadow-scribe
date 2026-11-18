@@ -7,6 +7,14 @@
 
 ---
 
+## SESSION 168 (2026-11-18): Visual journey built, waiting on the Mac
+
+The visual journey now works end to end in code: the Mac CLI (`lantern-narrate visuals generate book.epub`) plans scenes where the story's place, time, weather or light changes, paints them, and writes a `.lantern-visuals` file; Lantern imports it (Listen → Paintings) and shows each painting as a plate on Listen, and optionally behind the Reader page. A painting only appears after the reader has passed the passage it was made from. Fitted to Catalogue III. PR #2 (on top of PR #4), not merged. Next: run FLUX.2 klein on the M5 Pro, benchmark it, and let John judge real paintings and pick a style preset.
+
+## SESSION 167 (2026-11-17): Catalogue theme in the real app
+
+John picked Catalogue III in `/design-lab` and tuned it (deep teal, Stone paper, Literata + Spline Sans Mono, bar progress, folder tabs). Those settings are now the app's theme: see `docs/DESIGN_SYSTEM.md` › Catalogue theme. The Vellum amber palette, glow blobs and frosted glass are gone. Branch `claude/project-thread-q1khuh`, PR #4, not merged.
+
 ## CURRENT STATE
 
 - **Product:** Companion-first reading environment running on Vellum design system (Libre Baskerville, warm amber/ember palette). CompanionBand is the primary interface surface. Cloud sync via Supabase magic-link is live and opt-in. Depth Level (Quiet/Resonant/Saturated) is per-book and wired to behavior.
@@ -24,6 +32,59 @@ The companion is the star. Book data — characters, questions, themes, plot not
 ---
 
 ## RECENT SESSIONS
+
+### Session 165 — 2026-11-15 — Visual journey design (doc only, not merged)
+
+- Design for ambient imagery that follows the book: `docs/VISUAL_JOURNEY.md`.
+- Images are made on the Mac with a free local model (FLUX.2 klein 4B) from short windows of text, packaged, and imported on any device like narration. Estimated 10 to 20 minutes per novel on the MacBook Pro, 1.5 to 2.5 hours on the Air (not measured). Hosted would cost about $0.50 to $4 per novel but sends scene prompts out, so it stays opt-in.
+- Spoiler rule: an image appears only after you have passed every word it was made from.
+- Slow pan and zoom, 14-second dissolves, 90 to 240 seconds per image, off with Reduced Motion.
+
+**John's answers (2026-11-16):** painterly, with painterly animation (each picture paints itself in along its brushstrokes and stays faintly "wet"); images change when the story's setting, time or mood shifts, not on a timer; the Reader backdrop is in the first build; distant figures and silhouettes are fine, never faces. Nothing is open.
+
+**Built (2026-11-16, step 1):** the painterly display and the Reader backdrop, on a preview page (`/preview/visuals`) with five sample paintings drawn by code and a short story written for it. Paintings paint themselves in along their brushstrokes, drift slowly and shimmer faintly; the Reader backdrop sits faintly behind the text. Checked in a headless browser: no painting ever appeared before its passage had been heard. Not yet on a real iPhone, and not yet wired into real books (that needs step 2, importing a book's paintings).
+
+### Session 168 — 2026-11-18 — Follow-along transcript up to spec (not merged)
+
+- The Text view in Listen now matches Catalogue III and goes word by word: in the sentence being read, each word inks in as it is spoken. Words only animate where the timing was measured, never guessed.
+- Word timing comes from a small alignment model the narrator runs on the Mac after making the audio (`generate --words`). It can add timing to chapters already made without regenerating them. The browser's built-in voice lights words too, when the device reports them.
+- The Reader now tints the exact sentence being narrated.
+- Still to do before going live: run the aligner on real narration on John's MacBook Pro, and an iPhone check.
+
+### Session 165 — 2026-11-15 — Follow-along transcript designed (not built)
+
+- John asked for a transcript that follows the narration, like Spotify lyrics but more elegant. The design is in `docs/TRANSCRIPT.md`.
+- Sentence-level follow-along can ship first with no narrator changes, because every narration package already has exact sentence times.
+- Word-level timing comes from a local forced aligner on the Mac, run on each sentence after it is spoken. Existing narrations can be upgraded without regenerating audio. Words only animate where the alignment is measured and confident.
+- The look: a pool of lantern light glides behind the sentence being read, and each word fills with ink as it's spoken. Spoilers: only the current chapter is ever shown; progress never changes on its own.
+- John decided (2026-11-16): this view may break the 0.5 s motion limit (the "listening register"); words animate by default; "reveal as spoken" is optional and off by default; the transcript is a Text view inside Listen. Phase 1 is built: Listen now has a Text view where a soft light follows the sentence being read, with tap-to-play, calm auto-scroll, Back to narration and the optional reveal-as-spoken veil. Not yet tried on an iPhone. Next: the aligner test on the Mac for word timing.
+
+### Session 164 — 2026-11-13 — Narrator retargeted to the M5 Pro (same branch, not merged)
+
+- The main generation machine is now John's work MacBook Pro (M5 Pro, 48 GB). The M2 Air stays supported.
+- With 48 GB, Qwen3-TTS 1.7B is included in the benchmark. Kokoro stays the default until the samples have been compared.
+- Everything the narrator stores is in `~/.lantern-narrator/`, and `lantern-narrate clean` removes it.
+
+- Benchmarked on the MacBook Pro (2026-11-13): Kokoro about 8× realtime (a 10-hour novel in about 75 min), Pocket about 11×, Qwen3 0.6B about 4–4.7×, Qwen3 1.7B about 2.5× (about 4 hours per novel). Speed only; nobody has rated the voices yet.
+
+- John listened and chose **Qwen3 1.7B** for its quality and expressiveness, but not the Ryan voice. It is now the default on the MacBook Pro, and the voice is chosen per book: `lantern-narrate audition book.epub` reads that book's opening in all 9 voices, and `generate --voice X` remembers the choice for that book. An optional `--style` instruction (e.g. "warm, unhurried narration") shapes delivery. Only Ryan and Aiden are native English speakers; the other seven speak English with an accent.
+
+- John heard all 9 voices and picked **Aiden** as the default. He wants to explore a custom voice builder next (Qwen3 VoiceDesign).
+
+- **Voice designer (built, not yet run on the Mac):** John chose "design, then lock it in". `lantern-narrate design "<description>" --name X` makes a few takes of a short passage with Qwen3 VoiceDesign; `--keep N` locks one in; the `qwen3-designed` engine clones that take for the whole book so the voice doesn't drift. Lantern clones only voices it designed itself, never real recordings.
+- iPhone: fixed the Files picker greying out `.lantern-audio` packages.
+
+**Open:** run the queued Mac steps (SESSION_NOTES), listen to 3 designed voices; iPhone test of Listen on the preview; check that `--style` works with the Mac's mlx-audio; rerun Kokoro MLX after the dependency fix.
+
+### Session 163 — 2026-10-26 — Neural narration (feature branch, not merged)
+
+**What shipped (on branch `feature/lantern-neural-narration`, awaiting review):**
+- Listen page with a neural-narration player, mini-player, sleep timer, lock-screen controls, and procedural ambience with ducking.
+- A Reader view that shares position with Listen.
+- `lantern-narrate`, a Mac CLI that turns an EPUB into a `.lantern-audio` package with free local models (Kokoro by default). AirDrop the package to the iPhone and import it.
+- Browser speech as a no-setup fallback. Book text and audio stay on-device (IndexedDB) and never sync.
+
+**Open:** run the benchmark on John's M2 (MLX/Pocket/Qwen), listen to the samples and fill in the subjective columns, and test on an iPhone (background playback, storage eviction).
 
 ### Session 158 — 2026-05-31 — Mobile audit + Plot discoverability + Library card redesign
 
@@ -1016,3 +1077,8 @@ These systems are easy to accidentally flatten. Each has been calibrated careful
 
 *End of handoff document.*
 *Full technical depth: `ARCHITECTURE.md` · `AI_COMPANION_RULES.md` · `DESIGN_SYSTEM.md` · `PRODUCT_FOUNDATION.md` · `ROADMAP.md`*
+
+
+## Session 167 (cont.): screens rebuilt as Catalogue III
+
+John said the first pass "basically just changed the color palette". The Library, book page, Reader and Listen screens are now rebuilt on the prototype's layout with real data: hero index card plus drawer with filter tabs, reader's card with spoiler seal plus tabs-in-card, page-card reader, and a Listen slip with wick timer and lamp log. Details in DESIGN_SYSTEM.md ("Catalogue screens"). Lint 47 errors (baseline 49, none new), build passes, 60 tests pass.

@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import BookCover from '../shared/BookCover.jsx'
-import ReadingMomentum from './ReadingMomentum.jsx'
 import { Ico } from '../shared/icons.jsx'
 import { getProgress } from '../../utils/progress.js'
 import { fmtDate } from '../../utils/date.js'
@@ -13,6 +12,7 @@ import { track } from '../../utils/analytics.js'
 import { generateCompletionAfterimageLine } from '../../utils/crossBookMemory.js'
 import { mysteryHauntScore } from '../../utils/hauntScore.js'
 import { liveItems } from '../../utils/live.js'
+import { callNumber, statusLabel, Holes } from '../../catalogue/parts.jsx'
 
 const TEMPERAMENT_CONFIG = [
   { k: 'curious',      l: 'Curious',      d: 'Notices and wonders'       },
@@ -276,6 +276,11 @@ export default function CompanionHeader({ book, onOpenUpdate, onUpdateBook }) {
     actions.push({ key: 'begin',   label: 'begin reading',          confirm: false })
   }
 
+  // Status changes (put aside, mark finished, archive…) live in the ⋯ menu;
+  // only the ones that are the next step for the book stay on the card.
+  const cardActions = actions.filter(a => a.key === 'begin' || a.key === 'restore')
+  const menuActions = actions.filter(a => !cardActions.includes(a))
+
   // Quiet annotation: series position + reread count
   const metaAnnotation = [
     book.series?.name && `${book.series.name} · book ${book.series.position}${book.series.total > 0 ? ` of ${book.series.total}` : ''}`,
@@ -488,48 +493,25 @@ export default function CompanionHeader({ book, onOpenUpdate, onUpdateBook }) {
         </div>
       )}
 
-      {/* ── Primary ritual action — progress update ── */}
-      {(isReading || isPaused) && !atEnd && !editingMeta && !pendingAction && (
-        <div className="mt-4">
-          <button
-            onClick={onOpenUpdate}
-            style={{
-              fontFamily:    'var(--font-serif)',
-              fontSize:      14,
-              fontWeight:    400,
-              letterSpacing: '-0.01em',
-              color:         'var(--color-text-secondary)',
-              padding:       '10px 22px',
-              border:        '1px solid var(--color-hairline)',
-              borderRadius:  8,
-              background:    'transparent',
-              display:       'inline-flex',
-              alignItems:    'center',
-              gap:           8,
-              transition:    'background 700ms cubic-bezier(0.2,0.9,0.2,1), border-color 700ms, color 700ms, box-shadow 700ms',
-            }}
-            onMouseEnter={e => {
-              e.currentTarget.style.background = 'var(--color-accent)'
-              e.currentTarget.style.borderColor = 'var(--color-accent)'
-              e.currentTarget.style.color = 'var(--color-bg)'
-              e.currentTarget.style.boxShadow = '0 0 28px 6px var(--color-glow)'
-            }}
-            onMouseLeave={e => {
-              e.currentTarget.style.background = 'transparent'
-              e.currentTarget.style.borderColor = 'var(--color-hairline)'
-              e.currentTarget.style.color = 'var(--color-text-secondary)'
-              e.currentTarget.style.boxShadow = 'none'
-            }}
-          >
-            {isPaused
-              ? `Return to chapter ${book.currentChapter || 1}`
-              : (book.readingLog?.length ?? 0) === 0
-                ? 'Begin your first chapter'
-                : book.currentChapter > 0
-                  ? `Continue from chapter ${book.currentChapter}`
-                  : 'Begin your first chapter'}
-            <span style={{ fontSize: 12, opacity: 0.55 }}>→</span>
-          </button>
+      {/* ── Actions: one primary (the chapter update), then Read and Listen ── */}
+      {!editingMeta && !pendingAction && (
+        <div className="c2-actions c2-actions--stack">
+          {(isReading || isPaused) && !atEnd && (
+            <button type="button" className="c2-btn c2-btn--primary" onClick={onOpenUpdate}>
+              {isPaused
+                ? `Return to chapter ${book.currentChapter || 1}`
+                : (book.readingLog?.length ?? 0) === 0
+                  ? 'Begin your first chapter'
+                  : book.currentChapter > 0
+                    ? `Continue from chapter ${book.currentChapter}`
+                    : 'Begin your first chapter'}
+              <span aria-hidden="true">→</span>
+            </button>
+          )}
+          <div className="c2-row2">
+            <Link to={`/book/${book.id}/read`} className="c2-btn"><Ico.Open /> Read</Link>
+            <Link to={`/book/${book.id}/listen`} className="c2-btn"><Ico.Headphones /> Listen</Link>
+          </div>
         </div>
       )}
 
@@ -554,27 +536,17 @@ export default function CompanionHeader({ book, onOpenUpdate, onUpdateBook }) {
       )}
 
       {/* ── Lifecycle actions ── */}
-      {actions.length > 0 && !pendingAction && !editingMeta && (
-        <div className="mt-3">
-          <div className="flex items-center flex-wrap">
-            {actions.map((a, i) => (
-              <span key={a.key} className="flex items-center">
-                {i > 0 && (
-                  <span className="text-ink-200 mx-2 select-none text-[11px]" aria-hidden="true">·</span>
-                )}
-                <button
-                  onClick={() => a.confirm ? setPendingAction(a.key) : performAction(a.key)}
-                  className="text-[11px] italic transition-colors text-ink-400 hover:text-ink-600">
-                  {a.label}
-                </button>
-              </span>
-            ))}
-          </div>
+      {cardActions.length > 0 && !pendingAction && !editingMeta && (
+        <div className="c2-links">
+          {cardActions.map(a => (
+            <button key={a.key} type="button" className="c2-link"
+              onClick={() => a.confirm ? setPendingAction(a.key) : performAction(a.key)}>
+              {a.label.charAt(0).toUpperCase() + a.label.slice(1)}
+            </button>
+          ))}
         </div>
       )}
 
-      {/* ── Reading momentum ── */}
-      {!isFinished && <ReadingMomentum book={book} />}
 
       {/* ── Re-extraction status ── */}
       {reextracting && (
@@ -594,232 +566,128 @@ export default function CompanionHeader({ book, onOpenUpdate, onUpdateBook }) {
     </>
   )
 
+  const unit = book.format === 'audiobook' ? 'part' : 'ch.'
+  const reached = book.currentChapter || 0
+
   return (
-    <div style={{ borderBottom: '1px solid var(--color-separator-soft)' }}>
+    <div className="cat c2 cat--head">
       {/* Hidden EPUB file input for re-extraction */}
       <input ref={epubRef} type="file" accept=".epub" className="hidden" onChange={handleEpubFile} />
 
-      <div className="max-w-[1000px] mx-auto px-5 sm:px-10 py-4 sm:py-6 book-header-inner">
-        {/* Mobile breadcrumb — back to library */}
-        <div className="sm:hidden mb-3 -mt-1">
-          <button
-            onClick={() => navigate('/library')}
-            style={{
-              fontFamily: 'var(--font-sans)',
-              fontSize: 11,
-              color: 'var(--color-text-dim)',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 4,
-              opacity: 0.65,
-              transition: 'opacity 0.2s ease',
-              background: 'none',
-              border: 'none',
-              padding: 0,
-              cursor: 'pointer',
-            }}
-          >
-            <span style={{ fontSize: 13, lineHeight: 1 }}>←</span>
-            <span>Library</span>
-          </button>
+      <header className="c2-top">
+        <div>
+          <button type="button" className="c2-ic" onClick={() => navigate('/library')} aria-label="Back to library"><Ico.Left /></button>
         </div>
-
-        <div className="flex gap-4 sm:gap-5 items-start">
-
-          {/* ── Cover — atmospheric thumbnail, reduced ── */}
-          <div
-            className="flex-shrink-0 mt-1"
-            style={{
-              boxShadow: '0 2px 10px rgba(0,0,0,.13), 0 1px 3px rgba(0,0,0,.07)',
-              borderRadius: 8,
-            }}
-          >
-            <BookCover book={book} className="w-[50px] h-[75px]" rounded="rounded-[8px]" />
-          </div>
-
-          {/* ── Document column ── */}
-          <div className="flex-1 min-w-0">
-
-            {/* Title — literary display heading */}
-            <h1
-              className="font-serif"
-              style={{
-                fontSize: 'clamp(26px, 4.5vw, 44px)',
-                fontWeight: 400,
-                letterSpacing: '-0.02em',
-                lineHeight: 1.12,
-                color: 'var(--color-text-primary)',
-                marginBottom: 6,
-              }}
-            >
-              {book.title}
-            </h1>
-
-            {/* Author row + edit + stewardship menu */}
-            {editingMeta ? (
-              <div className="mb-3 space-y-2 animate-fade-in">
-                <input
-                  ref={titleInputRef}
-                  value={metaForm.title}
-                  onChange={e => setMetaForm(f => ({ ...f, title: e.target.value }))}
-                  onKeyDown={handleMetaKeyDown}
-                  className="w-full border border-ink-200 rounded-lg px-3 py-1.5 text-[13px] text-ink-800 bg-cream-50"
-                  placeholder="Title"
-                />
-                <input
-                  value={metaForm.author}
-                  onChange={e => setMetaForm(f => ({ ...f, author: e.target.value }))}
-                  onKeyDown={handleMetaKeyDown}
-                  className="w-full border border-ink-200 rounded-lg px-3 py-1.5 text-[13px] text-ink-800 bg-cream-50"
-                  placeholder="Author"
-                />
-                <input
-                  type="number"
-                  min="1"
-                  max="9999"
-                  value={metaForm.totalChapters}
-                  onChange={e => setMetaForm(f => ({ ...f, totalChapters: e.target.value }))}
-                  onKeyDown={handleMetaKeyDown}
-                  className="w-full border border-ink-200 rounded-lg px-3 py-1.5 text-[13px] text-ink-800 bg-cream-50"
-                  placeholder={`Total chapters (currently ${book.totalChapters})`}
-                />
-                <div className="flex flex-wrap gap-1.5 pt-1">
-                  {TEMPERAMENT_CONFIG.map(t => (
-                    <button key={t.k}
-                      onClick={() => setMetaForm(f => ({ ...f, temperament: f.temperament === t.k ? '' : t.k }))}
-                      className="text-[11px] px-2.5 py-1 rounded-full border transition-all"
-                      style={{
-                        background:  metaForm.temperament === t.k ? 'var(--ca, #B8860B)' : '',
-                        borderColor: metaForm.temperament === t.k ? 'var(--ca, #B8860B)' : '',
-                        color:       metaForm.temperament === t.k ? 'white' : '',
-                      }}>
-                      {t.l}
-                    </button>
-                  ))}
-                </div>
-
-                {/* Depth level — per-book companion presence */}
-                <div className="pt-2">
-                  <p className="italic mb-1.5" style={{ fontSize: 10, color: 'var(--color-ink-400)', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
-                    Companion depth
+        <div className="c2-top-c" />
+        <div className="c2-top-r c3-menu" ref={menuRef}>
+          <button type="button" className="c2-ic" onClick={() => { setMenuOpen(v => !v); setConfirmDelete(false) }} aria-label="Manage companion" aria-expanded={menuOpen}>
+            <Ico.Dots />
+          </button>
+          {menuOpen && (
+            <div className="c3-menu-pop animate-fade-in">
+              {menuActions.map(a => (
+                <button key={a.key} type="button" onClick={() => { setMenuOpen(false); a.confirm ? setPendingAction(a.key) : performAction(a.key) }}>
+                  {a.label.charAt(0).toUpperCase() + a.label.slice(1)}
+                </button>
+              ))}
+              {menuActions.length > 0 && <hr />}
+              <button type="button" onClick={openEditMeta}>Edit details</button>
+              <button type="button" onClick={() => { handleExport(); setMenuOpen(false) }}>Save a copy</button>
+              {hasAiKey && <button type="button" onClick={handleReextractClick}>Re-extract with Claude…</button>}
+              <hr />
+              {!confirmDelete ? (
+                <button type="button" className="is-danger" onClick={() => setConfirmDelete(true)}>Remove companion…</button>
+              ) : (
+                <div style={{ padding: '8px 12px' }}>
+                  <p style={{ margin: '0 0 10px', fontSize: 15, lineHeight: 1.45, color: 'var(--ink-2)' }}>
+                    This companion will be removed permanently, notes, threads and all.
                   </p>
-                  <div className="flex gap-1.5 flex-wrap">
-                    {[
-                      { k: 'quiet',     label: 'Quiet' },
-                      { k: 'resonant',  label: 'Resonant' },
-                      { k: 'saturated', label: 'Saturated' },
-                    ].map(opt => {
-                      const selected = metaForm.depthLevel === opt.k
-                      return (
-                        <button
-                          key={opt.k}
-                          onClick={() => setMetaForm(f => ({ ...f, depthLevel: opt.k }))}
-                          className="text-[11px] px-2.5 py-1 rounded-full border transition-all"
-                          style={{
-                            background:  selected ? 'var(--ca, #B8860B)' : '',
-                            borderColor: selected ? 'var(--ca, #B8860B)' : '',
-                            color:       selected ? 'white' : '',
-                          }}
-                        >
-                          {opt.label}
-                        </button>
-                      )
-                    })}
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <button type="button" className="c2-btn" onClick={() => setConfirmDelete(false)}>Keep it</button>
+                    <button type="button" className="c2-btn c2-btn--primary" style={{ background: 'var(--color-ember, #9B2335)' }} onClick={handleDelete}>Remove</button>
                   </div>
                 </div>
+              )}
+            </div>
+          )}
+        </div>
+      </header>
 
-                <div className="flex items-center gap-4">
-                  <button onClick={() => setEditingMeta(false)} className="text-[12px] italic text-ink-400 hover:text-ink-600 transition-colors">cancel</button>
-                  <button onClick={saveMeta} disabled={!metaForm.title.trim()} className="text-[12px] italic hover:opacity-75 transition-opacity disabled:opacity-40" style={{ color: 'var(--ca, #B8860B)', fontWeight: 500 }}>save →</button>
-                </div>
-              </div>
-            ) : (
-              <div className="flex items-center gap-2 mb-2">
-                <p
-                  className="font-serif italic truncate"
-                  style={{ fontSize: 16, color: 'var(--color-text-secondary)' }}
-                >
-                  {book.author}
-                </p>
-                <button onClick={openEditMeta} className="text-[11px] text-ink-300 hover:text-ink-500 transition-colors italic py-1 px-0.5 flex-shrink-0">· edit</button>
-                <div className="relative ml-auto flex-shrink-0" ref={menuRef}>
-                  <button
-                    onClick={() => { setMenuOpen(v => !v); setConfirmDelete(false) }}
-                    aria-label="Manage companion"
-                    className="text-ink-500 hover:text-ink-700 transition-colors p-2 rounded-lg hover:bg-ink-100">
-                    <Ico.Dots />
-                  </button>
-                  {menuOpen && (
-                    <div className="absolute right-0 top-8 w-52 bg-cream-50 border border-ink-200 rounded-xl shadow-lg animate-fade-in z-20">
-                      <div className="p-1.5">
-                        <button onClick={openEditMeta}
-                          className="w-full text-left text-[13px] text-ink-700 hover:bg-ink-100 px-3 py-2 rounded-lg transition-colors">
-                          Edit
-                        </button>
-                        <button onClick={() => { handleExport(); setMenuOpen(false) }}
-                          className="w-full text-left text-[13px] text-ink-700 hover:bg-ink-100 px-3 py-2 rounded-lg transition-colors">
-                          Save a copy
-                        </button>
-                        {hasAiKey && (
-                          <button onClick={handleReextractClick}
-                            className="w-full text-left text-[13px] text-ink-700 hover:bg-ink-100 px-3 py-2 rounded-lg transition-colors">
-                            ✦ Re-extract with Claude…
-                          </button>
-                        )}
-                      </div>
-                      <div className="border-t border-ink-100 mx-3" />
-                      <div className="p-1.5">
-                        {!confirmDelete ? (
-                          <button onClick={() => setConfirmDelete(true)}
-                            className="w-full text-left text-[13px] px-3 py-2 rounded-lg transition-colors hover:bg-ember-bg"
-                            style={{ color:'var(--color-ember, #9B2335)' }}>
-                            Remove companion…
-                          </button>
-                        ) : (
-                          <div className="px-3 py-2 animate-fade-in">
-                            <p className="text-[12px] text-ink-600 leading-relaxed mb-3">
-                              This companion will be removed permanently — notes, threads, and all.
-                            </p>
-                            <div className="flex items-center gap-4">
-                              <button onClick={() => setConfirmDelete(false)}
-                                className="text-[12px] italic text-ink-400 hover:text-ink-600 transition-colors">
-                                keep it
-                              </button>
-                              <button onClick={handleDelete}
-                                className="text-[12px] font-semibold text-white px-2.5 py-1.5 rounded-lg transition-opacity hover:opacity-80"
-                                style={{ background:'var(--color-ember, #9B2335)' }}>
-                                Remove
-                              </button>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* Series · reread count — quiet annotation, below author */}
-            {metaAnnotation && !editingMeta && (
-              <p
-                className="italic mb-1"
-                style={{ fontSize: 11, color: 'var(--color-ink-300)' }}
-              >
-                {metaAnnotation}
-              </p>
-            )}
-
-            {/* Desktop (sm+): detail block sits in the right column, next to cover */}
-            <div className="hidden sm:block">{detailBlock}</div>
-
-          </div>
+      <article className="c2-card">
+        <div className="c2-card-head">
+          <span className="c2-call">{callNumber(book)}{book.series ? ` · ${book.series.position}` : ''}</span>
         </div>
 
-        {/* Mobile: detail block breaks out full-width below cover + title/author */}
-        <div className="sm:hidden mt-4">{detailBlock}</div>
+        {editingMeta ? (
+          <div className="c2-edit animate-fade-in">
+            <input ref={titleInputRef} value={metaForm.title} onChange={e => setMetaForm(f => ({ ...f, title: e.target.value }))} onKeyDown={handleMetaKeyDown} placeholder="Title" aria-label="Title" />
+            <input value={metaForm.author} onChange={e => setMetaForm(f => ({ ...f, author: e.target.value }))} onKeyDown={handleMetaKeyDown} placeholder="Author" aria-label="Author" />
+            <input type="number" min="1" max="9999" value={metaForm.totalChapters} onChange={e => setMetaForm(f => ({ ...f, totalChapters: e.target.value }))} onKeyDown={handleMetaKeyDown} placeholder={`Total chapters (currently ${book.totalChapters})`} aria-label="Total chapters" />
+            <span className="c2-label" style={{ marginTop: 6 }}>Temperament</span>
+            <div className="c2-chips">
+              {TEMPERAMENT_CONFIG.map(t => (
+                <button key={t.k} type="button" className={metaForm.temperament === t.k ? 'is-on' : ''}
+                  onClick={() => setMetaForm(f => ({ ...f, temperament: f.temperament === t.k ? '' : t.k }))}>{t.l}</button>
+              ))}
+            </div>
+            <span className="c2-label" style={{ marginTop: 6 }}>Companion depth</span>
+            <div className="c2-chips">
+              {[['quiet', 'Quiet'], ['resonant', 'Resonant'], ['saturated', 'Saturated']].map(([k, l]) => (
+                <button key={k} type="button" className={metaForm.depthLevel === k ? 'is-on' : ''} onClick={() => setMetaForm(f => ({ ...f, depthLevel: k }))}>{l}</button>
+              ))}
+            </div>
+            <div className="c2-actions">
+              <button type="button" className="c2-btn" onClick={() => setEditingMeta(false)}>Cancel</button>
+              <button type="button" className="c2-btn c2-btn--primary" onClick={saveMeta} disabled={!metaForm.title.trim()}>Save</button>
+            </div>
+          </div>
+        ) : (
+          <div className="c2-card-book">
+            <div>
+              <h1 className="c2-title">{book.title}</h1>
+              <p className="c2-by">{book.author}</p>
+              {metaAnnotation && <p className="c2-label" style={{ marginTop: 8 }}>{metaAnnotation}</p>}
+            </div>
+            <div className="c2-card-cover"><BookCover book={book} className="w-[56px] h-[84px]" rounded="rounded-[4px]" /></div>
+          </div>
+        )}
 
-      </div>
+        {!editingMeta && (
+          <>
+            {isFinished ? (
+              <dl className="c2-fields">
+                <div className="c2-field"><dt>Closed</dt><dd>{book.completedAt ? fmtDate(book.completedAt) : '—'}</dd></div>
+                <div className="c2-field"><dt>Notes</dt><dd>{liveItems(book.notes).length}</dd></div>
+                <div className="c2-field"><dt>Status</dt><dd>{statusLabel(book).split(' · ')[0]}</dd></div>
+              </dl>
+            ) : (
+              <dl className="c2-fields">
+                <div className="c2-field"><dt>{book.format === 'audiobook' ? 'Part' : 'Chapter'}</dt><dd>{reached} of {book.totalChapters || '—'}</dd></div>
+                <div className="c2-field"><dt>Read</dt><dd>{Math.round(pct)}%</dd></div>
+                <div className="c2-field"><dt>Status</dt><dd>{statusLabel(book).split(' · ')[0]}</dd></div>
+              </dl>
+            )}
+            <Holes pct={isFinished ? 100 : pct} />
+
+            {/* Spoiler seal: the companion knows only what you have reached */}
+            {isFinished ? (
+              <div className="c2-seal-row c2-seal-row--open">
+                <span className="c2-stamp">Open<small>all chapters</small></span>
+                <p>You have finished it, so nothing is sealed. Every chapter, thread and character is open.</p>
+              </div>
+            ) : (
+              <div className="c2-seal-row">
+                <span className="c2-stamp">Sealed<small>{reached > 0 ? `after ${unit} ${reached}` : 'from the start'}</small></span>
+                <p>{reached > 0
+                  ? `The lamp only reaches ${unit === 'ch.' ? 'chapter' : 'part'} ${reached}. Everything after it stays sealed until you get there.`
+                  : 'Nothing is lit yet. Each chapter opens as you mark it read.'}</p>
+              </div>
+            )}
+
+            {detailBlock}
+          </>
+        )}
+      </article>
     </div>
   )
 }

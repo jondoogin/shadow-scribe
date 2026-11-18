@@ -1,0 +1,126 @@
+/* Design lab base: scoped to .lx (a direction) and .lab-* (neutral lab chrome).
+   Each direction's own styles live in dirs/<id>.css. Nothing here touches
+   the real app's tokens or classes. */
+
+body:has(.lx), body:has(.lab-overview) { background: #0b0b0d; }
+body:has(.lx)::after, body:has(.lab-overview)::after { display: none !important; }
+
+.lx {
+  position: relative; min-height: 100dvh; overflow-x: clip;
+  background-color: var(--bg); color: var(--t1, var(--ink));
+  font-size: 16px; line-height: 1.5;
+  -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale;
+}
+.lx *, .lx *::before, .lx *::after { box-sizing: border-box; }
+:where(.lx) button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; text-align: inherit; -webkit-tap-highlight-color: transparent; }
+:where(.lx) :is(p, h1, h2, h3, figure, blockquote, ol, ul) { margin: 0; }
+.lx :focus-visible { outline: 2px solid currentColor; outline-offset: 3px; }
+.lx-app { position: relative; z-index: 1; max-width: 560px; margin: 0 auto; padding: 0 20px calc(130px + env(safe-area-inset-bottom)); animation: lxIn .4s cubic-bezier(.2,.8,.2,1); }
+@keyframes lxIn { from { opacity: 0; } to { opacity: 1; } }
+
+/* The existing Lantern logo, unchanged in shape and face. */
+.lx-logo { display: inline-flex; align-items: center; gap: .22em; line-height: 1; }
+.lx-logo-star { font-family: "Libre Baskerville", Georgia, serif; font-weight: 700; font-size: .7em; margin-top: .12em; }
+.lx-logo-word { font-family: "Libre Baskerville", Georgia, serif; font-weight: 700; letter-spacing: -0.02em; }
+
+@media (prefers-reduced-motion: reduce) {
+  .lx *, .lx *::before, .lx *::after, .lab-overview * { animation-duration: .001s !important; animation-iteration-count: 1 !important; transition-duration: .001s !important; }
+}
+
+/* ═══════════════ Lab chrome (neutral) ═══════════════ */
+.lab-bar {
+  position: fixed; z-index: 50; left: 8px; right: 8px; bottom: calc(8px + env(safe-area-inset-bottom)); max-width: 552px; margin: 0 auto;
+  display: flex; flex-direction: column; gap: 6px; padding: 6px; border-radius: 22px;
+  background: rgba(18,18,20,.88); -webkit-backdrop-filter: blur(20px) saturate(1.4); backdrop-filter: blur(20px) saturate(1.4);
+  box-shadow: 0 10px 40px rgba(0,0,0,.35), inset 0 0 0 1px rgba(255,255,255,.08);
+  font-family: -apple-system, BlinkMacSystemFont, system-ui, sans-serif; color: #fff;
+}
+.lab-bar button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.lab-row { display: flex; gap: 6px; align-items: center; }
+.lab-seg { display: flex; gap: 2px; flex: 1; min-width: 0; padding: 2px; border-radius: 14px; background: rgba(255,255,255,.07); }
+.lab-seg--scroll { overflow-x: auto; scrollbar-width: none; }
+.lab-seg--scroll::-webkit-scrollbar { display: none; }
+.lab-seg button { flex: 1 0 auto; height: 36px; padding: 0 10px; border-radius: 12px; font-size: 13px; font-weight: 600; color: rgba(255,255,255,.72); white-space: nowrap; display: inline-flex; align-items: center; justify-content: center; gap: 5px; }
+.lab-seg button.is-on { background: #fff; color: #111; }
+.lab-num { font-size: 10px; opacity: .6; }
+.lab-home, .lab-mode { width: 40px; height: 40px; flex-shrink: 0; border-radius: 12px; display: grid; place-items: center; background: rgba(255,255,255,.07); font-size: 16px; }
+.lab-home span { color: #FFB547; }
+
+.lab-overview { min-height: 100dvh; background: #0b0b0d; color: #f4f2ee; font-family: -apple-system, BlinkMacSystemFont, system-ui, sans-serif; padding: calc(28px + env(safe-area-inset-top)) 16px 60px; }
+.lab-overview * { box-sizing: border-box; }
+.lab-ov-head, .lab-ov-list, .lab-ov-foot { max-width: 1100px; margin: 0 auto; }
+.lab-ov-logo { display: inline-flex; align-items: center; gap: 6px; font-family: "Libre Baskerville", Georgia, serif; font-weight: 700; color: #FFB547; font-size: 15px; }
+.lab-ov-head h1 { font-size: 32px; line-height: 1.1; letter-spacing: -0.02em; margin: 10px 0 10px; font-weight: 700; }
+.lab-ov-head p { color: rgba(244,242,238,.78); font-size: 16px; line-height: 1.5; margin: 0 0 14px; max-width: 640px; }
+.lab-ov-avoid { font-size: 14px !important; color: rgba(244,242,238,.6) !important; margin-bottom: 26px !important; }
+.lab-ov-list { display: grid; gap: 18px; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); }
+.lab-ov-card { font: inherit; color: inherit; text-align: left; border: 0; padding: 0; cursor: pointer; border-radius: 22px; overflow: hidden; background: #17171a; box-shadow: inset 0 0 0 1px rgba(255,255,255,.08); transition: transform .2s; -webkit-tap-highlight-color: transparent; }
+.lab-ov-card:active { transform: scale(.985); }
+.lab-ov-preview { min-height: 0 !important; height: 210px; overflow: hidden; position: relative; }
+.lab-ov-info { padding: 16px 18px 20px; }
+.lab-ov-num { font-size: 12px; font-weight: 700; color: rgba(255,255,255,.45); letter-spacing: .1em; }
+.lab-ov-info h2 { margin: 2px 0 2px; font-size: 22px; letter-spacing: -0.01em; }
+.lab-ov-tag { margin: 0; color: rgba(255,255,255,.82); font-size: 15px; }
+.lab-ov-sig { margin: 10px 0 6px; font-size: 13px; font-weight: 600; color: #FFB547; }
+.lab-ov-blurb { margin: 0; color: rgba(255,255,255,.66); font-size: 14px; line-height: 1.5; }
+.lab-ov-foot { color: rgba(255,255,255,.55); font-size: 13px; line-height: 1.6; margin-top: 26px; }
+.lab-ov-foot a { color: rgba(255,255,255,.75); }
+
+/* ═══════════ Flame mark + lockups (round three) ═══════════ */
+.lx-flame { display: inline-block; flex-shrink: 0; overflow: visible; }
+@keyframes lxFlick { 0%, 100% { opacity: 1; } 37% { opacity: .78; } 52% { opacity: .96; } 71% { opacity: .86; } }
+.lx-flame--live .lx-pane--b { animation: lxFlick 3.1s ease-in-out infinite; }
+.lx-flame--live .lx-pane--r { animation: lxFlick 3.7s ease-in-out -1.2s infinite; }
+.lx-flame--live .lx-pane--l { animation: lxFlick 4.3s ease-in-out -2.1s infinite; }
+.lx-flame--fast .lx-pane { animation-duration: 1.1s !important; }
+.lk { display: inline-flex; align-items: center; gap: .42em; line-height: 1; color: var(--ink, var(--t1)); }
+.lk-word { white-space: nowrap; }
+.lk--fieldlab .lk-word { font-family: "Libre Caslon Display", serif; font-size: .92em; letter-spacing: .26em; margin-right: -.26em; }
+.lk-reticle { position: relative; display: inline-grid; place-items: center; width: 1.9em; height: 1.9em; border: 1px solid currentColor; border-radius: 50%; }
+.lk-reticle::before, .lk-reticle::after { content: ""; position: absolute; background: currentColor; }
+.lk-reticle::before { left: 50%; top: -.28em; bottom: -.28em; width: 1px; transform: translateX(-.5px); -webkit-mask: linear-gradient(#000 0 .45em, transparent .45em calc(100% - .45em), #000 calc(100% - .45em)); mask: linear-gradient(#000 0 .45em, transparent .45em calc(100% - .45em), #000 calc(100% - .45em)); }
+.lk-reticle::after { top: 50%; left: -.28em; right: -.28em; height: 1px; transform: translateY(-.5px); -webkit-mask: linear-gradient(90deg, #000 0 .45em, transparent .45em calc(100% - .45em), #000 calc(100% - .45em)); mask: linear-gradient(90deg, #000 0 .45em, transparent .45em calc(100% - .45em), #000 calc(100% - .45em)); }
+.lk-reticle .lx-flame { position: relative; z-index: 1; }
+
+/* shared cover object */
+.lx-cover { position: relative; display: flex; flex-direction: column; justify-content: space-between; flex-shrink: 0; aspect-ratio: 2 / 3; padding: 10% 10% 12%; color: #fff; background: linear-gradient(170deg, var(--c1), var(--c1) 60%, var(--c2) 160%); border-radius: 2px 4px 4px 2px; box-shadow: inset 4px 0 0 rgba(0,0,0,.18), inset 5px 0 0 rgba(255,255,255,.12), 0 1px 1px rgba(0,0,0,.2), 0 10px 18px -8px rgba(0,0,0,.45); }
+.lx-cover-title { font-family: "Libre Caslon Display", serif; font-size: 1em; line-height: 1.05; }
+.lx-cover-author { font-family: "IBM Plex Mono", monospace; font-size: .42em; letter-spacing: .14em; text-transform: uppercase; opacity: .9; }
+.lx-cover--sm { width: 34px; font-size: 6px; padding: 4px; box-shadow: 0 4px 8px -4px rgba(0,0,0,.5); }
+.lx-cover--sm > span { visibility: hidden; }
+.lx-cover--md { width: 92px; font-size: 13px; }
+.lx-cover--lg { width: 128px; font-size: 17px; }
+.lx-cover--xl { width: 184px; font-size: 24px; }
+
+/* ═══════════════ Style tweaker (lab chrome, solid sheet) ═══════════════ */
+.lab-tune-btn { position: fixed; z-index: 51; right: max(14px, calc(50% - 266px)); bottom: calc(108px + env(safe-area-inset-bottom)); height: 40px; padding: 0 14px; display: inline-flex; align-items: center; gap: 7px; border: 0; border-radius: 20px; background: #121214; color: #fff; font: 600 13px -apple-system, BlinkMacSystemFont, system-ui, sans-serif; box-shadow: 0 6px 20px rgba(0,0,0,.28), inset 0 0 0 1px rgba(255,255,255,.1); cursor: pointer; }
+.lab-tune-btn.is-on { background: #fff; color: #111; }
+.lab-tune { position: fixed; z-index: 52; left: 8px; right: 8px; bottom: calc(156px + env(safe-area-inset-bottom)); max-width: 552px; max-height: min(62dvh, 560px); margin: 0 auto; display: flex; flex-direction: column; border-radius: 18px; background: #161618; color: #F2F0EC; font-family: -apple-system, BlinkMacSystemFont, system-ui, sans-serif; box-shadow: 0 18px 50px rgba(0,0,0,.4), inset 0 0 0 1px rgba(255,255,255,.08); }
+.lab-tune button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.lab-tune-head { display: flex; justify-content: space-between; align-items: center; padding: 10px 10px 10px 16px; border-bottom: 1px solid rgba(255,255,255,.08); font-size: 15px; }
+.lab-tune-head div { display: flex; gap: 4px; }
+.lab-tune-reset { height: 34px; padding: 0 12px; border-radius: 10px; font-size: 13px !important; font-weight: 600 !important; background: rgba(255,255,255,.08) !important; }
+.lab-tune-x { width: 34px; height: 34px; border-radius: 10px; font-size: 20px !important; display: grid; place-items: center; }
+.lab-tune-body { overflow-y: auto; padding: 4px 16px 16px; overscroll-behavior: contain; }
+.lab-tune-group { border: 0; margin: 0; padding: 12px 0 4px; }
+.lab-tune-group + .lab-tune-group { border-top: 1px solid rgba(255,255,255,.07); }
+.lab-tune-group legend { padding: 0; margin-bottom: 4px; font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: rgba(242,240,236,.5); }
+.lab-tune-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 46px; }
+.lab-tune-row--stack { flex-direction: column; align-items: stretch; gap: 8px; padding: 8px 0; }
+.lab-tune-l { font-size: 14px; font-weight: 500; display: flex; justify-content: space-between; }
+.lab-tune-l em { font-style: normal; font-variant-numeric: tabular-nums; color: rgba(242,240,236,.6); }
+.lab-tune-seg { display: flex; gap: 2px; padding: 2px; border-radius: 10px; background: rgba(255,255,255,.07); }
+.lab-tune-seg button { height: 32px; padding: 0 11px; border-radius: 8px; font-size: 13px !important; font-weight: 600 !important; color: rgba(255,255,255,.7) !important; display: grid; place-items: center; }
+.lab-tune-seg button.is-on { background: #fff; color: #111 !important; }
+.lab-tune-sw { display: flex; flex-wrap: wrap; gap: 8px; }
+.lab-tune-sw button, .lab-tune-custom { width: 36px; height: 36px; border-radius: 50%; box-shadow: inset 0 0 0 1px rgba(255,255,255,.15); }
+.lab-tune-sw button.is-on { box-shadow: 0 0 0 2px #161618, 0 0 0 4px #fff; }
+.lab-tune-custom { position: relative; display: grid; place-items: center; overflow: hidden; cursor: pointer; font-size: 18px; color: rgba(255,255,255,.7); background: rgba(255,255,255,.07); }
+.lab-tune-custom input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+.lab-tune-range { width: 100%; accent-color: #fff; height: 24px; margin: 0; }
+.lab-tune-ends { display: flex; justify-content: space-between; margin-top: -4px; font-size: 12px; color: rgba(242,240,236,.5); }
+.lab-tune-tog { position: relative; width: 46px; height: 28px; border-radius: 14px; background: rgba(255,255,255,.16) !important; transition: background .2s; }
+.lab-tune-tog i { position: absolute; top: 3px; left: 3px; width: 22px; height: 22px; border-radius: 50%; background: #fff; transition: transform .2s; }
+.lab-tune-tog.is-on { background: #3E9B5C !important; }
+.lab-tune-tog.is-on i { transform: translateX(18px); }
+.lab-tune-copy { background: #fff !important; color: #111 !important; }
