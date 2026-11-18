@@ -6,7 +6,8 @@
  * Split a chapter's blocks into pieces tied to narration segments.
  * @param {Array<{id, type, text}>} blocks   content blocks (IndexedDB `sections`)
  * @param {Array<{blockId, start, end}>} segments  the player's segments for this chapter, in order
- * @returns {Array<{ id, type, pieces: Array<{ text, seg: number|null }> }>}
+ * @returns {Array<{ id, type, pieces: Array<{ text, start, seg: number|null }> }>}
+ *   `start` is the piece's offset in the block's text.
  *   `seg` is the segment's index in `segments`, or null for text between segments.
  */
 export function buildTranscript(blocks, segments) {
@@ -25,11 +26,11 @@ export function buildTranscript(blocks, segments) {
     for (const s of segs) {
       const start = Math.max(at, Math.min(s.start, text.length))
       const end = Math.max(start, Math.min(s.end, text.length))
-      if (start > at) pieces.push({ text: text.slice(at, start), seg: null })
-      if (end > start) pieces.push({ text: text.slice(start, end), seg: s.i })
+      if (start > at) pieces.push({ text: text.slice(at, start), start: at, seg: null })
+      if (end > start) pieces.push({ text: text.slice(start, end), start, seg: s.i })
       at = end
     }
-    if (at < text.length) pieces.push({ text: text.slice(at), seg: null })
+    if (at < text.length) pieces.push({ text: text.slice(at), start: at, seg: null })
     return { id: b.id, type: b.type || 'paragraph', pieces }
   })
 }
@@ -69,4 +70,37 @@ export function followScrollTarget({ top, bottom }, { scrollTop, height, scrollH
   const max = Math.max(0, (scrollHeight ?? Infinity) - height)
   const next = Math.max(0, Math.min(target, max))
   return Math.abs(next - scrollTop) < 2 ? null : next
+}
+
+// ── Words (measured timings only; docs/TRANSCRIPT.md §4) ─────────────────────
+
+/**
+ * Split a sentence piece into word runs using its measured timings.
+ * @param {string} text        the piece's text
+ * @param {number} start       the piece's offset in its block
+ * @param {Array<[number, number, number, number]>} timings  [s, e, t0ms, t1ms] with block offsets
+ * @returns {Array<{ text, t0?: number, t1?: number }>}  runs with t0/t1 are words; the rest is the space between
+ */
+export function splitWords(text, start, timings) {
+  const runs = []
+  let at = 0
+  for (const [s, e, t0, t1] of timings || []) {
+    const a = Math.max(at, s - start), b = Math.min(text.length, e - start)
+    if (b <= a) continue
+    if (a > at) runs.push({ text: text.slice(at, a) })
+    runs.push({ text: text.slice(a, b), t0, t1 })
+    at = b
+  }
+  if (at < text.length) runs.push({ text: text.slice(at) })
+  return runs
+}
+
+/** Index of the word being spoken at `ms` (the last one that has started), or -1 before the first. */
+export function wordAt(t0s, ms) {
+  let lo = 0, hi = t0s.length - 1, ans = -1
+  while (lo <= hi) {
+    const mid = (lo + hi) >> 1
+    if (t0s[mid] <= ms) { ans = mid; lo = mid + 1 } else hi = mid - 1
+  }
+  return ans
 }

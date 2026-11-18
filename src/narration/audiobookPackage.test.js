@@ -113,3 +113,37 @@ describe('content repository (IndexedDB)', () => {
     expect(await (await getAudioBlob('b', 'ch1')).text()).toBe('b')
   })
 })
+
+describe('word timings', () => {
+  const sidecar = segments => ({ format: 'lantern-word-timings', version: 1, wordsVersion: 1, aligner: 'x', segments })
+  const section = manifestFor().sections[0] // b0.0 0.35–1.2 s, b1.0 2.2–9 s
+
+  it('keeps well-formed segments and drops ones that do not fit their sentence', async () => {
+    const { parseWordTimings } = await import('./audiobookPackage.js')
+    const parsed = parseWordTimings(sidecar({
+      'b0.0': [[0, 7, 350, 700], [8, 9, 700, 1150]],
+      'b1.0': [[0, 2, 9000, 9100], [3, 5, 2300, 2400]], // out of order
+      'zz.9': [[0, 1, 1, 2]],                            // unknown segment
+    }), section)
+    expect(Object.keys(parsed)).toEqual(['b0.0'])
+    expect(parseWordTimings({ format: 'other' }, section)).toBeNull()
+    expect(parseWordTimings(sidecar({ 'b1.0': [[0, 2, 'x', 3]] }), section)).toBeNull()
+  })
+
+  it('imports a package sidecar onto the audio record, and a broken one costs only that chapter', async () => {
+    _setIndexedDBFactory(() => new IDBFactory())
+    const m = manifestFor()
+    m.sections[0].wordTimings = 'timings/ch1.words.json'
+    m.sections[1].wordTimings = 'timings/ch2-3.words.json'
+    const files = { 'manifest.json': strToU8(JSON.stringify(m)) }
+    for (const s of m.sections) files[s.file] = new Uint8Array(10)
+    files['timings/ch1.words.json'] = strToU8(JSON.stringify(sidecar({ 'b1.0': [[0, 2, 2200, 2500], [3, 6, 2500, 2900]] })))
+    files['timings/ch2-3.words.json'] = strToU8('{not json')
+    const pkg = await openAudiobookPackage(new Blob([zipSync(files, { level: 0 })]))
+    await saveAudiobook(pkg.id, pkg.manifest, pkg.getBlob, null, pkg.getWordTimings)
+    const { getWordTimings } = await import('../content/contentRepository.js')
+    expect(await getWordTimings(pkg.id, 'ch1')).toEqual({ 'b1.0': [[0, 2, 2200, 2500], [3, 6, 2500, 2900]] })
+    expect(await getWordTimings(pkg.id, 'ch2-3')).toBeNull()
+    expect(await getAudioBlob(pkg.id, 'ch2-3')).toBeTruthy()
+  })
+})

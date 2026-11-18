@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { buildTranscript, segmentState, followScrollTarget } from './transcript.js'
+import { buildTranscript, segmentState, followScrollTarget, splitWords, wordAt } from './transcript.js'
 import { MediaClock } from './clock.js'
 import { segmentBlocks } from './segmenter.js'
 
@@ -19,15 +19,15 @@ describe('buildTranscript', () => {
     ]
     const t = buildTranscript(blocks, segs)
     expect(t.map(b => b.type)).toEqual(['heading', 'paragraph', 'break', 'paragraph'])
-    expect(t[0].pieces).toEqual([{ text: 'Chapter I', seg: 0 }])
+    expect(t[0].pieces).toEqual([{ text: 'Chapter I', start: 0, seg: 0 }])
     expect(t[1].pieces).toEqual([
-      { text: 'It is a truth.', seg: 1 },
-      { text: ' ', seg: null },
-      { text: 'Universally acknowledged!', seg: 2 },
-      { text: ' [1]', seg: null },
+      { text: 'It is a truth.', start: 0, seg: 1 },
+      { text: ' ', start: 14, seg: null },
+      { text: 'Universally acknowledged!', start: 15, seg: 2 },
+      { text: ' [1]', start: 40, seg: null },
     ])
     expect(t[1].pieces.map(p => p.text).join('')).toBe(blocks[1].text)
-    expect(t[3].pieces).toEqual([{ text: 'Unnarrated text.', seg: null }])
+    expect(t[3].pieces).toEqual([{ text: 'Unnarrated text.', start: 0, seg: null }])
   })
 
   it('matches the segmenter used by the player for every block', () => {
@@ -44,7 +44,7 @@ describe('buildTranscript', () => {
 
   it('tolerates segments without offsets and out-of-range offsets', () => {
     const t = buildTranscript([{ id: 'b0', text: 'Short.' }], [{ blockId: 'b0' }, { blockId: 'b0', start: 0, end: 99 }])
-    expect(t[0].pieces).toEqual([{ text: 'Short.', seg: 1 }])
+    expect(t[0].pieces).toEqual([{ text: 'Short.', start: 0, seg: 1 }])
   })
 })
 
@@ -112,5 +112,27 @@ describe('MediaClock', () => {
     expect(c.read(42)).toBe(42)
     now = 200
     expect(c.read()).toBeCloseTo(42.1)
+  })
+})
+
+describe('word runs', () => {
+  const text = '“Oh!” cried she.'
+  it('splits a sentence into timed words and untimed gaps that rebuild the text', () => {
+    // block offsets: the piece starts at 20 in its block
+    const runs = splitWords(text, 20, [[20, 25, 1000, 1300], [26, 31, 1300, 1600], [32, 36, 1600, 1900]])
+    expect(runs.map(r => r.text).join('')).toBe(text)
+    expect(runs.filter(r => r.t0 != null).map(r => r.text)).toEqual(['“Oh!”', 'cried', 'she.'])
+    expect(runs[1]).toEqual({ text: ' ' })
+  })
+  it('ignores timings outside the piece and survives none', () => {
+    expect(splitWords(text, 0, [[90, 95, 1, 2]])).toEqual([{ text }])
+    expect(splitWords(text, 0, null)).toEqual([{ text }])
+  })
+  it('finds the word being spoken', () => {
+    const t0s = [1000, 1300, 1600]
+    expect(wordAt(t0s, 999)).toBe(-1)
+    expect(wordAt(t0s, 1000)).toBe(0)
+    expect(wordAt(t0s, 1450)).toBe(1)
+    expect(wordAt(t0s, 9000)).toBe(2)
   })
 })

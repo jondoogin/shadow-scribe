@@ -1,5 +1,6 @@
 // ── .lantern-audio package reader ────────────────────────────────────────────
-// A package is a ZIP written by tools/narrator: manifest.json + audio/*.m4a.
+// A package is a ZIP written by tools/narrator: manifest.json + audio/*.m4a,
+// plus optional timings/*.words.json (measured word times, docs/TRANSCRIPT.md §4).
 // Audio entries are STORED (uncompressed), so we read the central directory and
 // hand back Blob slices of the original File: a 300 MB novel imports on an
 // iPhone without ever being loaded into memory as a whole.
@@ -8,6 +9,7 @@ import { inflateSync } from 'fflate'
 
 export const PACKAGE_FORMAT = 'lantern-audiobook'
 export const PACKAGE_VERSION = 1
+export const WORD_TIMINGS_FORMAT = 'lantern-word-timings'
 const PLAYABLE_MIME = /^audio\/(mp4|aac|mpeg|wav|x-wav|wave|webm|ogg)$/
 
 const u16 = (v, o) => v.getUint16(o, true)
@@ -144,5 +146,37 @@ export async function openAudiobookPackage(file) {
     manifest,
     id: audiobookIdFor(manifest),
     getBlob: section => entryBlob(file, byName.get(section.file), section.mime || 'audio/mp4'),
+    getWordTimings: async section => {
+      const entry = section.wordTimings && byName.get(section.wordTimings)
+      if (!entry) return null
+      try {
+        return parseWordTimings(JSON.parse(await (await entryBlob(file, entry)).text()), section)
+      } catch {
+        return null // a damaged sidecar only costs word-level follow-along for that chapter
+      }
+    },
   }
+}
+
+/**
+ * Check a word-timing sidecar against its chapter. Returns { segId: [[s, e, t0ms, t1ms], …] }
+ * holding only segments whose words are ordered and inside that segment's time span, or null.
+ */
+export function parseWordTimings(sidecar, section) {
+  if (sidecar?.format !== WORD_TIMINGS_FORMAT || sidecar.version > 1 || typeof sidecar.segments !== 'object') return null
+  const spans = new Map((section.segments || []).map(g => [g.id, g]))
+  const out = {}
+  for (const [id, words] of Object.entries(sidecar.segments)) {
+    const g = spans.get(id)
+    if (!g || !Array.isArray(words) || !words.length) continue
+    let ok = true, prevT = -1, prevE = -1
+    for (const w of words) {
+      if (!Array.isArray(w) || w.length !== 4 || !w.every(Number.isFinite)) { ok = false; break }
+      const [s, e, t0, t1] = w
+      if (e <= s || s < prevE || t1 < t0 || t0 < prevT || t0 < g.t0 * 1000 - 50 || t0 > g.t1 * 1000 + 50) { ok = false; break }
+      prevE = e; prevT = t0
+    }
+    if (ok) out[id] = words
+  }
+  return Object.keys(out).length ? out : null
 }
