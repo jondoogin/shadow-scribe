@@ -23,16 +23,17 @@
 - [ ] iPhone verification: lock-screen playback, ambience in background, 7-day eviction behaviour
 - [ ] Optional: in-app progress UI for generation (currently CLI only)
 
-### Milestone: Follow-along transcript — Session 165 — designed, not built
-Design: `docs/TRANSCRIPT.md`.
+### Milestone: Follow-along transcript — Sessions 165, 168 — built, not merged
+Design: `docs/TRANSCRIPT.md` (§12: as built).
 - [x] Design doc: timing sources, package sidecar, playback sync, animation, spoilers
 - [x] John's decisions (2026-11-16): motion exception approved, word-level by default, reveal-as-spoken optional and off, Text view inside Listen
-- [x] Phase 1: sentence-level transcript in Listen (front end only), built Session 165
-- [ ] iPhone check of the Text view (scrolling, light pool, lock and wake)
-- [ ] Phase 2: aligner spike on the M5 Pro (Qwen3-ForcedAligner vs wav2vec2 CTC)
-- [ ] Phase 3: word timings in the narrator (`words` in the script, `align` step and command, sidecars)
-- [ ] Phase 4: word animation in Lantern (IndexedDB `timings`, ink fill, sync offset)
-- [ ] Phase 5: Reader "Read along" uses the shared renderer
+- [x] Phase 1: sentence-level transcript in Listen, built Session 165; restyled for Catalogue III in Session 168
+- [x] Phase 3: word tokens in the script, wav2vec2 CTC aligner, `generate --words`, sidecars (Session 168)
+- [x] Phase 4: word ink-fill in the Text view, device-voice word boundaries (Session 168; no sync-offset setting, no coverage label)
+- [x] Phase 5 (reduced): the Reader tints the sentence being narrated (Session 168)
+- [ ] Phase 2: run the aligner on real speech on the M5 Pro (coverage, boundaries); tune or try Qwen3-ForcedAligner
+- [ ] iPhone check of the Text view (scrolling, light pool, word fill, lock and wake, AirPods drift)
+- [ ] Later: `--retry-misreads`; re-aligning a package outside its job folder
 
 ### Milestone: LibraryCompanion Atmosphere Pass — ✓ Session 147 — complete
 

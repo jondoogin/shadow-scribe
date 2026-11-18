@@ -1,6 +1,6 @@
 # Lantern — Follow-Along Transcript (design)
 
-**Status (Session 165, 2026-11-15/16):** design approved by John (decisions in §10). **Phase 1, the sentence-level Text view, is built** and tested in Node and headless Chromium; not yet tried on an iPhone. Word timings (Phases 2–4) are not built. It builds on the neural narration branch (`feature/lantern-neural-narration`, `docs/NARRATION.md`), which is also unmerged.
+**Status (Session 168, 2026-11-18):** design approved by John (decisions in §10). **Built: sentence follow-along (Phase 1), word tokens and the narrator's word aligner (Phase 3), word animation in Lantern including the device voice (Phase 4), and the Reader's narrated sentence (Phase 5, reduced scope).** Restyled for Catalogue III. Tested in Node, pytest and headless Chromium at phone size, with fixture word times. **Not yet done:** the aligner has never run on real speech (the cloud container can't reach Hugging Face), so Phase 2 (run it on the M5 Pro and check pass rate and boundaries) is still open, and nothing has been tried on an iPhone. §12 lists where the build differs from the design below. Branch: on top of Catalogue III (PR #4), which is on the neural narration branch (PR #1); none of them is merged.
 
 **What John asked for:** while narration plays, show the book's text on screen and animate it as each sentence, or even each word, is spoken. Like Spotify's lyrics view, but more intelligent and more beautifully animated.
 
@@ -314,7 +314,7 @@ No open questions remain for Phase 1. The aligner choice (Phase 2) is settled by
 
 ---
 
-## 11. Code map (planned)
+## 11. Code map (planned; see §12 for what was built)
 
 | Path | Role |
 |---|---|
@@ -329,3 +329,35 @@ No open questions remain for Phase 1. The aligner choice (Phase 2) is settled by
 | `src/pages/ListenPage.jsx`, `ReaderPage.jsx` | Now Playing ↔ Text; Reader uses the shared renderer |
 | `tools/narrator/lantern_narrator/align/` | aligner engines (Qwen3 aligner, CTC), confidence checks, cache |
 | `tools/narrator/lantern_narrator/package.py` | sidecars + `timings` manifest block; `align` command |
+
+
+---
+
+## 12. As built (Session 168) and where it differs from the design
+
+**Narrator (`tools/narrator`).**
+- `lantern_narrator/align.py`: `verbalize` (numbers, years, ordinals, decimals, common abbreviations, accents), `forced_align` (CTC Viterbi in numpy), `Wav2Vec2Emitter` (`facebook/wav2vec2-base-960h`, Apache-2.0, English, MPS when available, downloads into the narrator's `hf-cache`), `Aligner.align_segment` with the confidence checks (mean letter probability ≥ 0.35, no word over 2.5 s), and the sidecar writer.
+- **Only the wav2vec2 CTC aligner was built.** It needs nothing beyond `torch` and `transformers` (the `[align]` extra) and its Viterbi is ours. Qwen3-ForcedAligner stays a fallback if Phase 2 shows CTC is not good enough on synthetic speech.
+- Alignment runs once per chapter, after assembly, on the assembled (pre-normalisation) PCM sliced at each segment's `t0`/`t1`, the same audio that is encoded. No per-segment alignment cache: re-aligning a chapter is fast compared with synthesis.
+- **No separate `align <package>` command.** `generate` takes `--words auto|on|off` (default auto: on when the `[align]` extra is installed and the book is English). Re-running `generate` on a finished job aligns chapters that lack word timings by decoding their `.m4a` (afconvert or ffmpeg), with no re-synthesis. A package that is not in a job folder can't be re-aligned yet.
+- `--retry-misreads` is **not built**; failed sentences are listed in `job.json` (`words.misses`) so Phase 2 can see how often it would trigger.
+- Sidecar `timings/<section>.words.json`: `{ format: "lantern-word-timings", version: 1, wordsVersion, aligner, sectionId, segments: { "<segId>": [[s, e, t0ms, t1ms], …] } }`. Failed sentences are **left out** (not `null`). Manifest additions: `sections[].wordTimings` and `timings: { words: true, wordsVersion, aligner, coverage }`. Manifest stays version 1.
+- `generate` prints the coverage ("Word timings: 412/430 sentences (96%)").
+
+**Words (`src/narration/words.js`).** `segmentWords(text, start, end, kind)` uses a Unicode regex, **not `Intl.Segmenter`**, so offsets never depend on a browser's ICU. Words widen over touching punctuation and dashes; `sp` mirrors `toSpoken` (footnote markers empty, `&` → "and", heading numerals). `buildNarrationScript` adds `words` to every segment and `book.wordsVersion` (`WORDS_VERSION = 1`); `segmentBlocks` itself is unchanged, so the players are untouched.
+
+**Lantern.**
+- Import: `openAudiobookPackage().getWordTimings(section)` reads and validates a sidecar (`parseWordTimings` drops any sentence whose words are out of order or outside its time span). `saveAudiobook(…, getWords)` stores them as `words` on the chapter's existing **`audio` record**. **No new store and no DB version bump**, so nothing conflicts with the visual journey's planned schema change. `getWordTimings(audiobookId, sectionId)` reads them back. A broken sidecar costs only that chapter's word level.
+- Render: sentences with timings render their words as `span.ts-w[data-t0][data-t1]` once, at chapter render (a chapter's few thousand spans render once and never re-render).
+- Conductor: `setWordTime(t)` (binary search, `data-w="said|now"`, `--fill` on the current word) and `setWordIndex(k)` (device voice). Words only change inside the current sentence (`data-words="on"`); leaving a sentence clears them.
+- Look: in the sentence being read, upcoming words are `--ink-2`, spoken ones `--ink`, and the current word fills from `--ink-2` to `--ink` with a soft edge (`background-clip: text`). Reduced motion shows the whole word at once.
+- Device voice: `SpeechNarrationPlayer.onWords(fn)` passes on the engine's `word` boundary events (stale utterances ignored); `spokenOrdinalAt` + `spokenToDisplay` map the spoken position back to the word on screen. The "Word by word" switch appears once a boundary has arrived.
+- Prefs in `lantern_listen`: `listenView`, `transcriptReveal` (off), `transcriptWords` (on). The Text view's footer holds "Word by word" (only when the chapter has word timing) and "Reveal as spoken".
+- **No sync-offset setting.** Browsers try to keep `<audio>.currentTime` in step with what is heard (they need it for video sync), so a setting would mostly add clutter. This is an expectation, not a measurement: add the setting if the iPhone check shows drift with AirPods.
+- **No coverage label in the UI**, for the same reason; the CLI reports it.
+- **Reader:** the narrated paragraph keeps its accent rule and the sentence being read gets a light tint (`.c2-now-sent`), using the same segmenter. The Reader does not adopt the transcript renderer or follow-scroll, because it must never move under someone reading.
+- Design: the Text view lives in the Listen card's tabs (`.c3-box` + `Tabs`), styles in `src/catalogue/catalogue.css` ("Follow-along text"), all colours from the Catalogue variables; the light pool is a 9% accent tint with the Reader's 3 px accent rule, no glow.
+
+**Tests.** Vitest: words, script words, sidecar parsing and import, word runs, the conductor's word states, speech boundaries. Pytest (`tests/test_align.py`): verbalising, the Viterbi on planned emissions, confidence rejection, sidecars in the generator and the package, aligning earlier chapters without re-synthesis. Headless Chromium at 390×844: Text view in light and dark, word inking with fixture times, device-voice words with a fake speech engine, the Reader's sentence.
+
+**Phase 2, what to run on the M5 Pro:** `pip install -e ".[align]"`, then `lantern-narrate generate <epub> --sections 1 --words on` with Qwen3 1.7B (Aiden). Check the printed coverage, listen to a few sentences in the Text view, and look at `words.misses` in `job.json`. If coverage is under about 90% or boundaries look late, tune `MIN_MEAN_PROB` or try Qwen3-ForcedAligner.

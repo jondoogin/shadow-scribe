@@ -3,6 +3,23 @@ Reverse-chronological log of what was built, fixed, and decided in each working 
 
 ---
 
+## Session 168 — 2026-11-18 — Follow-along transcript brought up to spec (transcript thread)
+**Theme:** Word-level follow-along, the Catalogue III look, and polish before going live
+
+**BUILT**
+- Rebased onto Catalogue III (PR #4). The Text view now sits in the Listen card's tabs (Now playing | Text), in Catalogue type and colours: a soft accent tint with the Reader's accent rule behind the sentence being read, no glow. "Tap a sentence to listen" moved into the scroller's label to cut on-screen text.
+- Word tokens: `src/narration/words.js` (`WORDS_VERSION` 1); the narration script gives every segment `words` with display offsets and spoken forms.
+- Narrator: `align.py` (wav2vec2 CTC, our numpy Viterbi, number/abbreviation verbalising, per-sentence confidence checks). `generate --words auto|on|off`; re-running aligns earlier chapters without re-synthesis. Sidecars `timings/<section>.words.json` (offsets and ms, no text) and a manifest `timings` block. `[align]` extra.
+- Lantern: sidecars are validated and stored as `words` on each chapter's `audio` record (no DB version bump). In the sentence being read, words ink in as they are spoken; a "Word by word" switch appears when the chapter has word timing. The device voice lights words from the speech engine's own boundary events. The Reader tints the sentence being narrated.
+- Not built, on purpose: a sync-offset setting and a coverage label (clutter, see TRANSCRIPT.md §12).
+
+**VERIFIED**
+- Vitest 99 pass; narrator pytest 67 pass; build passes; no new lint errors in changed files.
+- Headless Chromium at 390×844: Text view light and dark, word ink with fixture word times, device-voice words with a fake speech engine, the Reader's sentence tint.
+- Not verified: the aligner on real speech (Hugging Face is blocked from the cloud container), iPhone Safari.
+
+---
+
 ## Session 165 — 2026-11-15 — Follow-along transcript (design)
 **Theme:** Architecture for a transcript that follows the narration sentence by sentence and word by word
 

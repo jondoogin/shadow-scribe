@@ -29,6 +29,13 @@ The companion is the star. Book data — characters, questions, themes, plot not
 
 ## RECENT SESSIONS
 
+### Session 168 — 2026-11-18 — Follow-along transcript up to spec (not merged)
+
+- The Text view in Listen now matches Catalogue III and goes word by word: in the sentence being read, each word inks in as it is spoken. Words only animate where the timing was measured, never guessed.
+- Word timing comes from a small alignment model the narrator runs on the Mac after making the audio (`generate --words`). It can add timing to chapters already made without regenerating them. The browser's built-in voice lights words too, when the device reports them.
+- The Reader now tints the exact sentence being narrated.
+- Still to do before going live: run the aligner on real narration on John's MacBook Pro, and an iPhone check.
+
 ### Session 165 — 2026-11-15 — Follow-along transcript designed (not built)
 
 - John asked for a transcript that follows the narration, like Spotify lyrics but more elegant. The design is in `docs/TRANSCRIPT.md`.
