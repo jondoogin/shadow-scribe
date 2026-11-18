@@ -54,6 +54,49 @@ Reverse-chronological log of what was built, fixed, and decided in each working 
 **NOT YET VERIFIED**
 - Everything. Speeds in the doc are estimates scaled from one published M1 Max number; no image model has run on either Mac.
 
+## Session 168 — 2026-11-18 — Follow-along transcript brought up to spec (transcript thread)
+**Theme:** Word-level follow-along, the Catalogue III look, and polish before going live
+
+**BUILT**
+- Rebased onto Catalogue III (PR #4). The Text view now sits in the Listen card's tabs (Now playing | Text), in Catalogue type and colours: a soft accent tint with the Reader's accent rule behind the sentence being read, no glow. "Tap a sentence to listen" moved into the scroller's label to cut on-screen text.
+- Word tokens: `src/narration/words.js` (`WORDS_VERSION` 1); the narration script gives every segment `words` with display offsets and spoken forms.
+- Narrator: `align.py` (wav2vec2 CTC, our numpy Viterbi, number/abbreviation verbalising, per-sentence confidence checks). `generate --words auto|on|off`; re-running aligns earlier chapters without re-synthesis. Sidecars `timings/<section>.words.json` (offsets and ms, no text) and a manifest `timings` block. `[align]` extra.
+- Lantern: sidecars are validated and stored as `words` on each chapter's `audio` record (no DB version bump). In the sentence being read, words ink in as they are spoken; a "Word by word" switch appears when the chapter has word timing. The device voice lights words from the speech engine's own boundary events. The Reader tints the sentence being narrated.
+- Not built, on purpose: a sync-offset setting and a coverage label (clutter, see TRANSCRIPT.md §12).
+
+**VERIFIED**
+- Vitest 99 pass; narrator pytest 67 pass; build passes; no new lint errors in changed files.
+- Headless Chromium at 390×844: Text view light and dark, word ink with fixture word times, device-voice words with a fake speech engine, the Reader's sentence tint.
+- Later the same day on the M5 Pro: the aligner timed 69/69 sentences of P&P chapters I–II (Qwen3 1.7B, Aiden), about 250× realtime. Two bugs found there and fixed with regression tests (TRANSCRIPT.md §13).
+- Not verified: iPhone Safari.
+
+---
+
+## Session 165 — 2026-11-15 — Follow-along transcript (design)
+**Theme:** Architecture for a transcript that follows the narration sentence by sentence and word by word
+
+**DECISIONS (proposed, awaiting John's review)**
+- Sentence timings already exist in every package (segment `t0`/`t1`), so a sentence-level transcript needs no narrator change.
+- Word timings: forced alignment per sentence clip on the Mac, after synthesis, for every engine (Qwen3 1.7B has no native timings). Candidates: Qwen3-ForcedAligner-0.6B or wav2vec2 CTC; a spike picks one. `lantern-narrate align` upgrades existing packages without re-synthesis.
+- Words are defined by Lantern's JS segmenter (`words` per segment, display offsets + spoken forms). Timings ship as per-chapter sidecars with offsets and milliseconds only, no text; IndexedDB gets a `timings` store.
+- Sync: a frame clock over `audio.currentTime` plus a user sync offset; React renders once, a small conductor moves classes and one CSS variable.
+- Look: a lantern-light pool glides behind the current sentence; the spoken word fills with ink. Word animation only where alignment passed its confidence check.
+- John's decisions (2026-11-16): the "listening register" motion exception is approved (520 ms glide, fill while a word is spoken; added to DESIGN_SYSTEM and MOTION_SYSTEM); words animate by default where measured; reveal-as-spoken is optional and off by default; the transcript is a Text view inside Listen.
+
+**PHASE 1 BUILT (2026-11-16, after John said go)**
+- Listen has a **Now Playing ↔ Text** switch. Text shows the narrated chapter in EB Garamond; a soft light pool glides (520 ms) behind the sentence being read, read text settles, text ahead is quieter. Works with neural packages (frame clock over `audio.currentTime`) and the device voice (follows the player's sentence).
+- Follow-scroll keeps the voice near 38% of the view and moves only when it leaves a 25–55% band. Scrolling by hand pauses it and shows **Back to narration**; it resumes after 8 s. Tap a sentence to play from it. Big jumps don't glide.
+- **Reveal as spoken** (off by default) veils everything after the next sentence. Strict spoiler mode veils an unreached chapter's heading until it is spoken. Only the current chapter is ever rendered.
+- New: `src/narration/clock.js`, `src/narration/transcript.js`, `src/components/transcript/`. `GeneratedAudioPlayer.mediaTime()`. Prefs `listenView`, `transcriptReveal`.
+
+**VERIFIED**
+- 81 Vitest tests pass (21 new: transcript model, segment states, follow-scroll band, media clock, conductor, player clock). Build passes. Lint unchanged at 49 errors / 9 warnings, none in changed files.
+- Headless Chromium at phone size with the real Kokoro sample package: the light follows the audio, tap-to-play, Back to narration, reveal-as-spoken and the saved prefs all worked; across the chapter change too.
+- Not verified: iPhone Safari, light theme by eye.
+
+**FILES**
+- New `docs/TRANSCRIPT.md`. ROADMAP milestone added.
+
 ---
 
 ## Session 164 — 2026-11-13

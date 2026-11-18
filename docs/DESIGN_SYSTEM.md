@@ -440,6 +440,8 @@ All keyframes defined in `index.css`. Applied via custom `animate-*` Tailwind ut
 
 **Philosophy:** Motion should feel *remembered*, not triggered. Emergence is slow. Fades linger. Nothing snaps.
 
+**Listening register (approved by John, 2026-11-16; not built yet).** The follow-along transcript (`docs/TRANSCRIPT.md`) and the Reader's read-along may exceed the 0.5 s limit, because their motion follows the narrator's voice and stops when it stops. Allowed: the lantern-light pool gliding to the next sentence (520 ms, critically damped, no overshoot) and an ink fill that runs while a word is spoken. Nothing else moves; no bounce, stagger or particles. Reduced motion turns all of it off. No other surface may use this register.
+
 | Animation | Class | Duration | Use |
 |-----------|-------|----------|-----|
 | `fadeIn` | `animate-fade-in` | 220ms | Character detail panel expand |

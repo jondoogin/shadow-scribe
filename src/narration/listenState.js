@@ -17,6 +17,9 @@ export const DEFAULT_PREFS = {
   ambientVolume: 0.35,
   duck: true,
   narrationVolume: 1,
+  listenView: 'now',       // 'now' (Now Playing) | 'text' (follow-along transcript)
+  transcriptReveal: false, // "reveal as spoken": veil the chapter beyond the next sentence (John: off by default)
+  transcriptWords: true,   // light word by word where the narrator measured word timings (John: on by default)
 }
 
 function empty() { return { version: VERSION, prefs: { ...DEFAULT_PREFS }, books: {} } }

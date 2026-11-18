@@ -6,6 +6,7 @@ holding the whole book in memory, which matters on iPhone):
 
     manifest.json
     audio/001-chapter-1.m4a
+    timings/chapter-1.words.json   (optional: measured word times, no text)
     ...
 
 The manifest ties every audio file to Lantern's content model: the book's
@@ -28,7 +29,7 @@ PACKAGE_FORMAT = "lantern-audiobook"
 PACKAGE_VERSION = 1
 
 
-def build_manifest(script: dict, state: dict, include_text: bool = True) -> dict:
+def build_manifest(script: dict, state: dict, include_text: bool = True, include_words: bool = True) -> dict:
     book = script["book"]
     sections = []
     for s in narrated_sections(script):
@@ -45,6 +46,7 @@ def build_manifest(script: dict, state: dict, include_text: bool = True) -> dict
             if include_text:
                 entry["text"] = src.get("text")
             segs.append(entry)
+        entry_words = st.get("words") if include_words else None
         sections.append({
             "id": s["id"],
             "order": s.get("order"),
@@ -56,8 +58,11 @@ def build_manifest(script: dict, state: dict, include_text: bool = True) -> dict
             "bytes": st.get("bytes"),
             "durationSec": st.get("durationSec"),
             "segments": segs,
+            **({"wordTimings": entry_words["file"]} if entry_words else {}),
         })
     engine = state.get("engine", {})
+    worded = [state["sections"][s["id"]]["words"] for s in sections if "wordTimings" in s]
+    total = sum(w.get("total", 0) for w in worded)
     return {
         "format": PACKAGE_FORMAT,
         "version": PACKAGE_VERSION,
@@ -86,12 +91,18 @@ def build_manifest(script: dict, state: dict, include_text: bool = True) -> dict
         "complete": len(sections) == len(narrated_sections(script)),
         "totalDurationSec": round(sum(s["durationSec"] or 0 for s in sections), 3),
         "sections": sections,
+        **({"timings": {
+            "words": True,
+            "wordsVersion": worded[0].get("wordsVersion"),
+            "aligner": worded[0].get("aligner"),
+            "coverage": round(sum(w.get("aligned", 0) for w in worded) / total, 3) if total else 0,
+        }} if worded else {}),
     }
 
 
 def write_package(script: dict, state: dict, job_dir: Path, out_path: Path | None = None,
-                  include_text: bool = True) -> Path:
-    manifest = build_manifest(script, state, include_text)
+                  include_text: bool = True, include_words: bool = True) -> Path:
+    manifest = build_manifest(script, state, include_text, include_words)
     if not manifest["sections"]:
         raise ValueError("No finished chapters to package yet.")
     book = script["book"]
@@ -104,6 +115,8 @@ def write_package(script: dict, state: dict, job_dir: Path, out_path: Path | Non
         z.writestr("manifest.json", json.dumps(manifest, ensure_ascii=False, indent=1))
         for s in manifest["sections"]:
             z.write(job_dir / "audio" / Path(s["file"]).name, s["file"])
+            if s.get("wordTimings"):
+                z.write(job_dir / s["wordTimings"], s["wordTimings"])
     os.replace(tmp, out_path)
     return out_path
 

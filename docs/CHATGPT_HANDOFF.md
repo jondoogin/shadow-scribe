@@ -44,6 +44,21 @@ The companion is the star. Book data — characters, questions, themes, plot not
 
 **Built (2026-11-16, step 1):** the painterly display and the Reader backdrop, on a preview page (`/preview/visuals`) with five sample paintings drawn by code and a short story written for it. Paintings paint themselves in along their brushstrokes, drift slowly and shimmer faintly; the Reader backdrop sits faintly behind the text. Checked in a headless browser: no painting ever appeared before its passage had been heard. Not yet on a real iPhone, and not yet wired into real books (that needs step 2, importing a book's paintings).
 
+### Session 168 — 2026-11-18 — Follow-along transcript up to spec (not merged)
+
+- The Text view in Listen now matches Catalogue III and goes word by word: in the sentence being read, each word inks in as it is spoken. Words only animate where the timing was measured, never guessed.
+- Word timing comes from a small alignment model the narrator runs on the Mac after making the audio (`generate --words`). It can add timing to chapters already made without regenerating them. The browser's built-in voice lights words too, when the device reports them.
+- The Reader now tints the exact sentence being narrated.
+- Still to do before going live: run the aligner on real narration on John's MacBook Pro, and an iPhone check.
+
+### Session 165 — 2026-11-15 — Follow-along transcript designed (not built)
+
+- John asked for a transcript that follows the narration, like Spotify lyrics but more elegant. The design is in `docs/TRANSCRIPT.md`.
+- Sentence-level follow-along can ship first with no narrator changes, because every narration package already has exact sentence times.
+- Word-level timing comes from a local forced aligner on the Mac, run on each sentence after it is spoken. Existing narrations can be upgraded without regenerating audio. Words only animate where the alignment is measured and confident.
+- The look: a pool of lantern light glides behind the sentence being read, and each word fills with ink as it's spoken. Spoilers: only the current chapter is ever shown; progress never changes on its own.
+- John decided (2026-11-16): this view may break the 0.5 s motion limit (the "listening register"); words animate by default; "reveal as spoken" is optional and off by default; the transcript is a Text view inside Listen. Phase 1 is built: Listen now has a Text view where a soft light follows the sentence being read, with tap-to-play, calm auto-scroll, Back to narration and the optional reveal-as-spoken veil. Not yet tried on an iPhone. Next: the aligner test on the Mac for word timing.
+
 ### Session 164 — 2026-11-13 — Narrator retargeted to the M5 Pro (same branch, not merged)
 
 - The main generation machine is now John's work MacBook Pro (M5 Pro, 48 GB). The M2 Air stays supported.

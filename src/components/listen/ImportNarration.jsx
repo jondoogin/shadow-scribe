@@ -24,7 +24,7 @@ export default function ImportNarration({ book, onUpdateBook, onImported }) {
     setPending(null)
     setBusy({ done: 0, total: pkg.manifest.sections.length, bytes: 0 })
     try {
-      await saveAudiobook(pkg.id, pkg.manifest, pkg.getBlob, p => setBusy(p))
+      await saveAudiobook(pkg.id, pkg.manifest, pkg.getBlob, p => setBusy(p), pkg.getWordTimings)
       await requestPersistentStorage()
       if (book.contentId !== pkg.manifest.book.contentId) onUpdateBook({ contentId: pkg.manifest.book.contentId })
       setMessage(null)

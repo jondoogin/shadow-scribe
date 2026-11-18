@@ -21,7 +21,7 @@ const STORES = {
   contents: 'contents',     // { contentId, title, author, language, parserVersion, importedAt, sections: SectionMeta[] }
   sections: 'sections',     // { contentId, id, blocks }
   audiobooks: 'audiobooks', // { id, contentId, manifest, importedAt, totalBytes }
-  audio: 'audio',           // { audiobookId, sectionId, blob, mime, bytes }
+  audio: 'audio',           // { audiobookId, sectionId, blob, mime, bytes, words? }
   visualSets: 'visualSets', // v2: { id, contentId, manifest, images, importedAt, totalBytes }
   visualImages: 'visualImages', // v2: { visualSetId, imageId, blob, strokes, thumb, bytes }
 }
@@ -162,8 +162,10 @@ export async function deleteContent(contentId) {
  * written last: an interrupted import leaves no visible, half-complete book.
  * @param {object} manifest   validated package manifest
  * @param {(sectionId) => Promise<Blob>} getBlob
+ * @param {(section) => Promise<object|null>} [getWords]  measured word timings for a chapter
+ *        (offsets and milliseconds, no text); kept on the chapter's audio record
  */
-export async function saveAudiobook(id, manifest, getBlob, onProgress) {
+export async function saveAudiobook(id, manifest, getBlob, onProgress, getWords) {
   const db = await openContentDb()
   let totalBytes = 0
   const written = []
@@ -171,8 +173,9 @@ export async function saveAudiobook(id, manifest, getBlob, onProgress) {
     for (let i = 0; i < manifest.sections.length; i++) {
       const s = manifest.sections[i]
       const blob = await getBlob(s)
+      const words = getWords ? await getWords(s) : null
       const tx = db.transaction(STORES.audio, 'readwrite')
-      tx.objectStore(STORES.audio).put({ audiobookId: id, sectionId: s.id, blob, mime: s.mime, bytes: blob.size })
+      tx.objectStore(STORES.audio).put({ audiobookId: id, sectionId: s.id, blob, mime: s.mime, bytes: blob.size, ...(words ? { words } : {}) })
       await done(tx)
       written.push(s.id)
       totalBytes += blob.size
@@ -211,6 +214,13 @@ export async function getAudioBlob(audiobookId, sectionId) {
   const db = await openContentDb()
   const row = await req(db.transaction(STORES.audio).objectStore(STORES.audio).get([audiobookId, sectionId]))
   return row?.blob || null
+}
+
+/** Measured word timings for one chapter of an audiobook: { segId: [[s, e, t0ms, t1ms], …] } or null. */
+export async function getWordTimings(audiobookId, sectionId) {
+  const db = await openContentDb()
+  const row = await req(db.transaction(STORES.audio).objectStore(STORES.audio).get([audiobookId, sectionId]))
+  return row?.words || null
 }
 
 export async function deleteAudiobook(id) {

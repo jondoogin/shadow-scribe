@@ -23,6 +23,18 @@
 - [ ] iPhone verification: lock-screen playback, ambience in background, 7-day eviction behaviour
 - [ ] Optional: in-app progress UI for generation (currently CLI only)
 
+### Milestone: Follow-along transcript — Sessions 165, 168 — built, not merged
+Design: `docs/TRANSCRIPT.md` (§12: as built).
+- [x] Design doc: timing sources, package sidecar, playback sync, animation, spoilers
+- [x] John's decisions (2026-11-16): motion exception approved, word-level by default, reveal-as-spoken optional and off, Text view inside Listen
+- [x] Phase 1: sentence-level transcript in Listen, built Session 165; restyled for Catalogue III in Session 168
+- [x] Phase 3: word tokens in the script, wav2vec2 CTC aligner, `generate --words`, sidecars (Session 168)
+- [x] Phase 4: word ink-fill in the Text view, device-voice word boundaries (Session 168; no sync-offset setting, no coverage label)
+- [x] Phase 5 (reduced): the Reader tints the sentence being narrated (Session 168)
+- [x] Phase 2: aligner on real speech on the M5 Pro, 69/69 sentences aligned (2026-11-18); two bugs fixed
+- [ ] iPhone check of the Text view (scrolling, light pool, word fill, lock and wake, AirPods drift)
+- [ ] Later: `--retry-misreads`; re-aligning a package outside its job folder
+
 ### Milestone: LibraryCompanion Atmosphere Pass — ✓ Session 147 — complete
 
 Visual and language pass on the cross-book companion surface at the library entrance.

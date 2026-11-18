@@ -14,6 +14,8 @@
 //                 blockId, time, duration, rate, error }
 // status: idle | loading | ready | playing | paused | ended | error
 
+import { MediaClock } from './clock.js'
+
 const IDLE = Object.freeze({
   status: 'idle', sectionIndex: 0, sectionId: null, segmentIndex: -1, segmentId: null, blockId: null,
   time: 0, duration: 0, rate: 1, error: null,
@@ -59,15 +61,19 @@ export class GeneratedAudioPlayer extends Emitter {
     this.token = 0
     this.pauseAtBoundary = false
     this.state = { ...IDLE, kind: 'audio' }
+    this.clock = new MediaClock()
     this._wire()
   }
 
   _wire() {
     const a = this.audio
+    const sync = () => this.clock.sync(a.currentTime || 0, { rate: a.playbackRate || 1, running: !a.paused })
     this._handlers = {
-      timeupdate: () => this._onTime(),
-      play: () => this.set({ status: 'playing', error: null }),
-      pause: () => { if (this.state.status === 'playing') this.set({ status: 'paused' }) },
+      timeupdate: () => { sync(); this._onTime() },
+      play: () => { sync(); this.set({ status: 'playing', error: null }) },
+      pause: () => { sync(); if (this.state.status === 'playing') this.set({ status: 'paused' }) },
+      seeked: sync,
+      ratechange: sync,
       ended: () => this._onEnded(),
       loadedmetadata: () => this.set({ duration: Number.isFinite(a.duration) ? a.duration : this.sections[this.state.sectionIndex]?.durationSec || 0 }),
       error: () => this.set({ status: 'error', error: 'This chapter’s audio could not be played. It may be damaged; re-import the narration.' }),
@@ -202,6 +208,11 @@ export class GeneratedAudioPlayer extends Emitter {
     this.set({ rate })
   }
 
+  /** Position in the current chapter for per-frame animation (smoothed between timeupdates). */
+  mediaTime() {
+    return this.clock.read(this.audio.currentTime)
+  }
+
   setVolume(v) { this.audio.volume = Math.max(0, Math.min(1, v)) }
 
   stopAtNextBoundary() { this.pauseAtBoundary = true }
@@ -259,7 +270,14 @@ export class SpeechNarrationPlayer extends Emitter {
     this.segments = []
     this.session = 0
     this.pauseAtBoundary = false
+    this.wordListeners = new Set()
     this.state = { ...IDLE, kind: 'speech', duration: 0 }
+  }
+
+  /** Word boundaries reported by the speech engine: fn(segmentIndex, charIndex in `spoken`). */
+  onWords(fn) {
+    this.wordListeners.add(fn)
+    return () => this.wordListeners.delete(fn)
   }
 
   get supported() { return !!(this.synth && this.Utterance) }
@@ -309,6 +327,10 @@ export class SpeechNarrationPlayer extends Emitter {
       }
       if (i + 1 < this.segments.length) this._speak(i + 1)
       else this._sectionEnd(session)
+    }
+    u.onboundary = e => {
+      if (session !== this.session || (e?.name && e.name !== 'word')) return
+      for (const fn of this.wordListeners) fn(i, e.charIndex)
     }
     u.onerror = e => {
       if (session !== this.session) return

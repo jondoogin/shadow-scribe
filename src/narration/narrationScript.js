@@ -4,6 +4,7 @@
 // should re-derive: section order, segment ids, offsets and spoken text.
 
 import { segmentBlocks, SEGMENTER_VERSION } from './segmenter.js'
+import { segmentWords, WORDS_VERSION } from './words.js'
 
 export const SCRIPT_FORMAT = 'lantern-narration-script'
 export const SCRIPT_VERSION = 1
@@ -20,6 +21,7 @@ export function buildNarrationScript(content, { includeAll = false, maxChars } =
       language: content.language,
       parserVersion: content.parserVersion,
       segmenterVersion: SEGMENTER_VERSION,
+      wordsVersion: WORDS_VERSION,
     },
     sections: content.sections.map(s => ({
       id: s.id,
@@ -29,9 +31,15 @@ export function buildNarrationScript(content, { includeAll = false, maxChars } =
       skipReason: includeAll ? null : s.skipReason,
       chapterNums: s.chapterNums || [],
       anchors: s.anchors || [],
-      segments: segmentBlocks(s.blocks, { maxChars }),
+      segments: withWords(s.blocks, segmentBlocks(s.blocks, { maxChars })),
     })),
   }
+}
+
+// Word tokens let the Mac aligner time each word (docs/TRANSCRIPT.md §3).
+function withWords(blocks, segments) {
+  const text = new Map(blocks.map(b => [b.id, b.text]))
+  return segments.map(g => ({ ...g, words: segmentWords(text.get(g.blockId), g.start, g.end, g.kind === 'heading' ? 'heading' : 'sentence') }))
 }
 
 export function scriptStats(script) {

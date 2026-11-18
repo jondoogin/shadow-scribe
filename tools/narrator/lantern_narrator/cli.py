@@ -145,15 +145,33 @@ def _progress_printer():
     return on_progress
 
 
+def make_aligner(mode: str, script: dict):
+    """Word timings for the follow-along transcript: on, off, or auto (on when installed and English)."""
+    from .align import Aligner, Wav2Vec2Emitter, script_has_words
+    if mode == "off":
+        return None, ""
+    if not script_has_words(script):
+        return None, "this script has no word tokens (make it with a newer Lantern)"
+    lang = (script["book"].get("language") or "en").lower()
+    if not lang.startswith("en"):
+        return None, f"the word aligner is English-only (book language: {lang})"
+    if not Wav2Vec2Emitter.available():
+        if mode == "on":
+            raise EngineUnavailable('Word timings need the align extra: pip install -e ".[align]"')
+        return None, 'not installed (pip install -e ".[align]")'
+    return Aligner(Wav2Vec2Emitter()), ""
+
+
 def cmd_generate(args) -> int:
     script = script_from_source(Path(args.source), include_all=args.include_all)
     book = script["book"]
     c = resolve_choice(book["contentId"], args.engine, args.voice, args.style, args.speed)
     engine = create_engine(c["engine"])
     try:
+        aligner, why_not = make_aligner(getattr(args, "words", "auto"), script)
         gen = Generator(script, engine, c["voice"], c["speed"], bitrate=args.bitrate * 1000,
                         on_progress=_progress_printer(), selection=args.sections, style=c["style"],
-                        job_dir=Path(args.job_dir) if args.job_dir else None)
+                        job_dir=Path(args.job_dir) if args.job_dir else None, aligner=aligner)
     except (ValueError, EngineUnavailable) as e:
         print(f"✗ {e}")
         return 2
@@ -164,6 +182,7 @@ def cmd_generate(args) -> int:
     print(f"Engine: {engine.label} · voice {gen.voice} · speed {c['speed']}"
           + (f" · style \"{gen.style}\"" if gen.style else "")
           + (" (this book's saved choice)" if c["remembered"] else ""))
+    print(f"Word timings: {aligner.info()}" if aligner else f"Word timings: off{' (' + why_not + ')' if why_not else ''}")
     print(f"Job folder: {gen.job_dir}")
     try:
         state = gen.run()
@@ -180,9 +199,13 @@ def cmd_generate(args) -> int:
         stop.uninstall()
     print()
     out = write_package(script, state, gen.job_dir, Path(args.output) if args.output else None,
-                        include_text=not args.no_text)
+                        include_text=not args.no_text, include_words=getattr(args, "words", "auto") != "off")
     total = sum(s.get("durationSec", 0) for s in state["sections"].values() if s.get("status") == "done")
     print(f"✓ Package: {out}  ({out.stat().st_size / 1e6:.1f} MB, {_fmt_dur(total)} of narration)")
+    worded = [st["words"] for st in state["sections"].values() if st.get("words")]
+    if worded and getattr(args, "words", "auto") != "off":
+        ok, tot = sum(w["aligned"] for w in worded), sum(w["total"] for w in worded)
+        print(f"  Word timings: {ok}/{tot} sentences ({ok / max(tot, 1):.0%}); the rest follow by sentence.")
     print("  Import it in Lantern: open the book → Listen → Import narration.")
     if args.m4b:
         m4b = write_m4b(script, state, gen.job_dir, out.with_suffix(".m4b"))
@@ -456,6 +479,8 @@ def main(argv=None) -> int:
     s.add_argument("--include-all", action="store_true")
     s.add_argument("--no-text", action="store_true", help="omit caption text from the package")
     s.add_argument("--m4b", action="store_true", help="also write a single .m4b with chapters (ffmpeg)")
+    s.add_argument("--words", choices=["auto", "on", "off"], default="auto",
+                   help="measure word timings for the follow-along text (default: auto, when the align extra is installed)")
     s.set_defaults(fn=cmd_generate)
 
     s = sub.add_parser("audition", help="read a book's opening in every voice, to choose one for that book")
