@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from . import lexicon as L
 
-TAIL = ("no lettering anywhere, no signs, no text, no faces, empty foreground, "
+TAIL = ("no lettering anywhere, no signs, no text, unsigned, no signature or monogram, clean corners, no faces, empty foreground, "
         "painterly, muted warm palette, gentle contrast, quiet atmosphere")
 
 

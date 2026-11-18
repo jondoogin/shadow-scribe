@@ -186,16 +186,36 @@ class FluxKleinPainter:
     def paint(self, prompt: str, descriptor: dict, seed: int, size=SIZE) -> tuple[Image.Image, Image.Image]:  # pragma: no cover - Mac only
         with tempfile.TemporaryDirectory(dir=str(_tmp_root())) as td:
             out = Path(td) / "out.png"
-            cmd = [self.cmd, "--model", self.repo, "--prompt", prompt, "--width", str(size[0]), "--height", str(size[1]),
+            # Paint a little larger and trim the edges: image models like to
+            # add a painter's signature in a corner, and Vision can't read a scrawl.
+            big = bleed_size(size)
+            cmd = [self.cmd, "--model", self.repo, "--prompt", prompt, "--width", str(big[0]), "--height", str(big[1]),
                    "--steps", str(self.steps), "--seed", str(seed), "--output", str(out)]
             if self.quantize:
                 cmd += ["--quantize", str(self.quantize)]
             proc = subprocess.run(cmd, capture_output=True, text=True)
             if proc.returncode != 0 or not out.exists():
                 raise RuntimeError((proc.stderr or proc.stdout or "mflux failed").strip()[-400:])
-            img = Image.open(out).convert("RGB")
-            img.load()
+            img = trim_edges(Image.open(out).convert("RGB"), size)
         return img, stroke_map(img, descriptor.get("focus"), seed)
+
+
+BLEED = 0.06   # fraction of width and height trimmed in all (half from each side)
+
+
+def bleed_size(size: tuple[int, int]) -> tuple[int, int]:
+    """The size to paint at so that trimming BLEED still leaves `size` (multiples of 16 for FLUX)."""
+    return tuple(int(-(-round(n * (1 + BLEED)) // 16) * 16) for n in size)
+
+
+def trim_edges(img: Image.Image, size: tuple[int, int]) -> Image.Image:
+    """Centre-crop to the target aspect with the edges trimmed, then scale to `size`."""
+    w, h = img.size
+    tw, th = size
+    scale = min(w / tw, h / th) / (1 + BLEED)
+    cw, ch = round(tw * scale), round(th * scale)
+    left, top = (w - cw) // 2, (h - ch) // 2
+    return img.crop((left, top, left + cw, top + ch)).resize(size, Image.LANCZOS)
 
 
 def _tmp_root() -> Path:

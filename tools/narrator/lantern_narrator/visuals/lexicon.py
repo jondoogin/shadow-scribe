@@ -20,8 +20,9 @@ SETTINGS = {
     "ballroom": r"ball[- ]?room|assembly[- ]rooms",
     "cottage interior": r"cottage",
     "cabin": r"cabin|\bhut\b",
-    "lighthouse": r"lighthouse|lamp[- ]room|\btower\b",
+    "lamp room": r"lamp[- ]room|lantern room",
     # exteriors
+    "lighthouse": r"lighthouse|\btower\b",
     "sea shore": r"\bshore\b|beach|strand|sands|cove|\bsea\b|ocean|waves",
     "harbour": r"harbou?r|quay|dock|wharf|pier",
     "ship deck": r"\bdeck\b|\bship\b|vessel|\bmast",
@@ -88,6 +89,7 @@ FORBIDDEN = re.compile(
 PALETTES = {
     "sea shore": ["slate blue", "sea grey", "pale sand", "storm teal"],
     "lighthouse": ["whitewash", "lamp gold", "night blue", "iron grey"],
+    "lamp room": ["brass", "lamp gold", "night blue", "iron grey"],
     "harbour": ["slate blue", "tar black", "rope ochre", "sea grey"],
     "ship deck": ["weathered oak", "sail cream", "sea grey", "slate blue"],
     "forest": ["moss green", "bark umber", "fern", "shadow olive"],
@@ -108,7 +110,7 @@ INTERIOR_PALETTE = ["umber", "candle gold", "oak brown", "slate blue"]
 LIGHT_BY_TIME = {"dawn": "first light, cool and pale", "morning": "soft morning light", "midday": "high clear light",
                  "afternoon": "warm afternoon light", "evening": "low golden light", "night": "dim night light"}
 
-INTERIORS = {"lighthouse", "drawing room", "library", "bedroom", "kitchen", "hall", "church", "inn", "ballroom", "cottage interior", "cabin"}
+INTERIORS = {"lamp room", "drawing room", "library", "bedroom", "kitchen", "hall", "church", "inn", "ballroom", "cottage interior", "cabin"}
 
 
 def _compile(d: dict) -> dict:

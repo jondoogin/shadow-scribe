@@ -129,7 +129,9 @@ class LlmDescriber:
         if not d:
             return base
         merged = {**base, **{k: v for k, v in d.items() if v not in (None, "", [])}}
-        merged["palette"] = merged.get("palette") or profile.get("palette", [])
+        # The book's palette is fixed so a set hangs together; the model may add one colour of its own.
+        own = [c for c in (d.get("palette") or []) if isinstance(c, str) and c not in base["palette"]]
+        merged["palette"] = (base["palette"] + own[:1])[:5]
         return sanitize(merged, window_text)
 
     def unload(self):  # pragma: no cover
@@ -161,6 +163,10 @@ def _clean_str(v, names: set[str], n: int = 80) -> str | None:
     s = L.FORBIDDEN.sub("", v)
     for name in names:
         s = re.sub(rf"\b{re.escape(name)}(?:'s|’s)?\b", "", s)
+    # A removed name can leave "harbour at , with a quay": drop the dangling word.
+    s = re.sub(r"\b(?:at|in|of|near|by|on|from|to|the|a|an)\s*(?=[,;.]|$)", "", s, flags=re.I)
+    s = re.sub(r"\s+([,;.])", r"\1", s)
+    s = re.sub(r"([,;])\s*(?=[,;.]|$)", "", s)
     s = re.sub(r"\s{2,}", " ", s).strip(" ,;.")
     return s[:n] or None
 

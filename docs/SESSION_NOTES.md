@@ -15,10 +15,16 @@ Reverse-chronological log of what was built, fixed, and decided in each working 
 - Polish fixes found by the browser sweep: a scene's window now always leaves at least one segment of its scene unread (the last painting of the book could never appear, because the gate is strictly past `visibleAfter`); the painted stage no longer loses its WebGL context when React mounts it twice (dispose released the context on a canvas still on the page, so every stage fell back to a flat image in development); fallback layers use a counter key, not `Date.now()`; object URLs leaving the prefetch queue are revoked 30 s later so an outgoing crossfade never loses its picture.
 
 **VERIFIED**
-- 92 Vitest, 55 pytest, lint unchanged per file, build passes. Playwright on the real app (phone size): imported the story, a fake-voice narration and a fixture paintings package through the UI, then swept every chapter on Listen and scrolled every chapter in the Reader checking the gate at each step.
+- 92 Vitest, 59 pytest, lint unchanged per file, build passes. Playwright on the real app (phone size): imported the story, a fake-voice narration and a fixture paintings package through the UI, then swept every chapter on Listen and scrolled every chapter in the Reader checking the gate at each step.
+
+**FIRST REAL RUN (M5 Pro 48 GB, 2026-11-18, over Remote Control)**
+- FLUX.2 klein 4B 8-bit via mflux: about 16 to 24 s per 1600×1000 painting warm, peak about 8.2 to 8.9 GB resident; first download about 15 GB (full-precision weights, quantised on load) into the narrator home's hf-cache. Qwen3-4B-Instruct-2507-4bit describer: about 2 GB download.
+- The test story in gouache, watercolour, oil sketch, ink and wash (keyword describer) and gouache with qwen3-4b: 8 of 8 scenes each, 2 to 3 minutes per set, no Vision rejections or retries, no faces (only small silhouettes and distant walkers).
+- Found and fixed: fake painter's signatures in corners that Vision can't read (prompt now says unsigned, and paintings are rendered 6% larger and trimmed); lighthouse scenes framed as a room (the lamp room is now its own interior setting, the lighthouse an exterior); the LLM describer drifted off the book's palette (the palette is now fixed, plus at most one colour of the model's own); a removed name left "harbour at , with a quay" (dangling words are dropped); doctor and the painter didn't find mflux unless the venv was on PATH.
+- Installing the visuals extra moves huggingface-hub to 1.33.0 (mflux's pin) in the shared narrator venv; narration still ran fine.
 
 **NOT VERIFIED**
-- FLUX.2 klein, the Qwen3 describer and Apple Vision have not run (need the Mac). No real paintings yet; no iPhone GPU or battery numbers.
+- The fixes above have not been re-run on the Mac yet. Apple Vision's face check rejects any face whatever its size, so a tiny distant figure could be repainted needlessly (none was in this run). No iPhone GPU or battery numbers.
 
 ---
 

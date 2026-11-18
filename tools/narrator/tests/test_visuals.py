@@ -181,3 +181,29 @@ def test_mflux_is_found_beside_the_venv_python(tmp_path, monkeypatch):
     monkeypatch.setenv("PATH", "/nonexistent")
     monkeypatch.setattr(painters.sys, "executable", str(exe))
     assert painters.find_mflux() == str(cmd)
+
+
+def test_painted_edges_are_trimmed_where_signatures_sit():
+    from PIL import Image
+    from lantern_narrator.visuals import painters
+    big = painters.bleed_size((1600, 1000))
+    assert big[0] % 16 == 0 and big[1] % 16 == 0 and big[0] > 1600 and big[1] > 1000
+    img = Image.new("RGB", big, "white")
+    img.paste((0, 0, 0), (big[0] - 40, big[1] - 30, big[0], big[1]))     # a "signature" in the corner
+    out = painters.trim_edges(img, (1600, 1000))
+    assert out.size == (1600, 1000)
+    assert out.crop((1500, 900, 1600, 1000)).getextrema() == ((255, 255), (255, 255), (255, 255))
+
+
+def test_lamp_room_is_inside_and_lighthouse_is_outside():
+    d = KeywordDescriber().describe("The beam swept the headland and the lighthouse stood white against the sky.", None,
+                                    build_profile(story()), None)
+    assert d["setting"] == "lighthouse" and "interior" not in (d["framing"] or "")
+    d = KeywordDescriber().describe("Up in the lamp room the lamp room glass was cold.", None, build_profile(story()), None)
+    assert d["setting"] == "lamp room" and "interior" in d["framing"]
+
+
+def test_a_removed_name_leaves_no_empty_slot():
+    d = sanitize({"setting": "harbour at Gullhaven, with a quay"}, window_text="They reached Gullhaven at dusk.")
+    assert d["setting"] == "harbour, with a quay"
+    assert "unsigned" in build_prompt(build_profile(story()), d)
