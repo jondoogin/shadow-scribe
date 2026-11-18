@@ -330,3 +330,15 @@ a.c2-btn--primary, button.c2-btn--primary { color: var(--on-accent); }
   .c2-text-enter { animation: none; }
   .c2-text-pool, .c2-text-pool[data-glide="true"], .ts-seg, .c2-text-return { transition: none; animation: none; }
 }
+
+/* words: inside the sentence being read, each measured word inks in as it is
+   spoken (only where the narrator measured word times; never estimated) */
+.ts-seg[data-words="on"] .ts-w { color: var(--ink-2); transition: color 160ms ease; }
+.ts-seg[data-words="on"] .ts-w[data-w="said"] { color: var(--ink); }
+.ts-seg[data-words="on"] .ts-w[data-w="now"] {
+  color: transparent; transition: none;
+  background: linear-gradient(90deg, var(--ink) calc(var(--fill, 1) * 115% - 15%), var(--ink-2) calc(var(--fill, 1) * 115%));
+  -webkit-background-clip: text; background-clip: text;
+}
+.c2-text-foot { gap: 4px 20px; flex-wrap: wrap; }
+@media (prefers-reduced-motion: reduce) { .ts-seg[data-words="on"] .ts-w { transition: none; } }

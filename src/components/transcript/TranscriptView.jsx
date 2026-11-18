@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { getSectionBlocks } from '../../content/contentRepository.js'
+import { getSectionBlocks, getWordTimings } from '../../content/contentRepository.js'
 import { segmentBlocks } from '../../narration/segmenter.js'
-import { buildTranscript } from '../../narration/transcript.js'
+import { buildTranscript, splitWords } from '../../narration/transcript.js'
 import { TranscriptConductor } from './TranscriptConductor.js'
 
 function prefersReducedMotion() {
@@ -14,33 +14,48 @@ function veilHeadingFor(section, book) {
   return book?.spoilerMode === 'strict' && nums.length > 0 && Math.min(...nums) > (book?.currentChapter ?? 0)
 }
 
+/** A sentence, split into its measured words when the narrator timed them. */
+function Sentence({ piece, timings }) {
+  if (!timings) return piece.text
+  return splitWords(piece.text, piece.start, timings).map((r, n) => r.t0 == null
+    ? r.text
+    : <span key={n} className="ts-w" data-t0={r.t0} data-t1={r.t1}>{r.text}</span>)
+}
+
 /**
- * Follow-along transcript of the chapter being narrated (Phase 1: sentence level).
- * Renders the chapter once; TranscriptConductor moves the light and the scroll.
+ * Follow-along transcript of the chapter being narrated.
+ * Renders the chapter once; TranscriptConductor moves the light, the words and the scroll.
  */
 export default function TranscriptView({ book, session, playerState, pb }) {
   const section = session?.sections?.[playerState?.sectionIndex]
   const isAudio = playerState?.kind === 'audio'
   const contentId = session?.contentId
-  const [loaded, setLoaded] = useState({ key: null, blocks: null })
+  const [loaded, setLoaded] = useState({ key: null, blocks: null, words: null })
   const [following, setFollowing] = useState(true)
   const scrollerRef = useRef(null)
   const columnRef = useRef(null)
   const poolRef = useRef(null)
   const conductorRef = useRef(null)
   const reveal = !!pb.prefs.transcriptReveal
+  const wordLevel = pb.prefs.transcriptWords !== false
+  const audiobookId = isAudio ? session?.audiobook?.id : null
 
   // The book's own text for this chapter (never the package's copy: it keeps the book's formatting).
-  const key = contentId && section ? `${contentId}/${section.id}` : null
+  // Word timings come only from the narrator's measurements (never estimated).
+  const key = contentId && section ? `${contentId}/${section.id}/${audiobookId || 'speech'}` : null
   useEffect(() => {
     if (!key) return
     let cancelled = false
-    getSectionBlocks(contentId, section.id)
-      .then(b => { if (!cancelled) setLoaded({ key, blocks: b || null }) })
-      .catch(() => { if (!cancelled) setLoaded({ key, blocks: null }) })
+    Promise.all([
+      getSectionBlocks(contentId, section.id),
+      audiobookId ? getWordTimings(audiobookId, section.id).catch(() => null) : null,
+    ])
+      .then(([b, w]) => { if (!cancelled) setLoaded({ key, blocks: b || null, words: w || null }) })
+      .catch(() => { if (!cancelled) setLoaded({ key, blocks: null, words: null }) })
     return () => { cancelled = true }
   }, [key]) // eslint-disable-line react-hooks/exhaustive-deps
   const blocks = loaded.key === key ? loaded.blocks : null
+  const words = loaded.key === key ? loaded.words : null
   const missing = !contentId || (loaded.key === key && !loaded.blocks)
 
   // Audio: the package's timed segments. Device voice: the same segmentation the player speaks.
@@ -73,14 +88,17 @@ export default function TranscriptView({ book, session, playerState, pb }) {
     })
     conductorRef.current = c
     setFollowing(true)
-    c.setOptions({ reveal, veilHeading: veilHeadingFor(section, book) })
+    c.setOptions({ reveal, veilHeading: veilHeadingFor(section, book), words: wordLevel })
     c.setIndex(playerState?.segmentIndex ?? -1, { force: true })
+    c.syncWords()
     return () => { c.dispose(); conductorRef.current = null }
-  }, [model]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [model, words]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    conductorRef.current?.setOptions({ reveal, veilHeading: veilHeadingFor(section, book) })
-  }, [reveal, book?.spoilerMode, book?.currentChapter]) // eslint-disable-line react-hooks/exhaustive-deps
+    const c = conductorRef.current
+    c?.setOptions({ reveal, veilHeading: veilHeadingFor(section, book), words: wordLevel })
+    c?.syncWords()
+  }, [reveal, wordLevel, book?.spoilerMode, book?.currentChapter]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Audio follows the frame clock while playing; otherwise follow the player's own state.
   const status = playerState?.status
@@ -90,7 +108,8 @@ export default function TranscriptView({ book, session, playerState, pb }) {
     if (isAudio && status === 'playing') { c.start(); return () => c.stop() }
     c.stop()
     c.setIndex(playerState?.segmentIndex ?? -1)
-  }, [isAudio, status, playerState?.segmentIndex, model])
+    c.syncWords()
+  }, [isAudio, status, playerState?.segmentIndex, playerState?.time, model, words])
 
   const onTap = (e) => {
     const el = e.target.closest?.('[data-seg]')
@@ -120,7 +139,9 @@ export default function TranscriptView({ book, session, playerState, pb }) {
             if (b.type === 'break') return <hr key={b.id} className="c2-break" />
             const content = b.pieces.map((p, n) => p.seg == null
               ? <span key={n}>{p.text}</span>
-              : <span key={n} className="ts-seg" data-seg={p.seg} data-state="ahead">{p.text}</span>)
+              : <span key={n} className="ts-seg" data-seg={p.seg} data-state="ahead">
+                  <Sentence piece={p} timings={words?.[segments[p.seg]?.id]} />
+                </span>)
             if (b.type === 'heading') return <h2 key={b.id}>{content}</h2>
             if (b.type === 'quote') return <blockquote key={b.id}>{content}</blockquote>
             return <p key={b.id}>{content}</p>
@@ -133,6 +154,12 @@ export default function TranscriptView({ book, session, playerState, pb }) {
         </button>
       )}
       <div className="c2-text-foot">
+        {words && (
+          <label className="c2-check">
+            <input type="checkbox" checked={wordLevel} onChange={e => pb.setPrefs({ transcriptWords: e.target.checked })} />
+            <span>Word by word</span>
+          </label>
+        )}
         <label className="c2-check">
           <input type="checkbox" checked={reveal} onChange={e => pb.setPrefs({ transcriptReveal: e.target.checked })} />
           <span>Reveal as spoken</span>

@@ -5,16 +5,19 @@ import { TranscriptConductor, RESUME_FOLLOW_MS } from './TranscriptConductor.js'
 function el(extra = {}) {
   const t = new EventTarget()
   return Object.assign(t, {
-    dataset: {}, style: {}, attrs: {},
+    dataset: {}, attrs: {},
+    style: { setProperty(k, v) { this[k] = v }, removeProperty(k) { delete this[k] } },
+    querySelectorAll: () => [],
     setAttribute(k, v) { this.attrs[k] = v },
     removeAttribute(k) { delete this.attrs[k] },
     getBoundingClientRect: () => ({ left: 0, top: 0, right: 100, bottom: 30, width: 100, height: 30 }),
   }, extra)
 }
 
-function setup(n = 6) {
+function setup(n = 6, words = {}) {
   const spans = Array.from({ length: n }, (_, k) => {
-    const s = el({ dataset: { seg: String(k) } })
+    const ws = (words[k] || []).map(([t0, t1]) => el({ dataset: { t0: String(t0), t1: String(t1) } }))
+    const s = el({ dataset: { seg: String(k) }, querySelectorAll: () => ws, words: ws })
     s.getBoundingClientRect = () => ({ left: 10, top: 100 + k * 120 - scroller.scrollTop, right: 300, bottom: 130 + k * 120 - scroller.scrollTop, width: 290, height: 30 })
     s.getClientRects = () => [s.getBoundingClientRect()]
     return s
@@ -106,5 +109,39 @@ describe('TranscriptConductor', () => {
     expect(d.scroller.scrollTo.mock.calls.length).toBe(calls + 1)
     c.dispose()
     vi.useRealTimers()
+  })
+
+  it('inks in measured words inside the current sentence only', () => {
+    const d = setup(4, { 1: [[2300, 2600], [2600, 3000], [3000, 3800]] })
+    const c = new TranscriptConductor(d)
+    const w = d.spans[1].words
+    c.setIndex(1)
+    c.setWordTime(2.2)
+    expect(d.spans[1].dataset.words).toBe('on')
+    expect(w.map(x => x.dataset.w)).toEqual([undefined, undefined, undefined])
+    c.setWordTime(2.8)
+    expect(w.map(x => x.dataset.w)).toEqual(['said', 'now', undefined])
+    expect(Number(w[1].style['--fill'])).toBeCloseTo(0.5, 2)
+    c.setWordTime(3.5)
+    expect(w.map(x => x.dataset.w)).toEqual(['said', 'said', 'now'])
+    c.setWordTime(2.4) // seek back
+    expect(w.map(x => x.dataset.w)).toEqual(['now', undefined, undefined])
+    c.setIndex(2)
+    c.setWordTime(4.4)
+    expect(d.spans[1].dataset.words).toBeUndefined()
+    expect(w.map(x => x.dataset.w)).toEqual([undefined, undefined, undefined])
+  })
+
+  it('shows no words when word level is off or the sentence was not measured', () => {
+    const d = setup(3, { 0: [[300, 900]] })
+    const c = new TranscriptConductor(d)
+    c.setOptions({ words: false })
+    c.setIndex(0)
+    c.setWordTime(0.5)
+    expect(d.spans[0].words[0].dataset.w).toBeUndefined()
+    c.setOptions({ words: true })
+    c.setIndex(1)
+    c.setWordTime(2.5)
+    expect(d.spans[1].dataset.words).toBeUndefined()
   })
 })
