@@ -616,17 +616,6 @@ export default function CharactersTab({ book, onUpdateBook, flashItemId }) {
   const allRaw = [...book.characters.main, ...book.characters.secondary]
   const userAddedCount = allRaw.filter(c => c.userAdded).length
 
-  // Cross-surface residue — open mysteries circling named figures
-  const openMysteryCount = liveItems(book.mysteries).filter(m => !m.resolved).length
-  const notesMentionFigures = visibleChars.some(ch => {
-    const firstName = (ch.name || '').split(' ')[0]
-    if (!firstName || firstName.length < 3) return false
-    const lc = firstName.toLowerCase()
-    return liveItems(book.notes).some(n =>
-      (n.text + ' ' + (n.reflection || '')).toLowerCase().includes(lc)
-    )
-  })
-  const showMysteryBleed = openMysteryCount >= 2 && notesMentionFigures && hasAny
 
   const saveChar = (charType, updated) => {
     const newTier = updated._tier || charType
@@ -713,12 +702,6 @@ export default function CharactersTab({ book, onUpdateBook, flashItemId }) {
         />
       )}
 
-      {/* Cross-surface residue — open mysteries bleeding into character surfaces; quiet: suppressed */}
-      {depth !== 'quiet' && showMysteryBleed && (
-        <p className="text-[11px] text-ink-400 italic mb-5 leading-relaxed">
-          The open questions are still circling some of these figures.
-        </p>
-      )}
 
       {/* Character lists ─────────────────────────────────────────────── */}
       {hasAny && (

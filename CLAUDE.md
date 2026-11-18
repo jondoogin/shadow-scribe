@@ -92,6 +92,16 @@ There is no CI in `.github/`. Vercel builds with `npm run build`.
 - The transcript work did not need a schema bump; if it later does, it takes v3 (additive `if (oldVersion < N)` migrations only).
 - Test book: `src/test/storyEpub.js` (original story, `node scripts/make-story-epub.mjs`). Preview with code-drawn samples: `/preview/visuals`.
 
+## Declutter pass (Session 168, PR 5, on top of PR 4)
+
+John approved every item in the declutter audit (2026-11-18). Keep these when changing screens:
+- **Light Stone paper is the default theme** (`SETTINGS_DEFAULTS.darkMode = false`). Saved settings keep the reader's own choice.
+- **One message per idea.** The book page shows one "away" note (the return card); `ReadingMomentum` and the Chronicle orientation lines are gone. No intro lines on tabs.
+- **The companion's ambient one-liners were cut** outside the Ask tab: Library cross-book remark, chapter greeting, People/Themes/Threads/Notes residue lines, thread "gravity" lines and age fading. Ask keeps its observation, which is the companion's own place.
+- **Status changes live in the book's ⋯ menu** (put aside, mark finished, archive, begin again). Only "begin reading" and "restore" stay on the card.
+- Library rows have no call numbers; the card keeps it. Plot shows the last 5 chapters, older ones behind "Earlier chapters". Listen has no lamp log (Chronicle holds the history). About is one card.
+- `.cat button` / `.c2 button` resets sit in `@layer base` so Tailwind utilities on the older tab components still apply inside Catalogue screens.
+
 ## Never commit
 
 Model weights, `~/.lantern-narrator/` job folders, `*.lantern-audio`, `*.lantern-visuals`, generated audio (`*.m4a`, `*.m4b`, `*.wav`), proprietary EPUBs, secrets, or large temporary assets. `.gitignore` covers the usual paths. Test fixtures use public-domain text built in code (`src/test/sampleEpub.js`).

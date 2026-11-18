@@ -68,7 +68,7 @@ export default function LinkEpub({ book, onLinked, onUpdateBook, compact = false
           </div>
         </div>
       ) : (
-        <button className="listen-btn" disabled={busy} onClick={() => input.current?.click()}>
+        <button className={compact ? 'c2-btn' : 'c2-btn c2-btn--primary'} style={{ padding: '0 22px' }} disabled={busy} onClick={() => input.current?.click()}>
           {busy ? 'Reading EPUB…' : compact ? 'Link a different EPUB' : 'Link EPUB'}
         </button>
       )}

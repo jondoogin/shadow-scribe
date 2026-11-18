@@ -7,12 +7,15 @@ import { useSettings } from '../context/SettingsContext.jsx'
 import { generateChapterSummaries } from '../utils/aiExtractor.js'
 import { aiEnabled, bookDepth } from '../utils/depthLevel.js'
 
+const RECENT_COUNT = 5
+
 export default function PlotTab({ book, onUpdateBook }) {
   const { settings } = useSettings()
   const depth = bookDepth(book, settings)
   const [openNum, setOpenNum] = useState(book.currentChapter)
   const [generating, setGenerating] = useState(false)
   const [genError,   setGenError]   = useState(null)
+  const [showEarlier, setShowEarlier] = useState(false)
   const completed = book.chapters.filter(c => c.completed)
 
   // Notes indexed by chapter — gives each completed chapter its reading residue
@@ -96,11 +99,11 @@ export default function PlotTab({ book, onUpdateBook }) {
       {genError && <p className="text-[11px] text-ember mb-4">{genError}</p>}
 
       <div className="space-y-2">
-      {[...completed].reverse().map(ch => {
+      {/* The last few chapters show; older ones wait behind "Earlier chapters". */}
+      {[...completed].reverse().slice(0, showEarlier ? undefined : RECENT_COUNT).map(ch => {
         const isOpen   = openNum === ch.num
         const isJustRead = ch.num === book.currentChapter
-        const isRecent   = !isJustRead && ch.num >= book.currentChapter - 2
-        const rowPy = isJustRead ? 'py-4' : isRecent ? 'py-3.5' : 'py-2.5'
+        const rowPy = isJustRead ? 'py-4' : 'py-3'
         return (
           <div key={ch.num}
             className={`rounded-xl border overflow-hidden transition-colors ${ch.important ? 'border-gold-border bg-gold-bg' : 'border-ink-200 bg-cream-50'}`}>
@@ -110,9 +113,9 @@ export default function PlotTab({ book, onUpdateBook }) {
                 <span
                   className="tabular-nums"
                   style={{
-                    fontSize:   isJustRead ? 12 : 10,
+                    fontSize:   12,
                     fontWeight: isJustRead ? 500 : 400,
-                    color: isJustRead ? 'var(--color-ink-500)' : 'var(--color-ink-300)',
+                    color: 'var(--color-ink-500)',
                   }}
                 >{ch.num}</span>
               </div>
@@ -122,26 +125,19 @@ export default function PlotTab({ book, onUpdateBook }) {
                     className="truncate"
                     style={{
                       fontFamily: isJustRead ? 'var(--font-serif)' : 'var(--font-sans)',
-                      fontSize:   isJustRead ? 16 : isRecent ? 14 : 12,
-                      fontWeight: isJustRead ? 500 : isRecent ? 500 : 400,
-                      color: isJustRead
-                        ? 'var(--color-ink-900)'
-                        : isRecent
-                        ? 'var(--color-ink-700)'
-                        : 'var(--color-ink-400)',
+                      fontSize:   isJustRead ? 17 : 15,
+                      fontWeight: 500,
+                      color: isJustRead ? 'var(--color-ink-900)' : 'var(--color-ink-700)',
                     }}
                   >{ch.title}</p>
                   {isJustRead && <span className="text-[10px] border px-1.5 py-[2px] rounded-full flex-shrink-0" style={{ background:'var(--ca-bg, #FDF8EC)', color:'var(--ca, #B8860B)', borderColor:'var(--ca-border, #E8D090)' }}>Just read</span>}
-                  {isRecent && <span className="text-[10px] px-1.5 py-[2px] rounded-full flex-shrink-0" style={{ background: 'var(--color-gold-bg)', color: 'var(--color-gold)', border: '1px solid var(--color-gold-pale)' }}>Recent</span>}
                 </div>
                 {!isOpen && ch.summary && (
                   <p
                     className="truncate mt-0.5"
                     style={{
-                      fontSize: isJustRead || isRecent ? 12 : 11,
-                      color: isJustRead || isRecent
-                        ? 'var(--color-ink-400)'
-                        : 'var(--color-ink-300)',
+                      fontSize: 13,
+                      color: 'var(--color-ink-500)',
                     }}
                   >{ch.summary.slice(0, 80)}…</p>
                 )}
@@ -184,6 +180,12 @@ export default function PlotTab({ book, onUpdateBook }) {
         )
       })}
       </div>
+      {completed.length > RECENT_COUNT && (
+        <button type="button" className="c2-btn" style={{ width: '100%', marginTop: 12 }}
+          onClick={() => setShowEarlier(v => !v)} aria-expanded={showEarlier}>
+          {showEarlier ? 'Hide earlier chapters' : `Earlier chapters (${completed.length - RECENT_COUNT})`}
+        </button>
+      )}
     </div>
   )
 }

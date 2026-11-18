@@ -225,13 +225,6 @@ export default function NotesTab({ book, onUpdateBook }) {
   // Live notes — tombstoned items remain in book.notes for sync but are hidden from display
   const liveNotes = useMemo(() => liveItems(book.notes), [book.notes])
 
-  // ── Mystery chapters — companion cross-reference residue ─────────────────
-  const mysteryChapters = useMemo(
-    () => new Set(liveItems(book.mysteries).filter(m => !m.resolved && m.chapter).map(m => m.chapter)),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [book.mysteries]
-  )
-
   // ── Resonance weights + singularities ────────────────────────────────────
   const resonanceWeights = useMemo(
     () => computeResonanceWeights(liveNotes),
@@ -811,12 +804,6 @@ export default function NotesTab({ book, onUpdateBook }) {
                       <NoteTag tag={note.tag} />
                     </div>
 
-                    {/* Companion residue — chapter cross-reference */}
-                    {note.chapter && mysteryChapters.has(note.chapter) && (
-                      <p className="companion-echo mt-1.5" style={{ fontSize: 10 }}>
-                        A thread from this chapter is still in motion.
-                      </p>
-                    )}
 
                     {/* Reflection display */}
                     {note.reflection && !isReflecting && (

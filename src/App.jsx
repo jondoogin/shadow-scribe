@@ -293,10 +293,6 @@ function AppShell() {
       <ScrollToTop />
       <TopNav />
       <StorageBanner />
-      {/* Gold rule — architectural divider below nav */}
-      <div className="max-w-[1000px] mx-auto px-5 sm:px-10">
-        <div className="gold-rule" />
-      </div>
       <div key={location.pathname} className="view-enter">
         <Routes>
           <Route path="/" element={<Navigate to="/library" replace />} />

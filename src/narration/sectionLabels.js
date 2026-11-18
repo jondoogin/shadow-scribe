@@ -2,12 +2,20 @@
 // Strict spoiler mode never shows titles of chapters the reader hasn't reached
 // in their companion; relaxed/full show the book's own titles.
 
+// "Section N" numbers by the section's spine order when it has one, so the
+// Reader (every section) and the player (narrated sections only) agree on
+// the same number. `index` is only the fallback for sections without `order`.
+export function sectionNumber(section, index) {
+  return Number.isInteger(section?.order) ? section.order + 1 : index + 1
+}
+
 export function sectionLabel(section, index, book) {
   const nums = section.chapterNums || []
   const reached = book?.currentChapter ?? 0
   const ahead = nums.length > 0 && Math.min(...nums) > reached
-  if (book?.spoilerMode === 'strict' && ahead) return `Section ${index + 1}`
-  return section.title || (nums.length ? `Chapter ${nums[0]}` : `Section ${index + 1}`)
+  const n = sectionNumber(section, index)
+  if (book?.spoilerMode === 'strict' && ahead) return `Section ${n}`
+  return section.title || (nums.length ? `Chapter ${nums[0]}` : `Section ${n}`)
 }
 
 /** Companion chapter the reader has reached by listening/reading into `section` (or null). */

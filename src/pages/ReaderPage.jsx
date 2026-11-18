@@ -9,7 +9,7 @@ import ReaderBackdrop from '../atmosphere/visual/ReaderBackdrop.jsx'
 import { useBookVisuals } from '../atmosphere/visual/useBookVisuals.js'
 import { usePlate } from '../atmosphere/visual/Paintings.jsx'
 import { usePrefersReducedMotion } from '../atmosphere/visual/useVisualJourney.js'
-import { sectionLabel, chapterReached } from '../narration/sectionLabels.js'
+import { sectionLabel, sectionNumber, chapterReached } from '../narration/sectionLabels.js'
 import { segmentBlocks } from '../narration/segmenter.js'
 import { Ico } from '../components/shared/icons.jsx'
 import { callNumber, Holes } from '../catalogue/parts.jsx'
@@ -145,7 +145,7 @@ export default function ReaderPage() {
     navigate(`/book/${bookId}/listen`)
   }
 
-  const call = `${callNumber(book)}${section ? ` · ${sectionIndex + 1}` : ''}`
+  const call = `${callNumber(book)}${section ? ` · ${sectionNumber(section, sectionIndex)}` : ''}`
 
   return (
     <div className={`cat c2 c2--reader reader-page${backdropOn && !clearPage ? ' has-backdrop' : ''}`}>
@@ -155,7 +155,7 @@ export default function ReaderPage() {
       )}
       <header className="c2-top">
         <div><Link to={`/book/${bookId}`} className="c2-ic" aria-label={`Back to ${book.title}`}><Ico.Left /></Link></div>
-        <div className="c2-top-c"><span className="c2-label">{section ? `${sectionLabel(section, sectionIndex, book)} · ${Math.round(readPct)}%` : 'Reader'}</span></div>
+        <div className="c2-top-c">{section && <span className="c2-label">{sectionLabel(section, sectionIndex, book)} · {Math.round(readPct)}%</span>}</div>
         <div className="c2-top-r">
           {backdropOn && (
             <button type="button" className="c2-ic" onClick={() => setClearPage(c => !c)} aria-pressed={clearPage}
