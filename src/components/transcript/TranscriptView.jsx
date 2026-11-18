@@ -103,20 +103,21 @@ export default function TranscriptView({ book, session, playerState, pb }) {
 
   if (missing) {
     return (
-      <p className="listen-dim transcript-note">
-        The text of this book isn’t on this device yet, so there’s nothing to follow along with. Link its EPUB below to see it.
+      <p className="c2-text-note">
+        This book’s text isn’t on this device yet. Link its EPUB below to follow along.
       </p>
     )
   }
 
   return (
-    <div className="transcript">
-      <div ref={scrollerRef} className="transcript-scroller" tabIndex={0} aria-label="Book text, following the narration">
-        <article key={section?.id} ref={columnRef} className="transcript-column transcript-enter" lang={session?.book?.language || 'en'} onClick={onTap}>
-          <div ref={poolRef} className="transcript-pool" aria-hidden="true" data-visible="false" />
-          {!blocks && <p className="listen-dim">Opening…</p>}
+    <div className="c2-text">
+      <div ref={scrollerRef} className="c2-text-scroller" tabIndex={0}
+        aria-label="Book text. Tap a sentence to listen from there.">
+        <article key={section?.id} ref={columnRef} className="c2-text-col c2-text-enter" lang={session?.book?.language || 'en'} onClick={onTap}>
+          <div ref={poolRef} className="c2-text-pool" aria-hidden="true" data-visible="false" />
+          {!blocks && <p className="c2-dim">Opening…</p>}
           {model.map(b => {
-            if (b.type === 'break') return <hr key={b.id} className="reader-break" />
+            if (b.type === 'break') return <hr key={b.id} className="c2-break" />
             const content = b.pieces.map((p, n) => p.seg == null
               ? <span key={n}>{p.text}</span>
               : <span key={n} className="ts-seg" data-seg={p.seg} data-state="ahead">{p.text}</span>)
@@ -127,16 +128,15 @@ export default function TranscriptView({ book, session, playerState, pb }) {
         </article>
       </div>
       {!following && (
-        <button className="transcript-return" onClick={() => conductorRef.current?.resumeFollow()}>
+        <button type="button" className="c2-text-return" onClick={() => conductorRef.current?.resumeFollow()}>
           Back to narration
         </button>
       )}
-      <div className="transcript-options">
-        <label className="listen-check">
+      <div className="c2-text-foot">
+        <label className="c2-check">
           <input type="checkbox" checked={reveal} onChange={e => pb.setPrefs({ transcriptReveal: e.target.checked })} />
           <span>Reveal as spoken</span>
         </label>
-        <span className="listen-dim">Tap a sentence to listen from there</span>
       </div>
     </div>
   )
