@@ -19,6 +19,7 @@ from .package import write_m4b, write_package
 from . import storage
 from .paths import benchmarks_dir, isolate_caches, models_dir, output_dir
 from .script import ScriptError, narrated_sections, script_from_source
+from .visuals.style import PRESETS as STYLE_PRESETS
 
 DEFAULT_BENCH_COMBOS = [
     ("kokoro", "af_heart"), ("kokoro", "bf_emma"), ("kokoro", "am_michael"),
@@ -409,7 +410,7 @@ def cmd_visuals_benchmark(args) -> int:
 
 def _visual_args(s, with_model=True):
     s.add_argument("book", help="EPUB, TXT, or a narration script .json")
-    s.add_argument("--style-preset", default="gouache", choices=["gouache", "watercolour", "oil-sketch", "ink-and-wash"])
+    s.add_argument("--style-preset", default="gouache", choices=list(STYLE_PRESETS))
     s.add_argument("--describer", default="keywords", help="keywords (no model), qwen3-4b or qwen3-8b")
     s.add_argument("--sections", help="narrated sections to cover, like 1-3,7")
     if with_model:

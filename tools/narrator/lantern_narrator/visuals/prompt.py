@@ -10,6 +10,11 @@ from . import lexicon as L
 
 TAIL = ("no lettering anywhere, no signs, no text, unsigned, no signature or monogram, clean corners, no faces, empty foreground, "
         "painterly, muted warm palette, gentle contrast, quiet atmosphere")
+VIVID_TAIL = TAIL.replace("muted warm palette, gentle contrast", "vibrant saturated colour, bold contrast")
+
+
+def tail_for(profile: dict) -> str:
+    return VIVID_TAIL if profile.get("vivid") else TAIL
 
 
 def build_prompt(profile: dict, d: dict) -> str:
@@ -40,9 +45,10 @@ def build_prompt(profile: dict, d: dict) -> str:
         parts.append(d["framing"])
     parts.append("palette of " + ", ".join((d.get("palette") or profile.get("palette") or [])[:5]))
     parts.append(profile["texture"])
-    parts.append(TAIL)
+    tail = tail_for(profile)
+    parts.append(tail)
     prompt = "; ".join(p for p in parts if p)
     # Belt and braces: nothing forbidden survives, whatever the descriptor held.
     # (The tail's own "no text, no faces" phrasing is kept by checking only the descriptor part.)
-    head, _, tail = prompt.rpartition("; " + TAIL)
-    return L.FORBIDDEN.sub("", head).replace("  ", " ") + "; " + TAIL
+    head, _, _ = prompt.rpartition("; " + tail)
+    return L.FORBIDDEN.sub("", head).replace("  ", " ") + "; " + tail

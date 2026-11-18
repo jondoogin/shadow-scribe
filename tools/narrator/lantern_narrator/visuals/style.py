@@ -23,6 +23,10 @@ PRESETS = {
     "watercolour": {"medium": "loose watercolour painting", "texture": "wet-in-wet washes, blooming edges, granulating pigment on cold-press paper"},
     "oil-sketch": {"medium": "plein-air oil sketch", "texture": "directional dry brushwork, thick impasto highlights, canvas grain"},
     "ink-and-wash": {"medium": "ink and wash drawing", "texture": "fine pen line over muted washes, sparse and airy"},
+    # John, 2026-11-18: the simplicity and abstraction of ink and wash with gouache's vibrant colour.
+    "ink-and-gouache": {"medium": "ink drawing with bold gouache colour",
+                        "texture": "sparse fine pen line, a few flat areas of vivid opaque gouache, simplified dreamlike shapes, lots of bare paper",
+                        "vivid": True},
 }
 DEFAULT_PRESET = "gouache"
 
@@ -61,6 +65,7 @@ def build_profile(script: dict, preset: str = DEFAULT_PRESET, seed: int | None =
         "preset": preset,
         "medium": p["medium"],
         "texture": p["texture"],
+        "vivid": bool(p.get("vivid")),
         "palette": palette,
         "era": era,
         "abstraction": "environmental",

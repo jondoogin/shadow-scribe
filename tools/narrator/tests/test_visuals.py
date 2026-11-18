@@ -207,3 +207,10 @@ def test_a_removed_name_leaves_no_empty_slot():
     d = sanitize({"setting": "harbour at Gullhaven, with a quay"}, window_text="They reached Gullhaven at dusk.")
     assert d["setting"] == "harbour, with a quay"
     assert "unsigned" in build_prompt(build_profile(story()), d)
+
+
+def test_ink_and_gouache_is_vivid_and_still_safe():
+    p = build_profile(story(), "ink-and-gouache")
+    prompt = build_prompt(p, KeywordDescriber().describe("The harbour and the quay at evening.", None, p, None))
+    assert "vibrant" in prompt and "muted" not in prompt
+    assert "no faces" in prompt and "unsigned" in prompt
