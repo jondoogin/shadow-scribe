@@ -41,9 +41,7 @@ export default function BookDashboard({ bookId }) {
     setTab(tabId)
     setTabFlash(tabId)
     setFlashItemId(itemId ?? null)
-    setTimeout(() => {
-      tabRefs.current[tabId]?.scrollIntoView({ behavior: 'smooth', inline: 'nearest', block: 'nearest' })
-    }, 20)
+    setTimeout(() => revealTab(tabId), 20)
     setTimeout(() => setTabFlash(null), 1400)
     setTimeout(() => setFlashItemId(null), 4200)
   }
@@ -74,10 +72,19 @@ export default function BookDashboard({ bookId }) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bookId])
 
-  // Scroll active tab into view
-  useEffect(() => {
-    tabRefs.current[tab]?.scrollIntoView({ behavior: 'smooth', inline: 'nearest', block: 'nearest' })
-  }, [tab])
+  // Scroll the active tab into view inside the tab strip only. scrollIntoView
+  // also scrolled the window, so the page opened ~160px down with the title
+  // hidden under the nav.
+  const revealTab = (tabId) => {
+    const el = tabRefs.current[tabId]
+    const strip = el?.parentElement
+    if (!el || !strip) return
+    const left = el.offsetLeft - strip.offsetLeft
+    const right = left + el.offsetWidth
+    if (left < strip.scrollLeft) strip.scrollTo({ left, behavior: 'smooth' })
+    else if (right > strip.scrollLeft + strip.clientWidth) strip.scrollTo({ left: right - strip.clientWidth, behavior: 'smooth' })
+  }
+  useEffect(() => { revealTab(tab) }, [tab])
 
   // Tab content counts — surfaces when companion has populated a tab.
   // Placed before the `if (!book)` guard to satisfy Rules of Hooks.
