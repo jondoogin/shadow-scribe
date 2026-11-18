@@ -6,6 +6,7 @@ import { useBookContent } from '../hooks/useBookContent.js'
 import { getSectionBlocks } from '../content/contentRepository.js'
 import { bookRecord, latestLocator } from '../narration/listenState.js'
 import { sectionLabel, chapterReached } from '../narration/sectionLabels.js'
+import { segmentBlocks } from '../narration/segmenter.js'
 import { Ico } from '../components/shared/icons.jsx'
 import { callNumber, Holes } from '../catalogue/parts.jsx'
 import LinkEpub from '../components/listen/LinkEpub.jsx'
@@ -13,6 +14,13 @@ import ChapterUpdateModal from '../components/modals/ChapterUpdateModal.jsx'
 
 // Minimal, text-only reader over the retained EPUB content. Imported HTML is
 // never rendered: blocks are plain text, so nothing from the EPUB can run.
+/** The narrated paragraph, with the sentence being read lit (same segmenter as the player). */
+function NowSentence({ block, segmentId }) {
+  const seg = useMemo(() => segmentBlocks([block]).find(g => g.id === segmentId), [block, segmentId])
+  if (!seg) return block.text
+  return <>{block.text.slice(0, seg.start)}<span className="c2-now-sent">{block.text.slice(seg.start, seg.end)}</span>{block.text.slice(seg.end)}</>
+}
+
 export default function ReaderPage() {
   const { bookId } = useParams()
   const navigate = useNavigate()
@@ -96,6 +104,7 @@ export default function ReaderPage() {
   if (!book) return <Navigate to="/library" replace />
 
   const narrating = pb.session?.book.id === bookId && pb.playerState?.sectionId === section?.id ? pb.playerState.blockId : null
+  const narratingSeg = narrating ? pb.playerState.segmentId : null
   const reachedChapter = section ? chapterReached(section, book) : null
 
   const go = (i) => {
@@ -147,7 +156,9 @@ export default function ReaderPage() {
                 if (b.type === 'break') return <hr key={b.id} id={`blk-${b.id}`} data-block={b.id} className="c2-break" />
                 if (b.type === 'heading') return <h2 key={b.id} id={`blk-${b.id}`} data-block={b.id} className={cls}>{b.text}</h2>
                 if (b.type === 'quote') return <blockquote key={b.id} id={`blk-${b.id}`} data-block={b.id} className={cls}>{b.text}</blockquote>
-                return <p key={b.id} id={`blk-${b.id}`} data-block={b.id} className={cls}>{b.text}</p>
+                return <p key={b.id} id={`blk-${b.id}`} data-block={b.id} className={cls}>
+                  {cls ? <NowSentence block={b} segmentId={narratingSeg} /> : b.text}
+                </p>
               })}
             </article>
 
