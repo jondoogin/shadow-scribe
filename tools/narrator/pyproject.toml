@@ -9,6 +9,8 @@ dependencies = ["numpy>=1.26", "soundfile>=0.12"]
 kokoro = ["kokoro-onnx>=0.4.9"]
 pocket = ["pocket-tts>=1.0"]
 mlx = ["mlx-audio>=0.2", "misaki[en]>=0.9"]
+# word timings for the follow-along transcript (wav2vec2, Apache-2.0)
+align = ["torch>=2.2", "transformers>=4.40"]
 dev = ["pytest>=8"]
 
 [project.scripts]

@@ -143,8 +143,10 @@ class Generator:
     def __init__(self, script: dict, engine: Engine, voice: str, speed: float = 1.0,
                  job_dir: Path | None = None, bitrate: int = 64000,
                  on_progress: Callable[[Progress], None] | None = None,
-                 stop: StopFlag | None = None, selection: str | None = None, style: str = ""):
+                 stop: StopFlag | None = None, selection: str | None = None, style: str = "",
+                 aligner=None):
         self.script = script
+        self.aligner = aligner  # align.Aligner: measure word timings after each chapter
         self.engine = engine
         self.voice = voice or engine.default_voice
         self.style = (style or "").strip()
@@ -215,9 +217,37 @@ class Generator:
         self._save_state()
         for idx, section in enumerate(sections, start=1):
             if self.section_is_current(section):
+                if self.needs_words(section):
+                    self._align_existing(section)
                 continue
             self._generate_section(section, idx, len(sections))
         return self.state
+
+    # ── word timings ─────────────────────────────────────────────────────────
+    def needs_words(self, section: dict) -> bool:
+        if not self.aligner or not any(seg.get("words") for seg in section["segments"]):
+            return False
+        w = self.state["sections"].get(section["id"], {}).get("words")
+        return not (w and w.get("aligner") == self.aligner.info()
+                    and w.get("wordsVersion") == self.script["book"].get("wordsVersion")
+                    and (self.job_dir / w.get("file", "")).exists())
+
+    def _align(self, section: dict, pcm: np.ndarray, sr: int, timings: list[dict]) -> None:
+        from .align import align_section, sidecar_name, write_sidecar
+        sidecar, summary = align_section(self.aligner, pcm, sr, section["segments"], timings,
+                                         self.script["book"].get("wordsVersion"))
+        sidecar["sectionId"] = section["id"]
+        name = sidecar_name(section["id"])
+        write_sidecar(self.job_dir / name, sidecar)
+        self.state["sections"][section["id"]]["words"] = {
+            "file": name, "aligner": self.aligner.info(), "wordsVersion": sidecar["wordsVersion"], **summary}
+        self._save_state()
+
+    def _align_existing(self, section: dict) -> None:
+        """Add word timings to a chapter that was generated earlier, from its audio file."""
+        st = self.state["sections"][section["id"]]
+        pcm, sr = A.decode_audio(self.job_dir / st["file"], self.job_dir / "tmp")
+        self._align(section, pcm, sr, st["segments"])
 
     def _generate_section(self, section: dict, idx: int, count: int) -> None:
         sr = self.engine.info().sample_rate
@@ -254,7 +284,7 @@ class Generator:
                                           self._audio, self._compute, max(self._remaining, 0), cps))
 
         timings, pcm = assemble(segments, pieces, sr)
-        pcm, gain_db = A.normalize(pcm, sr)
+        pcm, gain_db = A.normalize(pcm, sr)  # gain only: timings still hold
         out_name = f"{int(section.get('order', idx)):03d}-{slug(section['id'], 30)}.m4a"
         wav_tmp = self.job_dir / "tmp" / (out_name + ".wav")
         A.write_wav_atomic(wav_tmp, pcm, sr)
@@ -272,6 +302,8 @@ class Generator:
             "completedAt": _now(),
         }
         self._save_state()
+        if self.needs_words(section):
+            self._align(section, pcm, sr, timings)
         # Segment cache is only needed until the chapter exists.
         for f in seg_dir.glob("*.npy"):
             f.unlink(missing_ok=True)

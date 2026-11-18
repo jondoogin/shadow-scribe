@@ -209,3 +209,28 @@ def encode_aac(wav: Path, out: Path, bitrate: int = 64000) -> Path:
 
 def mime_for(path: Path) -> str:
     return {".m4a": "audio/mp4", ".wav": "audio/wav", ".mp3": "audio/mpeg"}.get(path.suffix, "application/octet-stream")
+
+
+def decode_audio(path: Path, tmp_dir: Path) -> tuple[np.ndarray, int]:
+    """Read a chapter file back as mono float PCM (for aligning chapters made earlier)."""
+    import soundfile as sf
+
+    path = Path(path)
+    if path.suffix == ".wav":
+        x, sr = sf.read(path, dtype="float32", always_2d=True)
+        return x.mean(axis=1), sr
+    enc = encoder_available()
+    if enc is None:
+        raise RuntimeError("Reading .m4a needs afconvert (macOS) or ffmpeg.")
+    tmp_dir.mkdir(parents=True, exist_ok=True)
+    wav = tmp_dir / (path.stem + ".decoded.wav")
+    if enc == "afconvert":
+        cmd = ["afconvert", "-f", "WAVE", "-d", "LEI16", str(path), str(wav)]
+    else:
+        cmd = ["ffmpeg", "-nostdin", "-loglevel", "error", "-y", "-i", str(path), "-c:a", "pcm_s16le", str(wav)]
+    try:
+        subprocess.run(cmd, check=True)
+        x, sr = sf.read(wav, dtype="float32", always_2d=True)
+    finally:
+        wav.unlink(missing_ok=True)
+    return x.mean(axis=1), sr
