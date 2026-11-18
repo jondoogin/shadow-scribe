@@ -268,6 +268,11 @@ describe('listen state', () => {
     expect(sectionLabel(s, 40, { spoilerMode: 'strict', currentChapter: 3 })).toBe('Section 41')
     expect(sectionLabel(s, 40, { spoilerMode: 'relaxed', currentChapter: 3 })).toBe('The Proposal')
     expect(sectionLabel(s, 40, { spoilerMode: 'strict', currentChapter: 34 })).toBe('The Proposal')
+    // Same section, listed at different positions (Reader vs narrated-only player list): same number
+    const o = { title: null, chapterNums: [], order: 4 }
+    expect(sectionLabel(o, 4, {})).toBe('Section 5')
+    expect(sectionLabel(o, 1, {})).toBe('Section 5')
+    expect(sectionLabel({ ...s, order: 40 }, 37, { spoilerMode: 'strict', currentChapter: 3 })).toBe('Section 41')
     expect(chapterReached(s, { currentChapter: 3 })).toBe(34)
     expect(chapterReached(s, { currentChapter: 40 })).toBeNull()
   })

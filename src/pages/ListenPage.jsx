@@ -14,7 +14,7 @@ import { listSpeechVoices } from '../narration/players.js'
 import { buildNarrationScript, scriptStats } from '../narration/narrationScript.js'
 import { getFullContent, deleteAudiobook, getSectionBlocks, storageEstimate } from '../content/contentRepository.js'
 import { segmentBlocks } from '../narration/segmenter.js'
-import { sectionLabel, chapterReached, formatClock, formatDuration, formatBytes } from '../narration/sectionLabels.js'
+import { sectionLabel, sectionNumber, chapterReached, formatClock, formatDuration, formatBytes } from '../narration/sectionLabels.js'
 
 const RATES = [0.8, 0.9, 1, 1.1, 1.25, 1.5, 1.75, 2]
 
@@ -160,7 +160,7 @@ export default function ListenPage() {
         <>
           <article className="c2-card c2-card--slip" aria-label="Now playing">
             <div className="c2-card-head">
-              <span className="c2-call">{callNumber(book)} · {ps.sectionIndex + 1}</span>
+              <span className="c2-call">{callNumber(book)} · {sectionNumber(section, ps.sectionIndex)}</span>
               <LitLabel lit={playing}>{sectionLabel(section, ps.sectionIndex, book)}</LitLabel>
             </div>
             <p className="c2-time">{isAudio ? formatClock(ps.time) : `${Math.max(0, ps.segmentIndex) + 1}/${ps.duration || '—'}`}</p>
