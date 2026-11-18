@@ -50,9 +50,9 @@ export default function VisualStage({ image, drift = true, shimmer = true, pause
 
 function FallbackStage({ image, drift, reduced, paintInMs, className, style }) {
   const [layers, setLayers] = useState([])   // [{ image, key }]
+  const seq = useRef(0)
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- keeps the outgoing layer for the crossfade
-    setLayers(prev => (image ? [...prev.slice(-1), { image, key: image.id + ':' + Date.now() }] : prev.slice(-1).map(l => ({ ...l, out: true }))))
+    setLayers(prev => (image ? [...prev.slice(-1), { image, key: `${image.id}:${++seq.current}` }] : prev.slice(-1).map(l => ({ ...l, out: true }))))
   }, [image?.id]) // eslint-disable-line react-hooks/exhaustive-deps
   const ms = reduced ? VISUAL_MOTION.reducedFadeMs : Math.min(paintInMs, 6_000)
   return (
@@ -68,8 +68,17 @@ function FallbackStage({ image, drift, reduced, paintInMs, className, style }) {
   )
 }
 
+// Checked once per page; the probe context is released at once, because
+// browsers cap live WebGL contexts and every stage needs its own.
+let webglOk = null
 function webglAvailable() {
-  try { return !!document.createElement('canvas').getContext('webgl') } catch { return false }
+  if (webglOk !== null) return webglOk
+  try {
+    const gl = document.createElement('canvas').getContext('webgl')
+    webglOk = !!gl
+    gl?.getExtension('WEBGL_lose_context')?.loseContext()
+  } catch { webglOk = false }
+  return webglOk
 }
 
 function readPaper() {

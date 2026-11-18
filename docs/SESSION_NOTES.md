@@ -12,9 +12,10 @@ Reverse-chronological log of what was built, fixed, and decided in each working 
 - Mac CLI: `lantern-narrate visuals plan|generate|doctor|benchmark` and `clean --visuals` (`tools/narrator/lantern_narrator/visuals/`): context-shift planner with a 90 s guard, style profile from the first 2,000 words, keyword or Qwen3 describer, template prompts, FLUX.2 klein via mflux or the code-drawn fixture painter, stroke maps, Apple Vision checks, resumable jobs.
 - Found while building: the planner's running context can be ahead of a deferred scene's window, which would have leaked later weather into a painting. Scene context is now rebuilt from the previous scene plus its own window only, and a test checks every descriptor word against the text read so far.
 - Test book: an original story, `src/test/storyEpub.js` (`node scripts/make-story-epub.mjs`).
+- Polish fixes found by the browser sweep: a scene's window now always leaves at least one segment of its scene unread (the last painting of the book could never appear, because the gate is strictly past `visibleAfter`); the painted stage no longer loses its WebGL context when React mounts it twice (dispose released the context on a canvas still on the page, so every stage fell back to a flat image in development); fallback layers use a counter key, not `Date.now()`; object URLs leaving the prefetch queue are revoked 30 s later so an outgoing crossfade never loses its picture.
 
 **VERIFIED**
-- 92 Vitest, 54 pytest, lint unchanged per file, build passes. Playwright on the real app (phone size): imported the story, a fake-voice narration and a fixture paintings package through the UI, then swept every chapter on Listen and scrolled every chapter in the Reader checking the gate at each step.
+- 92 Vitest, 55 pytest, lint unchanged per file, build passes. Playwright on the real app (phone size): imported the story, a fake-voice narration and a fixture paintings package through the UI, then swept every chapter on Listen and scrolled every chapter in the Reader checking the gate at each step.
 
 **NOT VERIFIED**
 - FLUX.2 klein, the Qwen3 describer and Apple Vision have not run (need the Mac). No real paintings yet; no iPhone GPU or battery numbers.

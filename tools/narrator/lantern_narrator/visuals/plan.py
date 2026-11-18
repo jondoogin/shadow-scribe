@@ -258,18 +258,26 @@ def plan(script: dict, selection: str | None = None, min_scene_sec: float = MIN_
 
 
 def _window(pars: list[Paragraph]) -> list[dict]:
-    """First WINDOW_MIN..WINDOW_MAX words from the scene start, cut at a segment boundary."""
+    """First WINDOW_MIN..WINDOW_MAX words from the scene start, cut at a segment boundary.
+
+    The window always leaves at least one segment of its scene unread, so the
+    painting can appear while the reader is still in that scene (the gate is
+    strictly past `visibleAfter`; a window ending on the book's last segment
+    would never be shown).
+    """
+    segs = [seg for p in pars for seg in p.segments]
     out: list[dict] = []
     n = 0
-    for p in pars:
-        for seg in p.segments:
-            w = words(seg.get("text") or "") if seg.get("kind") != "heading" else 0
-            if out and n >= WINDOW_MIN:
-                return out
-            if out and n + w > WINDOW_MAX:
-                return out
-            out.append(seg)
-            n += w
+    for seg in segs:
+        w = words(seg.get("text") or "") if seg.get("kind") != "heading" else 0
+        if out and (n >= WINDOW_MIN or n + w > WINDOW_MAX):
+            break
+        out.append(seg)
+        n += w
+    while out and len(out) >= len(segs):
+        out.pop()
+    while out and out[-1].get("kind") == "heading":
+        out.pop()
     return out
 
 

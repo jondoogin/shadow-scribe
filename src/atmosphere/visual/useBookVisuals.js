@@ -2,6 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { listVisualSets, getVisualImage } from '../../content/contentRepository.js'
 import { sortImages, upcomingImages, eligibleImages } from './eligibility.js'
 
+const REVOKE_DELAY_MS = 30_000
+
 /**
  * The paintings installed for a book (the newest set if there are several),
  * and the book's section order for the spoiler gate.
@@ -76,9 +78,13 @@ export function usePaintingSources(setId, images, chosen, position, sectionOrder
     let cancelled = false
     const c = cache.current
     const sid = setId
-    // Revoke what left the queue.
+    // Drop what left the queue. The URLs are revoked a little later, because
+    // the stage may still be painting over the outgoing picture.
     for (const [id, e] of c) {
-      if (!keepIds.includes(id)) { URL.revokeObjectURL(e.src); if (e.strokes) URL.revokeObjectURL(e.strokes); c.delete(id) }
+      if (!keepIds.includes(id)) {
+        c.delete(id)
+        setTimeout(() => { URL.revokeObjectURL(e.src); if (e.strokes) URL.revokeObjectURL(e.strokes) }, REVOKE_DELAY_MS)
+      }
     }
     ;(async () => {
       for (const id of keepIds) {

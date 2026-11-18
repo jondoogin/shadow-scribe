@@ -158,3 +158,13 @@ def test_clean_knows_about_visuals(tmp_path, monkeypatch):
     (tmp_path / "visuals" / "book").mkdir(parents=True)
     (tmp_path / "visuals" / "book" / "x.webp").write_bytes(b"x" * 10)
     assert storage.usage()["categories"]["visuals"]["bytes"] == 10
+
+
+def test_every_painting_can_appear_before_its_scene_ends():
+    script = story()
+    pars = P.paragraphs(script)
+    last = pars[-1].segments[-1]
+    for sc in P.plan(script):
+        scene_segs = [s for p in pars[sc.start.index:sc.end_par] for s in p.segments]
+        assert sc.window[-1] is not scene_segs[-1], sc.id
+        assert sc.visible_after["segmentId"] != last["id"] or sc.visible_after["sectionId"] != last["sectionId"]

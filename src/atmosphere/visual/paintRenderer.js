@@ -109,7 +109,7 @@ export class PaintRenderer {
    */
   constructor(canvas, opts = {}) {
     const gl = canvas.getContext('webgl', { alpha: false, antialias: false, premultipliedAlpha: false, powerPreference: 'low-power' })
-    if (!gl) throw new Error('WebGL unavailable')
+    if (!gl || gl.isContextLost()) throw new Error('WebGL unavailable')
     this.canvas = canvas
     this.gl = gl
     this.opts = opts
@@ -132,7 +132,7 @@ export class PaintRenderer {
     const gl = this.gl
     const sh = (type, src) => {
       const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s)
-      if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s) || 'shader compile failed')
+      if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s) || (gl.isContextLost() ? 'WebGL context lost' : 'shader compile failed'))
       return s
     }
     const p = gl.createProgram()
@@ -302,6 +302,10 @@ export class PaintRenderer {
     this.disposed = true
     cancelAnimationFrame(this.raf)
     this._free(this.from); this._free(this.to); this._free(this.pending)
-    this.gl.getExtension('WEBGL_lose_context')?.loseContext()
+    // Release the context only once the canvas has left the page. A canvas
+    // that stays (React's development double mount, or a renderer rebuilt on
+    // the same element) would otherwise hand back a lost context forever.
+    const { gl, canvas } = this
+    setTimeout(() => { if (!canvas.isConnected) gl.getExtension('WEBGL_lose_context')?.loseContext() }, 0)
   }
 }
