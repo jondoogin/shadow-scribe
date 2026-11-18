@@ -260,6 +260,10 @@ export function PlaybackProvider({ children }) {
       timerRef.current?.set(optionId)
       if (timerRef.current) setSleep(timerRef.current.state())
     },
+    /** Per-book painting preferences (visual journey), kept in lantern_listen. */
+    setBookVisuals: (bookId, patch) => {
+      updateListen(st => withBookRecord(st, bookId, { visuals: { ...(st.books[bookId]?.visuals || {}), ...patch } }))
+    },
     saveReadPosition: (bookId, locator) => {
       updateListen(st => withBookRecord(st, bookId, { read: { ...locator, updatedAt: new Date().toISOString() } }))
     },

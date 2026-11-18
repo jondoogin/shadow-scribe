@@ -269,3 +269,31 @@ a.c2-btn--primary, button.c2-btn--primary { color: var(--on-accent); }
 .cat .c2-link { font-family: var(--mono); font-size: 14px; color: var(--ink-3); padding: 0; }
 .cat .c2-link:hover { color: var(--ink); }
 .cat .listen-link { font-family: var(--mono); font-size: 14px; color: var(--red-ink); text-align: left; min-height: 44px; }
+
+/* ── Visual journey: plates (docs/VISUAL_JOURNEY.md §7.5) ──────────────────
+   A painting is a tipped-in colour plate: a thin paper mount, a hairline,
+   and a small plate number in the mono label face. */
+.c3-plate { margin: -2px 0 16px; }
+.c3-plate-frame { position: relative; display: block; width: 100%; padding: 0 !important; aspect-ratio: 16 / 10; border-radius: calc(var(--r) - 2px); overflow: hidden; background: var(--bg); box-shadow: inset 0 0 0 1px var(--line); cursor: pointer; }
+.c3-plate-frame:disabled { cursor: default; }
+.c3-plate-stage { position: absolute; inset: 0; }
+.c3-plate-empty { position: absolute; inset: 0; display: grid; place-items: center; padding: 0 12%; text-align: center; font-size: 15px; font-style: italic; line-height: 1.45; color: var(--ink-3); }
+.c3-plate-no { position: absolute; right: 8px; bottom: 8px; padding: 3px 7px; border-radius: 3px; background: color-mix(in srgb, var(--card) 88%, transparent); font-family: var(--mono); font-size: 12px; font-weight: 600; letter-spacing: .04em; color: var(--ink-2); }
+.c3-plate-about { padding: 10px 2px 0; }
+.c3-plate-cap { margin: 0; font-family: var(--title); font-size: 17px; font-style: italic; color: var(--ink-2); }
+.c3-plate-cap::first-letter { text-transform: uppercase; }
+.c2-card--slip.has-plate .c2-time { font-size: 48px; }
+
+.c3-plates-row { list-style: none; display: flex; gap: 8px; margin: 8px 0 0; padding: 2px 2px 6px; overflow-x: auto; scrollbar-width: none; }
+.c3-plates-row button { display: grid; gap: 4px; justify-items: center; padding: 0; min-height: 44px; }
+.c3-plates-row img, .c3-plates-row span { display: block; width: 64px; height: 40px; object-fit: cover; border-radius: 3px; background: var(--bg); box-shadow: inset 0 0 0 1px var(--line); }
+.c3-plates-row button.is-on img { box-shadow: 0 0 0 2px var(--card), 0 0 0 4px var(--red); }
+.c3-plates-row small { font-family: var(--mono); font-size: 12px; font-weight: 600; color: var(--ink-3); }
+
+/* Reader with a painting behind the page: the page card is the veil. */
+.reader-page.has-backdrop > :not(.reader-backdrop):not(.c2-top):not(.c2-foot) { position: relative; z-index: 1; }
+.reader-page .c2-foot { z-index: 1; }
+.reader-page.has-backdrop .c2-top { background: color-mix(in srgb, var(--bg) 92%, transparent); }
+.reader-page.has-backdrop .c2-page { background: color-mix(in srgb, var(--card) 84%, transparent); }
+html.dark .reader-page.has-backdrop .c2-page { background: color-mix(in srgb, var(--card) 88%, transparent); }
+@media (prefers-contrast: more) { .reader-backdrop { display: none; } .reader-page.has-backdrop .c2-page { background: var(--card); } }

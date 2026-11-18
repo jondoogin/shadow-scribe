@@ -23,12 +23,14 @@ const segNum = (id) => {
  * sentences, which keeps the gate conservative.
  * Returns <0, 0 or >0. Unknown sections sort first (never ahead of anything).
  */
+function sectionIndex(id, sectionOrder) {
+  if (sectionOrder instanceof Map) return sectionOrder.has(id) ? sectionOrder.get(id) : -1
+  if (Array.isArray(sectionOrder)) return sectionOrder.indexOf(id)
+  return sectionOrder && id in sectionOrder ? sectionOrder[id] : -1
+}
+
 export function compareLocators(a, b, sectionOrder) {
-  const ord = (id) => {
-    if (sectionOrder instanceof Map) return sectionOrder.has(id) ? sectionOrder.get(id) : -1
-    if (Array.isArray(sectionOrder)) return sectionOrder.indexOf(id)
-    return sectionOrder && id in sectionOrder ? sectionOrder[id] : -1
-  }
+  const ord = (id) => sectionIndex(id, sectionOrder)
   const sa = ord(a?.sectionId), sb = ord(b?.sectionId)
   if (sa !== sb) return sa - sb
   const ba = blockNum(a?.blockId), bb = blockNum(b?.blockId)
@@ -36,9 +38,15 @@ export function compareLocators(a, b, sectionOrder) {
   return segNum(a?.segmentId) - segNum(b?.segmentId)
 }
 
-/** True when `position` is strictly past the image's `visibleAfter`. */
+/**
+ * True when `position` is strictly past the image's `visibleAfter`.
+ * An image or position in a section the book doesn't know is never eligible:
+ * unknown sections would otherwise sort first and slip through the gate.
+ */
 export function isEligible(image, position, sectionOrder) {
   if (!image?.visibleAfter || !position) return false
+  if (sectionIndex(image.visibleAfter.sectionId, sectionOrder) < 0) return false
+  if (sectionIndex(position.sectionId, sectionOrder) < 0) return false
   return compareLocators(image.visibleAfter, position, sectionOrder) < 0
 }
 

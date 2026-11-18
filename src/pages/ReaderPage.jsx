@@ -4,7 +4,11 @@ import { useBooks } from '../context/BooksContext.jsx'
 import { usePlayback } from '../context/PlaybackContext.jsx'
 import { useBookContent } from '../hooks/useBookContent.js'
 import { getSectionBlocks } from '../content/contentRepository.js'
-import { bookRecord, latestLocator } from '../narration/listenState.js'
+import { bookRecord, latestLocator, visualPrefs } from '../narration/listenState.js'
+import ReaderBackdrop from '../atmosphere/visual/ReaderBackdrop.jsx'
+import { useBookVisuals } from '../atmosphere/visual/useBookVisuals.js'
+import { usePlate } from '../atmosphere/visual/Paintings.jsx'
+import { usePrefersReducedMotion } from '../atmosphere/visual/useVisualJourney.js'
 import { sectionLabel, chapterReached } from '../narration/sectionLabels.js'
 import { Ico } from '../components/shared/icons.jsx'
 import { callNumber, Holes } from '../catalogue/parts.jsx'
@@ -27,6 +31,10 @@ export default function ReaderPage() {
   const proseRef = useRef(null)
   const [readPct, setReadPct] = useState(0)
   const visibleBlock = useRef(null)
+  const [topBlock, setTopBlock] = useState(null)   // live, for the painting gate
+  const [clearPage, setClearPage] = useState(false)
+  const visuals = useBookVisuals(book, meta)
+  const reduced = usePrefersReducedMotion()
 
   const sections = useMemo(() => (meta?.sections || []).filter(s => s.blockCount > 0 && s.skipReason !== 'nonlinear'), [meta])
 
@@ -59,14 +67,20 @@ export default function ReaderPage() {
     else window.scrollTo(0, 0)
   }, [blocks]) // eslint-disable-line react-hooks/exhaustive-deps -- runs once per loaded section
 
-  // Track the first block in view and save it (debounced) as the reading locator.
+  // Track the topmost block in the reading band and save it (debounced) as
+  // the reading locator. Every block currently in the band is kept, not just
+  // the ones that changed in this callback: otherwise a later paragraph can
+  // win and the position (and the painting gate) runs ahead of the reader.
   useEffect(() => {
     if (!blocks?.length || !section) return
     let timer = null
+    const inBand = new Set()
     const obs = new IntersectionObserver(entries => {
-      const top = entries.filter(e => e.isIntersecting).sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top)[0]
+      entries.forEach(e => (e.isIntersecting ? inBand.add(e.target) : inBand.delete(e.target)))
+      const top = [...inBand].sort((a, b) => a.getBoundingClientRect().top - b.getBoundingClientRect().top)[0]
       if (!top) return
-      visibleBlock.current = top.target.dataset.block
+      visibleBlock.current = top.dataset.block
+      setTopBlock(top.dataset.block)
       clearTimeout(timer)
       timer = setTimeout(() => pb.saveReadPosition(bookId, { sectionId: section.id, blockId: visibleBlock.current }), 1200)
     }, { rootMargin: '-20% 0px -60% 0px' })
@@ -93,6 +107,17 @@ export default function ReaderPage() {
     if (book?.title) document.title = `Read · ${book.title} — Lantern`
   }, [book?.title])
 
+  // Paintings behind the page follow the reading position (or the voice, while narrating here).
+  const vPrefs = visualPrefs(bookRecord(pb.listenState, bookId))
+  const narratingHere = pb.session?.book.id === bookId && pb.playerState?.status === 'playing' && pb.playerState.sectionId === section?.id
+  const readPos = useMemo(() => {
+    if (narratingHere) return { sectionId: pb.playerState.sectionId, blockId: pb.playerState.blockId, segmentId: pb.playerState.segmentId }
+    const b = topBlock || (chosenIndex === null ? initial.blockId : null)
+    return section ? { sectionId: section.id, blockId: b || 'b0' } : null
+  }, [narratingHere, pb.playerState?.blockId, pb.playerState?.segmentId, topBlock, section?.id]) // eslint-disable-line react-hooks/exhaustive-deps
+  const backdropOn = !!visuals.set && vPrefs.mode === 'both'
+  const plate = usePlate({ visuals, position: readPos, enabled: backdropOn })
+
   if (!book) return <Navigate to="/library" replace />
 
   const narrating = pb.session?.book.id === bookId && pb.playerState?.sectionId === section?.id ? pb.playerState.blockId : null
@@ -114,11 +139,21 @@ export default function ReaderPage() {
   const call = `${callNumber(book)}${section ? ` · ${sectionIndex + 1}` : ''}`
 
   return (
-    <div className="cat c2 c2--reader reader-page">
+    <div className={`cat c2 c2--reader reader-page${backdropOn && !clearPage ? ' has-backdrop' : ''}`}>
+      {backdropOn && (
+        <ReaderBackdrop image={plate.ready} strength={vPrefs.strength} motion={vPrefs.backdropMotion}
+          paused={!narratingHere} reduced={reduced} hidden={clearPage} />
+      )}
       <header className="c2-top">
         <div><Link to={`/book/${bookId}`} className="c2-ic" aria-label={`Back to ${book.title}`}><Ico.Left /></Link></div>
         <div className="c2-top-c"><span className="c2-label">{section ? `${sectionLabel(section, sectionIndex, book)} · ${Math.round(readPct)}%` : 'Reader'}</span></div>
         <div className="c2-top-r">
+          {backdropOn && (
+            <button type="button" className="c2-ic" onClick={() => setClearPage(c => !c)} aria-pressed={clearPage}
+              aria-label={clearPage ? 'Show the painting behind the page' : 'Clear page'} title={clearPage ? 'Show painting' : 'Clear page'}>
+              {clearPage ? <Ico.EyeOff className="w-5 h-5" /> : <Ico.Eye className="w-5 h-5" />}
+            </button>
+          )}
           {section && <button type="button" className="c2-ic" onClick={listenHere} aria-label="Listen from here"><Ico.Headphones /></button>}
         </div>
       </header>

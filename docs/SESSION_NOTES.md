@@ -3,6 +3,24 @@ Reverse-chronological log of what was built, fixed, and decided in each working 
 
 ---
 
+## Session 168 — 2026-11-18
+**Theme:** Visual journey built end to end and fitted to Catalogue III (PR #2, rebased onto PR #4's branch `claude/project-thread-q1khuh`; not merged)
+
+**CHANGES**
+- Web: `.lantern-visuals` reader and validator (`src/atmosphere/visual/visualPackage.js`), import (`visualImport.js`), `lantern_content` schema v2 (`visualSets`, `visualImages`), plate on Listen, Paintings section, Reader backdrop with Clear page, per-book preferences in `lantern_listen`.
+- Fixes: the gate now refuses images or positions in unknown sections; `ReaderPage` tracks every block in the reading band (it used to take the topmost changed entry and could run ahead).
+- Mac CLI: `lantern-narrate visuals plan|generate|doctor|benchmark` and `clean --visuals` (`tools/narrator/lantern_narrator/visuals/`): context-shift planner with a 90 s guard, style profile from the first 2,000 words, keyword or Qwen3 describer, template prompts, FLUX.2 klein via mflux or the code-drawn fixture painter, stroke maps, Apple Vision checks, resumable jobs.
+- Found while building: the planner's running context can be ahead of a deferred scene's window, which would have leaked later weather into a painting. Scene context is now rebuilt from the previous scene plus its own window only, and a test checks every descriptor word against the text read so far.
+- Test book: an original story, `src/test/storyEpub.js` (`node scripts/make-story-epub.mjs`).
+
+**VERIFIED**
+- 92 Vitest, 54 pytest, lint unchanged per file, build passes. Playwright on the real app (phone size): imported the story, a fake-voice narration and a fixture paintings package through the UI, then swept every chapter on Listen and scrolled every chapter in the Reader checking the gate at each step.
+
+**NOT VERIFIED**
+- FLUX.2 klein, the Qwen3 describer and Apple Vision have not run (need the Mac). No real paintings yet; no iPhone GPU or battery numbers.
+
+---
+
 ## Session 165 — 2026-11-15
 **Theme:** Visual journey architecture (design doc only, branch off `feature/lantern-neural-narration`)
 

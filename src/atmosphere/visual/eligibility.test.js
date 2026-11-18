@@ -89,3 +89,14 @@ describe('chooseImage', () => {
     })
   })
 })
+
+describe('unknown sections never pass the gate', () => {
+  it('an image in a section the book does not know is never eligible', () => {
+    const order = ['ch1', 'ch2']
+    const ghost = { id: 'g', visibleAfter: { sectionId: 'appendix', blockId: 'b1', segmentId: 'b1.0' } }
+    expect(isEligible(ghost, { sectionId: 'ch2', blockId: 'b9', segmentId: 'b9.0' }, order)).toBe(false)
+    const real = { id: 'r', visibleAfter: { sectionId: 'ch1', blockId: 'b1', segmentId: 'b1.0' } }
+    expect(isEligible(real, { sectionId: 'nowhere', blockId: 'b9' }, order)).toBe(false)
+    expect(isEligible(real, { sectionId: 'ch2', blockId: 'b0' }, order)).toBe(true)
+  })
+})

@@ -29,6 +29,23 @@ lantern-narrate clean                 # show (and with --yes, remove) everything
 | `qwen3-designed` | mlx-audio, Qwen3-TTS 1.7B Base cloning a voice made by `lantern-narrate design` (VoiceDesign) | Apple Silicon, `[mlx]`, about 24 GB; ~9 GB of downloads. Clones only Lantern-designed voices |
 | `fake` | test tone | nothing (tests and dry runs) |
 
+## Paintings (visual journey)
+
+Slow painterly scene images that follow the story. Full design: [`docs/VISUAL_JOURNEY.md`](../../docs/VISUAL_JOURNEY.md).
+
+```bash
+pip install -e '.[visuals]'                       # Pillow, mflux (FLUX.2 klein), mlx-lm, Apple Vision
+lantern-narrate visuals doctor                    # memory tier, mflux, describer, Vision
+lantern-narrate visuals plan book.epub            # where the scenes change, and each prompt (no image model)
+lantern-narrate visuals generate book.epub        # FLUX.2 [klein] 4B, gouache → output/<book>-gouache.lantern-visuals
+lantern-narrate visuals generate book.epub --style-preset watercolour --describer qwen3-4b --sections 1-3
+lantern-narrate visuals generate book.epub --model fixture   # drawn by code, no model: for testing
+lantern-narrate visuals benchmark book.epub       # seconds per painting on this Mac
+lantern-narrate clean --visuals                   # painting job folders
+```
+
+Import the `.lantern-visuals` file in Lantern: Listen → Paintings → Import paintings. A painting only appears once the reader has passed the passage it was made from. Jobs live in `~/.lantern-narrator/visuals/<book>/` and resume after Ctrl-C.
+
 Ctrl-C stops after the current sentence; rerun the same command to resume.
 
 Tests: `pip install -e '.[dev]' && pytest` (they use the `fake` engine, so no model download).

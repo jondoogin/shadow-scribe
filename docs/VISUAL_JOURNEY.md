@@ -215,10 +215,10 @@ eligible(image, position) = compareLocators(image.visibleAfter, position) < 0   
 ### 6.1 Generation (Mac)
 
 - **Order:** scenes are generated in reading order, so a package exported halfway (`--sections 1-5`) is already usable from the start, and a book can be read while the rest is still rendering.
-- **Resumable:** the same job folder pattern as narration, `~/.lantern-narrator/jobs/<book>/visuals/`. Ctrl-C stops after the current image; rerunning skips finished ones.
+- **Resumable:** a job folder per book, `~/.lantern-narrator/visuals/<book>/` (plan.json, images, strokes, thumbs, rejected.log). Ctrl-C stops after the current image; rerunning skips finished ones.
 - **Cache key:** `sha256(descriptor JSON + style profile version + model + model version + seed + size)`. Editing the style regenerates everything; changing one scene's text regenerates only that scene.
 - **Memory:** the describer runs first for all scenes, then unloads, then the image model runs. On the M2 Air the two never share memory, and visuals never run at the same time as Qwen3 narration.
-- **One folder:** models go in `~/.lantern-narrator/hf-cache/`, outputs in `output/`, as CLAUDE.md requires for the work machine. `lantern-narrate clean --visuals` lists and removes them.
+- **One folder:** models go in `~/.lantern-narrator/hf-cache/`, outputs in `output/`, as CLAUDE.md requires for the work machine. `lantern-narrate clean --visuals` lists and removes the job folders; packages are in `output/`.
 
 ### 6.2 Playback (any device)
 
@@ -340,37 +340,34 @@ lantern-narrate clean --visuals
 - Hardware tiers: `large` (24 GB+) defaults to FLUX.2 klein 4B in 8-bit and Qwen3 8B as describer; `standard` (the 16 GB Air) defaults to klein 4B in 4-bit and Qwen3 4B, run one after the other; `small` uses the keyword describer only. Memory needs go in `ENGINE_MIN_MEMORY_GB`, as for narration.
 - Extras: `pip install -e '.[visuals]'` adds `mflux`, `mlx-lm`, `pyobjc-framework-Vision` and Pillow. All are permissive licences (check `mflux`'s at build time).
 
-## 10. Web app code map (planned)
+## 10. Code map (as built, Session 168)
 
 | Path | Role |
 |---|---|
-| `src/atmosphere/visual/visualPackage.js` | Reads `.lantern-visuals`, validates, imports (shares the zip reader) |
-| `src/atmosphere/visual/visualRepository.js` | `visualSets` / `visualImages` in `lantern_content` (or extend `contentRepository.js`) |
-| `src/atmosphere/visual/eligibility.js` | `compareLocators`, `eligibleImages(position)`, `nextEligible`; pure and unit-tested |
-| `src/atmosphere/visual/VisualJourneyEngine.js` | Queue, decode-ahead, dwell timing, sequence guard; no React |
-| `src/atmosphere/visual/VisualStage.jsx` | WebGL stage: paint-in, drift, shimmer, paper grain, reduced motion, CSS fallback |
-| `src/atmosphere/visual/paintShader.js` | The fragment shader and its uniforms; no React, testable with a headless WebGL snapshot |
-| `src/atmosphere/visual/VisualGallery.jsx` | Eligible thumbnails, "Why this image", regenerate hint |
-| `src/context/PlaybackContext.jsx` | Publishes the current locator to the engine; no new state of its own |
-| `src/pages/ListenPage.jsx`, `ReaderPage.jsx` | Mount the stage and the Visuals control |
+| `src/atmosphere/visual/eligibility.js` | `compareLocators`, `isEligible` (unknown sections never pass), `chooseImage` (gate plus 90 s minimum); pure, unit-tested |
+| `src/atmosphere/visual/visualPackage.js` | Reads `.lantern-visuals` with the shared zip reader; validates (limits, safe paths, raster only, `sourceWindow.to === visibleAfter.segmentId`); holds paintings to the end of their chapter when the parser version differs |
+| `src/atmosphere/visual/visualImport.js` | Open, decode-check (`createImageBitmap`), store |
+| `src/content/contentRepository.js` | Schema v2: `visualSets`, `visualImages`; `saveVisualSet`, `listVisualSets`, `getVisualImage`, `deleteVisualSet`; `deleteContent` removes paintings too |
+| `src/atmosphere/visual/useBookVisuals.js` | The book's set and section order; `usePaintingSources` holds object URLs for the plate on stage, the one before, and the next two (decoded ahead on detached elements); `useThumbs` |
+| `src/atmosphere/visual/Paintings.jsx` | `usePlate` (gate, manual look-back at earlier plates, keeps the last plate while the next loads only if still eligible), `ListenPlate`, `PaintingsPanel` |
+| `src/atmosphere/visual/VisualStage.jsx`, `paintRenderer.js`, `motion.js`, `ReaderBackdrop.jsx` | The painterly WebGL stage and the backdrop (step 1) |
+| `src/pages/ListenPage.jsx` | Plate at the top of the loan slip; Paintings section (Off, Listen, Listen and Reader; living paint; strength behind text; plates so far; import, replace, remove) |
+| `src/pages/ReaderPage.jsx` | Band-tracking position fix; backdrop behind a translucent page card; Clear page (eye icon) in the top bar |
+| `src/catalogue/catalogue.css` | Plate, plates row, backdrop styles in the Catalogue III look |
+| `tools/narrator/lantern_narrator/visuals/` | `plan.py` (context shifts, guards, windows), `style.py`, `describe.py` (keywords or Qwen3 via mlx-lm), `prompt.py`, `painters.py` (fixture, FLUX.2 klein via mflux), `strokes.py`, `validate.py` (Apple Vision), `generate.py` (job, cache, package) |
 
-Feature flag: `atmosphereVisualsEnabled` (local), separate from the later `generatedVisualsHosted`.
+Design fit (Catalogue III): a painting is a tipped-in colour **plate**, framed by the loan slip card with a thin mount and a mono "Pl. IV" label. The Reader's page card becomes slightly translucent so the backdrop shows around and faintly through it. No frosted glass, no glow.
 
----
+## 11. Build order (none merged without John)
 
-## 11. Build order (each step is a separate PR, none merged without John)
+1. **Stage, gate and Reader backdrop with fixture art. Done (Session 165).** Preview at `/preview/visuals`.
+2. **Package format and import. Done (Session 168).** Reader, validation, schema v2, storage, remove; wired into the real Listen and Reader pages; Reader position fix.
+3. **Mac CLI: planning, style profile, describer, prompt builder. Done (Session 168).** `lantern-narrate visuals plan` runs with no image model.
+4. **Mac CLI: painters, stroke maps, validator, package, benchmark. Code done (Session 168); FLUX.2 klein, the Qwen3 describer and Apple Vision are not yet run on a Mac.** Next: `lantern-narrate visuals doctor` and `visuals benchmark` on the M5 Pro (Remote Control), then the M2 Air, and replace every estimate here with measured numbers.
+5. **John chooses the painterly preset by eye** from real FLUX paintings of a book he knows.
+6. Later, if wanted: an audition sheet (`visuals audition`, not built), depth parallax, generation while reading, hosted generation behind a flag.
 
-1. **Engine, stage and Reader backdrop with fixture art. Done (Session 165, 2026-11-16).**
-   - `src/atmosphere/visual/`: `eligibility.js` (gate and pacing), `motion.js` (drift maths and timing constants), `paintRenderer.js` (WebGL paint-in, drift, shimmer, paper grain), `VisualStage.jsx` (canvas, with a two-`<img>` crossfade fallback when WebGL is missing or lost), `ReaderBackdrop.jsx`, `useVisualJourney.js`, `sampleJourney.js`.
-   - Preview page `src/pages/VisualPreviewPage.jsx` at `/preview/visuals` (not linked from the app): a short story written for the preview, five sample paintings, Listen and Reader backdrop modes, a 5× story speed, scene jumps, Clear page, and toggles for drift, shimmer, backdrop strength and motion, and Reduced Motion.
-   - Sample paintings: `tools/visual-samples/` draws five simple scenes and repaints them stroke by stroke in headless Chromium, recording each stroke's order as the stroke map (`node tools/visual-samples/paint-samples.mjs`). They are labelled as drawn by code, not generated. About 450 KB in `public/visual-samples/`.
-   - Verified: 19 new Vitest tests (gate, pacing, drift bounds, sample windows). A Playwright run in Chromium (SwiftShader WebGL) walked the whole story in 400 ms steps of fake time and found the image on stage eligible at every step; all five paintings appeared in order; jumping back replaced the painting at once; the Reader backdrop showed the latest painting allowed at the reading position; no console errors. The WebGL-less fallback and Reduced Motion both ran without errors.
-   - Not yet wired into the real Listen and Reader pages: that needs a visual set to exist for a book, which arrives with step 2.
-2. **Package format and import.** `.lantern-visuals` reader, IndexedDB stores, the version-2 migration, storage display, remove.
-3. **Mac CLI: candidate boundaries, context-shift detection, style profile, describer, prompt builder.** Runs without an image model and writes a manifest with scene boundaries and prompts only, so the spoiler tests (5.3) and the context-shift tuning (4.1) run with no GPU.
-4. **Mac CLI: image model, validator, stroke maps, encoder, benchmark and audition.** Then benchmark on the M5 Pro (via Remote Control) and on the M2 Air, and replace every **estimate** in this doc with a measured number.
-5. **John chooses the painterly preset by eye** from the audition sheet.
-6. Optional later: depth-based parallax; on-the-fly generation on the Mac while reading (a localhost process that fills the queue ahead of the position; browser access from the https site to `http://localhost` differs between Chrome and Safari and is untested); hosted generation behind a flag, if ever wanted.
+**Verified (Session 168, cloud container):** 92 Vitest tests (13 new for the package, storage, migration and gate) and 54 pytest tests (10 new: windows end at `visibleAfter`, no descriptor word that the reader hasn't reached, profile never past word 2,000, 90 s guard, no extra scenes without a context change, descriptor rules, fixture package round trip and resume). Lint unchanged per file. A Playwright run on the real app (phone size, SwiftShader WebGL, fake clock) imported the original test story, a fake-voice narration and a fixture paintings package through the UI, swept every chapter forward and back on Listen and scrolled every chapter in the Reader, and found no ineligible painting on screen.
 
 ## 12. Questions
 
@@ -386,4 +383,4 @@ Nothing is open now. The remaining choices (which painterly preset, the context-
 
 ## 13. Not yet verified
 
-Everything except the step 1 checks above. In particular: how the painterly stage looks and performs on a real iPhone and Mac GPU (only headless SwiftShader was tested), how well a 4B describer spots real context shifts (and how often that lands near the 4 to 8 minute average), how the paint-in and shimmer look and what they cost in battery on an iPhone, any image model's speed on the M5 Pro or the M2 Air, image quality and style consistency across a book, how well a 4B describer abstracts scenes without leaking events, Apple Vision face and text detection rates on painterly images, WebP sizes, iPhone memory and battery during a 14-second crossfade, and Safari's handling of long CSS transforms when the screen locks.
+FLUX.2 [klein] through mflux, the Qwen3 describer and the Apple Vision checks have not run anywhere yet (they need Apple Silicon; the cloud container can't reach Hugging Face either). So image quality, style consistency, seconds per image, memory, and how often Vision rejects painterly images are all unknown. The keyword describer's context shifts were only checked on the short test story; real novels may cut too often or too rarely (the guard and thresholds are in `plan.py`). The painterly stage has only run in headless SwiftShader, not on an iPhone or Mac GPU, so battery and smoothness are unmeasured. WebP sizes for real paintings are estimates.

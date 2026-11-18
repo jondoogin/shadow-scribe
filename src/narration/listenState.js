@@ -51,6 +51,19 @@ export function withBookRecord(state, bookId, patch) {
   return { ...state, books: { ...state.books, [bookId]: { ...prev, ...patch } } }
 }
 
+/**
+ * Painting preferences for one book (visual journey). Device-local, in
+ * lantern_listen beside the player state; never synced.
+ *   mode     'off' | 'listen' | 'both' (Listen plate, plus the Reader backdrop)
+ *   strength Reader backdrop strength (0 to 0.4)
+ *   motion   drift and living paint on the Listen plate
+ *   backdropMotion  the same behind text (off by default: motion under words tires the eye)
+ */
+export const DEFAULT_VISUALS = { mode: 'listen', strength: 0.22, motion: true, backdropMotion: false }
+export function visualPrefs(record) {
+  return { ...DEFAULT_VISUALS, ...(record?.visuals || {}) }
+}
+
 /** The most recent deliberate location across Reader and Listen. */
 export function latestLocator(record) {
   const { listen, read } = record || {}

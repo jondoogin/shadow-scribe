@@ -7,6 +7,10 @@
 
 ---
 
+## SESSION 168 (2026-11-18): Visual journey built, waiting on the Mac
+
+The visual journey now works end to end in code: the Mac CLI (`lantern-narrate visuals generate book.epub`) plans scenes where the story's place, time, weather or light changes, paints them, and writes a `.lantern-visuals` file; Lantern imports it (Listen → Paintings) and shows each painting as a plate on Listen, and optionally behind the Reader page. A painting only appears after the reader has passed the passage it was made from. Fitted to Catalogue III. PR #2 (on top of PR #4), not merged. Next: run FLUX.2 klein on the M5 Pro, benchmark it, and let John judge real paintings and pick a style preset.
+
 ## SESSION 167 (2026-11-17): Catalogue theme in the real app
 
 John picked Catalogue III in `/design-lab` and tuned it (deep teal, Stone paper, Literata + Spline Sans Mono, bar progress, folder tabs). Those settings are now the app's theme: see `docs/DESIGN_SYSTEM.md` › Catalogue theme. The Vellum amber palette, glow blobs and frosted glass are gone. Branch `claude/project-thread-q1khuh`, PR #4, not merged.

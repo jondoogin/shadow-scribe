@@ -9,7 +9,8 @@ dependencies = ["numpy>=1.26", "soundfile>=0.12"]
 kokoro = ["kokoro-onnx>=0.4.9"]
 pocket = ["pocket-tts>=1.0"]
 mlx = ["mlx-audio>=0.2", "misaki[en]>=0.9"]
-dev = ["pytest>=8"]
+visuals = ["Pillow>=10", "mflux>=0.16", "mlx-lm>=0.20", "pyobjc-framework-Vision>=10; sys_platform == 'darwin'"]
+dev = ["pytest>=8", "Pillow>=10"]
 
 [project.scripts]
 lantern-narrate = "lantern_narrator.cli:main"

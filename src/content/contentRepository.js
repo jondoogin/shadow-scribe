@@ -9,17 +9,21 @@
 //                        companion that links the same EPUB; removed by
 //                        deleteContent(contentId), which also removes its audio.
 //   audiobooks/audio   — keyed by audiobookId; removed by deleteAudiobook().
+//   visualSets/visualImages — imported .lantern-visuals paintings (schema v2),
+//                        keyed by visualSetId; removed by deleteVisualSet().
 //   Deleting a companion does NOT delete content automatically (another
 //   companion may use it); Settings → storage offers explicit cleanup.
 
 export const CONTENT_DB_NAME = 'lantern_content'
-export const CONTENT_DB_VERSION = 1
+export const CONTENT_DB_VERSION = 2
 
 const STORES = {
   contents: 'contents',     // { contentId, title, author, language, parserVersion, importedAt, sections: SectionMeta[] }
   sections: 'sections',     // { contentId, id, blocks }
   audiobooks: 'audiobooks', // { id, contentId, manifest, importedAt, totalBytes }
   audio: 'audio',           // { audiobookId, sectionId, blob, mime, bytes }
+  visualSets: 'visualSets', // v2: { id, contentId, manifest, images, importedAt, totalBytes }
+  visualImages: 'visualImages', // v2: { visualSetId, imageId, blob, strokes, thumb, bytes }
 }
 
 let factory = () => globalThis.indexedDB
@@ -52,9 +56,10 @@ export function openContentDb() {
     const idb = factory()
     if (!idb) return reject(new Error('IndexedDB is not available in this browser.'))
     const open = idb.open(CONTENT_DB_NAME, CONTENT_DB_VERSION)
-    open.onupgradeneeded = () => {
+    open.onupgradeneeded = (event) => {
       const db = open.result
-      // v1 schema. Future versions: add `if (oldVersion < N)` migrations here.
+      const oldVersion = event?.oldVersion ?? 0
+      // v1 schema. Each later version adds stores only (additive migrations).
       if (!db.objectStoreNames.contains(STORES.contents)) db.createObjectStore(STORES.contents, { keyPath: 'contentId' })
       if (!db.objectStoreNames.contains(STORES.sections)) db.createObjectStore(STORES.sections, { keyPath: ['contentId', 'id'] })
       if (!db.objectStoreNames.contains(STORES.audiobooks)) {
@@ -62,6 +67,14 @@ export function openContentDb() {
         s.createIndex('contentId', 'contentId', { unique: false })
       }
       if (!db.objectStoreNames.contains(STORES.audio)) db.createObjectStore(STORES.audio, { keyPath: ['audiobookId', 'sectionId'] })
+      // v2: visual journey paintings (docs/VISUAL_JOURNEY.md §6.3).
+      if (oldVersion < 2) {
+        if (!db.objectStoreNames.contains(STORES.visualSets)) {
+          const s = db.createObjectStore(STORES.visualSets, { keyPath: 'id' })
+          s.createIndex('contentId', 'contentId', { unique: false })
+        }
+        if (!db.objectStoreNames.contains(STORES.visualImages)) db.createObjectStore(STORES.visualImages, { keyPath: ['visualSetId', 'imageId'] })
+      }
     }
     open.onsuccess = () => {
       const db = open.result
@@ -133,6 +146,7 @@ export async function listContents() {
 
 export async function deleteContent(contentId) {
   for (const ab of await listAudiobooks(contentId)) await deleteAudiobook(ab.id)
+  for (const vs of await listVisualSets(contentId)) await deleteVisualSet(vs.id)
   const db = await openContentDb()
   const tx = db.transaction([STORES.contents, STORES.sections], 'readwrite')
   tx.objectStore(STORES.contents).delete(contentId)
@@ -204,6 +218,72 @@ export async function deleteAudiobook(id) {
   const tx = db.transaction([STORES.audiobooks, STORES.audio], 'readwrite')
   tx.objectStore(STORES.audiobooks).delete(id)
   tx.objectStore(STORES.audio).delete(IDBKeyRange.bound([id, ''], [id, '\uffff']))
+  await done(tx)
+}
+
+// ── Visual journey paintings (schema v2) ────────────────────────────────────
+
+/**
+ * Store an imported paintings package. Images are written a few per
+ * transaction and the set record goes last, so an interrupted import leaves
+ * nothing visible. Re-importing the same set replaces it.
+ * @param {string} id
+ * @param {object} manifest  the package manifest (images replaced by `images`)
+ * @param {Array} images     cleaned image records
+ * @param {(img) => Promise<{blob, strokes?, thumb?}>} getFiles
+ */
+export async function saveVisualSet(id, manifest, images, getFiles, onProgress) {
+  const db = await openContentDb()
+  await deleteVisualSet(id)
+  let totalBytes = 0
+  const written = []
+  try {
+    for (let i = 0; i < images.length; i++) {
+      const img = images[i]
+      const f = await getFiles(img)
+      const bytes = (f.blob?.size || 0) + (f.strokes?.size || 0) + (f.thumb?.size || 0)
+      const tx = db.transaction(STORES.visualImages, 'readwrite')
+      tx.objectStore(STORES.visualImages).put({ visualSetId: id, imageId: img.id, blob: f.blob, strokes: f.strokes || null, thumb: f.thumb || null, bytes })
+      await done(tx)
+      written.push(img.id)
+      totalBytes += bytes
+      onProgress?.({ done: i + 1, total: images.length, bytes: totalBytes })
+    }
+    const { images: _drop, ...rest } = manifest // eslint-disable-line no-unused-vars
+    const tx = db.transaction(STORES.visualSets, 'readwrite')
+    tx.objectStore(STORES.visualSets).put({ id, contentId: manifest.book.contentId, manifest: rest, images, importedAt: new Date().toISOString(), totalBytes })
+    await done(tx)
+  } catch (err) {
+    try {
+      const tx = db.transaction(STORES.visualImages, 'readwrite')
+      for (const imageId of written) tx.objectStore(STORES.visualImages).delete([id, imageId])
+      await done(tx)
+    } catch { /* best effort */ }
+    if (err?.name === 'QuotaExceededError') {
+      throw new Error('Not enough browser storage for these paintings. Free space by removing a narration, then try again.', { cause: err })
+    }
+    throw err
+  }
+  return { id, totalBytes }
+}
+
+export async function listVisualSets(contentId) {
+  const db = await openContentDb()
+  const store = db.transaction(STORES.visualSets).objectStore(STORES.visualSets)
+  return contentId ? req(store.index('contentId').getAll(contentId)) : req(store.getAll())
+}
+
+/** { blob, strokes, thumb } for one painting, or null. */
+export async function getVisualImage(visualSetId, imageId) {
+  const db = await openContentDb()
+  return (await req(db.transaction(STORES.visualImages).objectStore(STORES.visualImages).get([visualSetId, imageId]))) || null
+}
+
+export async function deleteVisualSet(id) {
+  const db = await openContentDb()
+  const tx = db.transaction([STORES.visualSets, STORES.visualImages], 'readwrite')
+  tx.objectStore(STORES.visualSets).delete(id)
+  tx.objectStore(STORES.visualImages).delete(IDBKeyRange.bound([id, ''], [id, '\uffff']))
   await done(tx)
 }
 

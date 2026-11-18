@@ -1463,13 +1463,13 @@ html.dark .reader-backdrop-stage { filter: blur(5px) saturate(0.85) brightness(0
 .reader-backdrop-veil {
   position: absolute; inset: 0;
   background: linear-gradient(to right, transparent 0,
-    color-mix(in srgb, var(--color-bg) 60%, transparent) calc(50% - 420px),
-    color-mix(in srgb, var(--color-bg) 60%, transparent) calc(50% + 420px), transparent 100%);
+    color-mix(in srgb, var(--color-bg) 40%, transparent) calc(50% - 300px),
+    color-mix(in srgb, var(--color-bg) 40%, transparent) calc(50% + 300px), transparent 100%);
 }
 html.dark .reader-backdrop-veil {
   background: linear-gradient(to right, transparent 0,
-    color-mix(in srgb, var(--color-bg) 70%, transparent) calc(50% - 420px),
-    color-mix(in srgb, var(--color-bg) 70%, transparent) calc(50% + 420px), transparent 100%);
+    color-mix(in srgb, var(--color-bg) 55%, transparent) calc(50% - 300px),
+    color-mix(in srgb, var(--color-bg) 55%, transparent) calc(50% + 300px), transparent 100%);
 }
 
 .vj-preview { position: relative; max-width: 960px; margin: 0 auto; padding: 24px 16px 120px; }

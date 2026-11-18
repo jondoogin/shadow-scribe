@@ -16,6 +16,7 @@ CATEGORIES = {
     "benchmarks": "benchmark runs and samples",
     "choices": "remembered engine and voice per book (books.json; no book text)",
     "voices": "voices you designed (descriptions, takes and kept reference clips)",
+    "visuals": "painting jobs: scene plans, painted images and stroke maps (books restart)",
 }
 
 
@@ -29,7 +30,7 @@ def _folders(category: str) -> list[Path]:
                 dirs.append(Path(v))
         return dirs
     return {"jobs": [jobs_dir()], "output": [output_dir()], "benchmarks": [benchmarks_dir()],
-            "choices": [home() / "books.json"], "voices": [home() / "voices"]}[category]
+            "choices": [home() / "books.json"], "voices": [home() / "voices"], "visuals": [home() / "visuals"]}[category]
 
 
 def dir_bytes(p: Path) -> int:

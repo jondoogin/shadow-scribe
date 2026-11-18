@@ -329,6 +329,94 @@ def cmd_bench_one(args) -> int:
     return 0
 
 
+def _visual_script(args):
+    return script_from_source(Path(args.book))
+
+
+def cmd_visuals_plan(args) -> int:
+    from .visuals.generate import plan_book, plan_summary
+    planned = plan_book(_visual_script(args), args.style_preset, args.describer, args.sections)
+    rows = plan_summary(planned)
+    if args.json:
+        print(json.dumps({"style": planned["profile"], "scenes": rows}, ensure_ascii=False, indent=1))
+        return 0
+    p = planned["profile"]
+    print(f"Style: {p['preset']} · palette {', '.join(p['palette'])} (from the first {p['sourceWords']} words only)")
+    gaps = [b["at"] - a["at"] for a, b in zip(rows, rows[1:])]
+    if gaps:
+        print(f"{len(rows)} scenes · a new painting about every {_fmt_dur(sum(gaps) / len(gaps))} of narration (estimate)")
+    for r in rows:
+        va = r["visibleAfter"]
+        print(f"  {r['id']:<6} {_fmt_dur(r['at']):>7}  {r['reason']:<22} {r['setting'] or '':<18} shown after {va['sectionId']}:{va['segmentId']}")
+    return 0
+
+
+def cmd_visuals_generate(args) -> int:
+    from .visuals.generate import generate
+    from .visuals.painters import PAINTER_MIN_MEMORY_GB
+    script = _visual_script(args)
+    mem = report().get("memory_gb") or 0
+    need = PAINTER_MIN_MEMORY_GB.get(args.model, 0)
+    if need and mem and mem < need:
+        print(f"✗ {args.model} needs about {need} GB of memory; this machine has {mem} GB.", file=sys.stderr)
+        return 2
+    kw = {} if args.model == "fixture" else {"quantize": args.quantize or None}
+    try:
+        res = generate(script, painter=args.model, preset=args.style_preset, describer=args.describer,
+                       selection=args.sections, out_path=Path(args.output) if args.output else None, painter_kw=kw)
+    except (RuntimeError, ValueError) as e:
+        print(f"✗ {e}", file=sys.stderr)
+        return 2
+    m = res["manifest"]
+    print(f"✓ {len(m['images'])} paintings in {_fmt_dur(res['seconds'])} → {res['path']}")
+    if m["generator"]["codeDrawn"]:
+        print("  (drawn by code with the fixture painter: for testing the pipeline, not for reading)")
+    print("  Import it in Lantern: Listen → Paintings → Import paintings.")
+    return 0
+
+
+def cmd_visuals_doctor(args) -> int:
+    import importlib.util as iu
+    import shutil as sh
+    from .visuals.validate import vision_available
+    r = report()
+    print(f"{'memory':>14}: {r.get('memory_gb')} GB · Apple Silicon: {r.get('apple_silicon')}")
+    print(f"{'mflux':>14}: {'yes' if sh.which('mflux-generate-flux2') else 'no (pip install -e .[visuals])'}")
+    print(f"{'mlx-lm':>14}: {'yes' if iu.find_spec('mlx_lm') else 'no (keyword describer only)'}")
+    print(f"{'Apple Vision':>14}: {'yes' if vision_available() else 'no (face and text checks skipped)'}")
+    mem = r.get("memory_gb") or 0
+    tier = "large" if mem >= 24 else "standard" if mem >= 16 else "small"
+    print(f"{'tier':>14}: {tier} → " + {"large": "FLUX.2 klein 4B (8-bit) + Qwen3 8B describer",
+                                         "standard": "FLUX.2 klein 4B (4-bit) + Qwen3 4B describer, one after the other",
+                                         "small": "keyword describer only"}[tier])
+    return 0
+
+
+def cmd_visuals_benchmark(args) -> int:
+    from .visuals.generate import generate
+    script = _visual_script(args)
+    t0 = time.time()
+    res = generate(script, painter=args.model, preset=args.style_preset, describer=args.describer, selection=args.sections or "1",
+                   out_path=benchmarks_dir() / f"visuals-{time.strftime('%Y%m%d-%H%M%S')}.lantern-visuals",
+                   painter_kw={} if args.model == "fixture" else {"quantize": args.quantize or None})
+    n = len(res["manifest"]["images"])
+    secs = [i.get("seconds") or 0 for i in res["manifest"]["images"]]
+    print(json.dumps({"model": args.model, "images": n, "secondsPerImage": round(sum(secs) / max(1, n), 2),
+                      "totalSeconds": round(time.time() - t0, 1), "machine": report().get("model"),
+                      "memoryGb": report().get("memory_gb")}, indent=1))
+    return 0
+
+
+def _visual_args(s, with_model=True):
+    s.add_argument("book", help="EPUB, TXT, or a narration script .json")
+    s.add_argument("--style-preset", default="gouache", choices=["gouache", "watercolour", "oil-sketch", "ink-and-wash"])
+    s.add_argument("--describer", default="keywords", help="keywords (no model), qwen3-4b or qwen3-8b")
+    s.add_argument("--sections", help="narrated sections to cover, like 1-3,7")
+    if with_model:
+        s.add_argument("--model", default="flux2-klein-4b", help="flux2-klein-4b, or fixture (drawn by code, for testing)")
+        s.add_argument("--quantize", type=int, default=8, help="mflux quantisation bits (8 or 4; 0 for none)")
+
+
 def main(argv=None) -> int:
     p = argparse.ArgumentParser(prog="lantern-narrate", description=__doc__)
     sub = p.add_subparsers(dest="cmd", required=True)
@@ -396,6 +484,22 @@ def main(argv=None) -> int:
     s.add_argument("--speed", type=float, default=1.0)
     s.add_argument("-o", "--output", help=f"results folder (default {benchmarks_dir()}/<timestamp>)")
     s.set_defaults(fn=cmd_benchmark)
+
+    v = sub.add_parser("visuals", help="paintings that follow the story (.lantern-visuals)")
+    vs = v.add_subparsers(dest="vcmd", required=True)
+    s = vs.add_parser("plan", help="show where the scenes change and their prompts (no image model)")
+    _visual_args(s, with_model=False)
+    s.add_argument("--json", action="store_true")
+    s.set_defaults(fn=cmd_visuals_plan)
+    s = vs.add_parser("generate", help="paint the scenes and write a .lantern-visuals package")
+    _visual_args(s)
+    s.add_argument("-o", "--output", help=f"package path (default {output_dir()}/<book>-<style>.lantern-visuals)")
+    s.set_defaults(fn=cmd_visuals_generate)
+    s = vs.add_parser("doctor", help="image model, describer, memory tier and Apple Vision")
+    s.set_defaults(fn=cmd_visuals_doctor)
+    s = vs.add_parser("benchmark", help="seconds per painting on this Mac")
+    _visual_args(s)
+    s.set_defaults(fn=cmd_visuals_benchmark)
 
     s = sub.add_parser("clean", help="show what the narrator stores and remove it")
     for c, about in storage.CATEGORIES.items():

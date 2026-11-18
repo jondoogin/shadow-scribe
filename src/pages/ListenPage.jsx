@@ -15,6 +15,9 @@ import { buildNarrationScript, scriptStats } from '../narration/narrationScript.
 import { getFullContent, deleteAudiobook, getSectionBlocks, storageEstimate } from '../content/contentRepository.js'
 import { segmentBlocks } from '../narration/segmenter.js'
 import { sectionLabel, chapterReached, formatClock, formatDuration, formatBytes } from '../narration/sectionLabels.js'
+import { bookRecord, latestLocator, visualPrefs } from '../narration/listenState.js'
+import { useBookVisuals } from '../atmosphere/visual/useBookVisuals.js'
+import { ListenPlate, PaintingsPanel, usePlate } from '../atmosphere/visual/Paintings.jsx'
 
 // "16 NOV" for the lamp log's date stamps. Dates are stored as YYYY-MM-DD.
 function stampDate(d) {
@@ -46,6 +49,8 @@ export default function ListenPage() {
   const [showUpdate, setShowUpdate] = useState(false)
   const [exportNote, setExportNote] = useState(null)
   const [storage, setStorage] = useState(null)
+  const visuals = useBookVisuals(book, meta)
+  const [pinned, setPinned] = useState(null)
 
   const onUpdateBook = changes => updateBook(bookId, changes)
 
@@ -76,6 +81,17 @@ export default function ListenPage() {
   const sections = sessionForThisBook ? pb.session.sections : []
   const section = ps ? sections[ps.sectionIndex] : null
   const isAudio = ps?.kind === 'audio'
+
+  // Paintings follow the spoken position; before playback starts, the saved one.
+  const record = bookRecord(pb.listenState, bookId)
+  const vPrefs = visualPrefs(record)
+  const saved = latestLocator(record)
+  const position = useMemo(() => (ps?.sectionId
+    ? { sectionId: ps.sectionId, blockId: ps.blockId, segmentId: ps.segmentId }
+    : saved ? { sectionId: saved.sectionId, blockId: saved.blockId, segmentId: saved.segmentId } : null
+  ), [ps?.sectionId, ps?.blockId, ps?.segmentId, saved?.sectionId, saved?.blockId, saved?.segmentId]) // eslint-disable-line react-hooks/exhaustive-deps
+  const showPlate = !!visuals.set && vPrefs.mode !== 'off'
+  const plate = usePlate({ visuals, position, enabled: showPlate, pinned })
 
   const caption = useMemo(() => {
     if (!ps || !section) return null
@@ -166,7 +182,8 @@ export default function ListenPage() {
       {/* ── Now playing: the loan slip ── */}
       {ps && section && (
         <>
-          <article className="c2-card c2-card--slip" aria-label="Now playing">
+          <article className={`c2-card c2-card--slip${showPlate ? ' has-plate' : ''}`} aria-label="Now playing">
+            {showPlate && <ListenPlate plate={plate} motion={vPrefs.motion} playing={playing} total={visuals.images.length} />}
             <div className="c2-card-head">
               <span className="c2-call">{callNumber(book)} · {ps.sectionIndex + 1}</span>
               <LitLabel lit={playing}>{sectionLabel(section, ps.sectionIndex, book)}</LitLabel>
@@ -313,6 +330,13 @@ export default function ListenPage() {
             <p className="c2-fine" style={{ marginTop: 6 }}>Ambient sounds are generated in your browser. On iPhone, narration volume follows the side buttons.</p>
           </div>
         </>
+      )}
+
+      {/* ── Paintings (visual journey) ── */}
+      {meta && (
+        <PaintingsPanel book={book} meta={meta} visuals={visuals} prefs={vPrefs} position={position}
+          onPrefs={patch => pb.setBookVisuals(bookId, patch)}
+          onPin={id => setPinned({ id, base: plate.chosen?.id ?? null })} shownId={showPlate ? plate.shown?.id : null} />
       )}
 
       {/* ── Narration source ── */}

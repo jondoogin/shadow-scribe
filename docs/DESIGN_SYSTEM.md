@@ -427,6 +427,13 @@ Behind body text (Reader backdrop) motion is off by default, the painting is at 
 
 ---
 
+
+### Plates in the Catalogue screens (Session 168)
+
+- **Listen:** the painting is a tipped-in colour plate at the top of the loan slip card: 16:10, inner radius `calc(var(--r) - 2px)`, a 1px `--line` hairline, and a small mono plate number ("Pl. IV") on a card-coloured tag. Tapping the plate shows "about this painting" (setting, time, weather; light and mood; and a line saying it was made only from the passage already heard). With a plate the slip's clock drops from 64px to 48px so the play key stays above the fold on a phone.
+- **Paintings section** (after Reading room): chips Off, Listen, Listen and Reader; "Living paint" checkbox; a strength slider only when the Reader backdrop is on; "Plates so far" as a row of 64×40 thumbnails with roman numerals (only plates already allowed); import, replace and remove as mono links.
+- **Reader:** the painting sits behind the page; the page card becomes 84% opaque (88% in dark mode) and the top bar 92%, so the painting shows around and faintly through the page. Body text stays well above WCAG AA. An eye icon in the top bar is Clear page. `prefers-contrast: more` removes the backdrop. No frosted glass and no glow, as John asked of Catalogue III.
+
 ## Animation System
 
 All keyframes defined in `index.css`. Applied via custom `animate-*` Tailwind utilities.

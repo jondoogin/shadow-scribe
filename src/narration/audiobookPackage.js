@@ -74,7 +74,8 @@ export async function readZipDirectory(blob) {
   return entries
 }
 
-async function entryBlob(blob, entry, mime) {
+/** One entry as a Blob (a slice of the original file when STORED). Shared with .lantern-visuals. */
+export async function entryBlob(blob, entry, mime) {
   const head = await readRange(blob, entry.localHeaderOffset, entry.localHeaderOffset + 30)
   if (u32(head, 0) !== 0x04034b50) throw new Error(`Narration package is damaged (${entry.name}).`)
   const start = entry.localHeaderOffset + 30 + u16(head, 26) + u16(head, 28)
