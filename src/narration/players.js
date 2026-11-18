@@ -270,7 +270,14 @@ export class SpeechNarrationPlayer extends Emitter {
     this.segments = []
     this.session = 0
     this.pauseAtBoundary = false
+    this.wordListeners = new Set()
     this.state = { ...IDLE, kind: 'speech', duration: 0 }
+  }
+
+  /** Word boundaries reported by the speech engine: fn(segmentIndex, charIndex in `spoken`). */
+  onWords(fn) {
+    this.wordListeners.add(fn)
+    return () => this.wordListeners.delete(fn)
   }
 
   get supported() { return !!(this.synth && this.Utterance) }
@@ -320,6 +327,10 @@ export class SpeechNarrationPlayer extends Emitter {
       }
       if (i + 1 < this.segments.length) this._speak(i + 1)
       else this._sectionEnd(session)
+    }
+    u.onboundary = e => {
+      if (session !== this.session || (e?.name && e.name !== 'word')) return
+      for (const fn of this.wordListeners) fn(i, e.charIndex)
     }
     u.onerror = e => {
       if (session !== this.session) return

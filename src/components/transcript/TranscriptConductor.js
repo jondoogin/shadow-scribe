@@ -67,30 +67,18 @@ export class TranscriptConductor {
 
   /** Light the word being spoken at media time `t` (seconds). Only measured timings are shown. */
   setWordTime(t) {
-    const W = this.options.words && this.words[this.index]
-    if (this.wordSeg !== this.index) this._leaveWords()
-    if (!W || t == null) return
-    if (this.wordSeg !== this.index) {
-      this.wordSeg = this.index
-      this.spans[this.index].dataset.words = 'on'
-    }
+    const W = this._enterWords()
+    if (!W || t == null || !Number.isFinite(W.t0s[0])) return
     const ms = t * 1000
     const k = wordAt(W.t0s, ms)
-    if (k !== this.wordIdx) {
-      const from = Math.max(0, Math.min(k, this.wordIdx < 0 ? 0 : this.wordIdx))
-      const to = this.wordIdx === -2 ? W.els.length - 1 : Math.max(k, this.wordIdx)
-      for (let j = from; j <= to && j < W.els.length; j++) {
-        const state = j < k ? 'said' : j === k ? 'now' : ''
-        if (state) W.els[j].dataset.w = state
-        else delete W.els[j].dataset.w
-      }
-      this.wordIdx = k
-    }
-    if (k >= 0) {
-      const span = W.t1s[k] - W.t0s[k]
-      const fill = this.reducedMotion || !(span > 0) ? 1 : Math.min(1, Math.max(0, (ms - W.t0s[k]) / span))
-      W.els[k].style.setProperty('--fill', fill.toFixed(3))
-    }
+    const span = W.t1s[k] - W.t0s[k]
+    this._showWord(W, k, this.reducedMotion || !(span > 0) ? 1 : Math.min(1, Math.max(0, (ms - W.t0s[k]) / span)))
+  }
+
+  /** Device voice: light word `k` of the current sentence, as the speech engine reports it. */
+  setWordIndex(k) {
+    const W = this._enterWords()
+    if (W) this._showWord(W, k, 1)
   }
 
   /** Show the words at the current media time once (while paused or after a seek). */
@@ -143,6 +131,31 @@ export class TranscriptConductor {
   }
 
   // ── internals ──
+  _enterWords() {
+    const W = this.options.words && this.words[this.index]
+    if (this.wordSeg !== this.index) this._leaveWords()
+    if (!W) return null
+    if (this.wordSeg !== this.index) {
+      this.wordSeg = this.index
+      this.spans[this.index].dataset.words = 'on'
+    }
+    return W
+  }
+
+  _showWord(W, k, fill) {
+    if (k !== this.wordIdx) {
+      const from = Math.max(0, Math.min(k, this.wordIdx < 0 ? 0 : this.wordIdx))
+      const to = this.wordIdx === -2 ? W.els.length - 1 : Math.max(k, this.wordIdx)
+      for (let j = from; j <= to && j < W.els.length; j++) {
+        const state = j < k ? 'said' : j === k ? 'now' : ''
+        if (state) W.els[j].dataset.w = state
+        else delete W.els[j].dataset.w
+      }
+      this.wordIdx = k
+    }
+    if (k >= 0 && W.els[k]) W.els[k].style.setProperty('--fill', fill.toFixed(3))
+  }
+
   _leaveWords() {
     const W = this.words[this.wordSeg]
     if (W) {

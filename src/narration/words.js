@@ -57,3 +57,28 @@ export function segmentWords(text, start, end, kind = 'sentence') {
   }
   return words
 }
+
+// ── Device voice: the browser's own word boundaries ─────────────────────────
+// Speech engines report `boundary` events with a character index into the text
+// they were given (the segment's `spoken` form). Those are real positions, not
+// estimates, so the Text view can light words from them.
+
+/** Which word of `spoken` starts at or before `charIndex` (0-based), or -1. */
+export function spokenOrdinalAt(spoken, charIndex) {
+  let n = -1
+  for (const m of (spoken || '').matchAll(WORD)) {
+    if (m.index > charIndex) break
+    n++
+  }
+  return n
+}
+
+/** For each word of the spoken form, the index of the display word it belongs to. */
+export function spokenToDisplay(words) {
+  const map = []
+  words.forEach((w, k) => {
+    const n = (w.sp || '').match(WORD)?.length || 0
+    for (let i = 0; i < n; i++) map.push(k)
+  })
+  return map
+}

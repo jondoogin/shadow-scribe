@@ -232,6 +232,8 @@ export function PlaybackProvider({ children }) {
     goToSegment: (sectionIndex, segmentIndex, opts) => playerRef.current?.goTo(sectionIndex, segmentIndex, opts),
     // Per-frame position for the transcript (audio only; device voice has no timeline).
     mediaTime: () => (playerRef.current?.kind === 'audio' ? playerRef.current.mediaTime() : null),
+    // Device voice: word boundaries as the speech engine reports them.
+    onWords: fn => playerRef.current?.onWords?.(fn) || (() => {}),
     setPrefs: (patch) => updateListen(st => ({ ...st, prefs: { ...st.prefs, ...patch } })),
     setRate: (rate) => {
       playerRef.current?.setRate(rate)

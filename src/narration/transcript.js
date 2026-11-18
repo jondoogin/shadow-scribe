@@ -78,17 +78,18 @@ export function followScrollTarget({ top, bottom }, { scrollTop, height, scrollH
  * Split a sentence piece into word runs using its measured timings.
  * @param {string} text        the piece's text
  * @param {number} start       the piece's offset in its block
- * @param {Array<[number, number, number, number]>} timings  [s, e, t0ms, t1ms] with block offsets
- * @returns {Array<{ text, t0?: number, t1?: number }>}  runs with t0/t1 are words; the rest is the space between
+ * @param {Array<[number, number, number?, number?]>} timings  [s, e, t0ms, t1ms] with block offsets
+ *        (device voice: [s, e] only; its words light from the speech engine's own boundaries)
+ * @returns {Array<{ text, w?: number, t0?: number, t1?: number }>}  runs with `w` are words; the rest is the space between
  */
 export function splitWords(text, start, timings) {
   const runs = []
   let at = 0
-  for (const [s, e, t0, t1] of timings || []) {
+  for (const [w, [s, e, t0, t1]] of (timings || []).entries()) {
     const a = Math.max(at, s - start), b = Math.min(text.length, e - start)
     if (b <= a) continue
     if (a > at) runs.push({ text: text.slice(at, a) })
-    runs.push({ text: text.slice(a, b), t0, t1 })
+    runs.push(t0 == null ? { text: text.slice(a, b), w } : { text: text.slice(a, b), w, t0, t1 })
     at = b
   }
   if (at < text.length) runs.push({ text: text.slice(at) })

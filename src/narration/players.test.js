@@ -187,6 +187,24 @@ describe('SpeechNarrationPlayer', () => {
     expect(synth.spoken).toEqual(['First.', 'Second.'])
   })
 
+  it('passes on the engine’s word boundaries, never from a cancelled utterance', async () => {
+    const { synth, player } = make()
+    const heard = []
+    const off = player.onWords((i, ch) => heard.push([i, ch]))
+    await player.load(0)
+    player.play()
+    const first = synth.current
+    first.onboundary({ name: 'word', charIndex: 0 })
+    first.onboundary({ name: 'sentence', charIndex: 0 })
+    player.seek(1)
+    first.onboundary({ name: 'word', charIndex: 3 }) // stale
+    synth.current.onboundary({ name: 'word', charIndex: 0 })
+    expect(heard).toEqual([[0, 0], [1, 0]])
+    off()
+    synth.current.onboundary({ name: 'word', charIndex: 2 })
+    expect(heard).toHaveLength(2)
+  })
+
   it('pause remembers the sentence and resume repeats it', async () => {
     const { synth, player } = make()
     await player.load(0, 1)

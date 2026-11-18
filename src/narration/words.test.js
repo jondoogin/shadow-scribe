@@ -74,3 +74,26 @@ describe('word tokens', () => {
     expect(plain[0].words).toBeUndefined()
   })
 })
+
+describe('device voice word boundaries', () => {
+  it('maps a boundary in the spoken form back to the word on screen', async () => {
+    const { spokenOrdinalAt, spokenToDisplay } = await import('./words.js')
+    const t = 'IT WAS a dark night[12] & cold.'
+    const spoken = toSpoken(t, 'sentence') // 'It Was a dark night and cold.'
+    const ws = segmentWords(t, 0, t.length)
+    const map = spokenToDisplay(ws)
+    const at = word => map[spokenOrdinalAt(spoken, spoken.indexOf(word))]
+    expect(t.slice(ws[at('dark')].s, ws[at('dark')].e)).toBe('dark')
+    expect(t.slice(ws[at('and')].s, ws[at('and')].e)).toBe('&')
+    expect(t.slice(ws[at('cold')].s, ws[at('cold')].e)).toBe('cold.')
+    expect(spokenOrdinalAt(spoken, 0)).toBe(0)
+  })
+
+  it('handles headings whose spoken form has more words', async () => {
+    const { spokenOrdinalAt, spokenToDisplay } = await import('./words.js')
+    const t = 'XII'
+    const spoken = toSpoken(t, 'heading') // 'Chapter 12.'
+    const map = spokenToDisplay(segmentWords(t, 0, t.length, 'heading'))
+    expect(map[spokenOrdinalAt(spoken, spoken.indexOf('12'))]).toBe(0)
+  })
+})

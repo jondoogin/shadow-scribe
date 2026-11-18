@@ -121,7 +121,7 @@ describe('word runs', () => {
     // block offsets: the piece starts at 20 in its block
     const runs = splitWords(text, 20, [[20, 25, 1000, 1300], [26, 31, 1300, 1600], [32, 36, 1600, 1900]])
     expect(runs.map(r => r.text).join('')).toBe(text)
-    expect(runs.filter(r => r.t0 != null).map(r => r.text)).toEqual(['“Oh!”', 'cried', 'she.'])
+    expect(runs.filter(r => r.w != null).map(r => r.text)).toEqual(['“Oh!”', 'cried', 'she.'])
     expect(runs[1]).toEqual({ text: ' ' })
   })
   it('ignores timings outside the piece and survives none', () => {

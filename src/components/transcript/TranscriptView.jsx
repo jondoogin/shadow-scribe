@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { getSectionBlocks, getWordTimings } from '../../content/contentRepository.js'
 import { segmentBlocks } from '../../narration/segmenter.js'
+import { segmentWords, spokenOrdinalAt, spokenToDisplay } from '../../narration/words.js'
 import { buildTranscript, splitWords } from '../../narration/transcript.js'
 import { TranscriptConductor } from './TranscriptConductor.js'
 
@@ -17,7 +18,7 @@ function veilHeadingFor(section, book) {
 /** A sentence, split into its measured words when the narrator timed them. */
 function Sentence({ piece, timings }) {
   if (!timings) return piece.text
-  return splitWords(piece.text, piece.start, timings).map((r, n) => r.t0 == null
+  return splitWords(piece.text, piece.start, timings).map((r, n) => r.w == null
     ? r.text
     : <span key={n} className="ts-w" data-t0={r.t0} data-t1={r.t1}>{r.text}</span>)
 }
@@ -32,6 +33,7 @@ export default function TranscriptView({ book, session, playerState, pb }) {
   const contentId = session?.contentId
   const [loaded, setLoaded] = useState({ key: null, blocks: null, words: null })
   const [following, setFollowing] = useState(true)
+  const [heardWords, setHeardWords] = useState(false) // the device voice reports word boundaries
   const scrollerRef = useRef(null)
   const columnRef = useRef(null)
   const poolRef = useRef(null)
@@ -66,6 +68,16 @@ export default function TranscriptView({ book, session, playerState, pb }) {
 
   const model = useMemo(() => buildTranscript(blocks || [], segments), [blocks, segments])
 
+  // Device voice: every sentence's words, to light from the engine's boundary events.
+  const speechWords = useMemo(() => {
+    if (isAudio || !blocks) return null
+    const text = new Map(blocks.map(b => [b.id, b.text]))
+    return segments.map(g => {
+      const ws = segmentWords(text.get(g.blockId) || '', g.start, g.end, g.kind === 'heading' ? 'heading' : 'sentence')
+      return { spans: ws.map(w => [w.s, w.e]), map: spokenToDisplay(ws) }
+    })
+  }, [isAudio, blocks, segments])
+
   const headings = useMemo(() => {
     const set = new Set()
     for (const b of model) if (b.type === 'heading') for (const p of b.pieces) if (p.seg != null) set.add(p.seg)
@@ -93,6 +105,20 @@ export default function TranscriptView({ book, session, playerState, pb }) {
     c.syncWords()
     return () => { c.dispose(); conductorRef.current = null }
   }, [model, words]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (isAudio || !speechWords) return
+    return pb.onWords((i, charIndex) => {
+      const c = conductorRef.current
+      const sw = speechWords[i]
+      if (!c || !sw || !segments[i]) return
+      setHeardWords(true)
+      const k = sw.map[spokenOrdinalAt(segments[i].spoken, charIndex)]
+      if (k == null) return
+      c.setIndex(i)
+      c.setWordIndex(k)
+    })
+  }, [isAudio, speechWords, session]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     const c = conductorRef.current
@@ -140,7 +166,7 @@ export default function TranscriptView({ book, session, playerState, pb }) {
             const content = b.pieces.map((p, n) => p.seg == null
               ? <span key={n}>{p.text}</span>
               : <span key={n} className="ts-seg" data-seg={p.seg} data-state="ahead">
-                  <Sentence piece={p} timings={words?.[segments[p.seg]?.id]} />
+                  <Sentence piece={p} timings={isAudio ? words?.[segments[p.seg]?.id] : speechWords?.[p.seg]?.spans} />
                 </span>)
             if (b.type === 'heading') return <h2 key={b.id}>{content}</h2>
             if (b.type === 'quote') return <blockquote key={b.id}>{content}</blockquote>
@@ -154,7 +180,7 @@ export default function TranscriptView({ book, session, playerState, pb }) {
         </button>
       )}
       <div className="c2-text-foot">
-        {words && (
+        {(words || heardWords) && (
           <label className="c2-check">
             <input type="checkbox" checked={wordLevel} onChange={e => pb.setPrefs({ transcriptWords: e.target.checked })} />
             <span>Word by word</span>
