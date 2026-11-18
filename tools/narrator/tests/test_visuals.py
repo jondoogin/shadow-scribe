@@ -200,7 +200,7 @@ def test_lamp_room_is_inside_and_lighthouse_is_outside():
                                     build_profile(story()), None)
     assert d["setting"] == "lighthouse" and "interior" not in (d["framing"] or "")
     d = KeywordDescriber().describe("Up in the lamp room the lamp room glass was cold.", None, build_profile(story()), None)
-    assert d["setting"] == "lamp room" and "interior" in d["framing"]
+    assert d["setting"].startswith("the glass lantern room") and "interior" in d["framing"]
 
 
 def test_a_removed_name_leaves_no_empty_slot():

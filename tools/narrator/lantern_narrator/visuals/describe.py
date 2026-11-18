@@ -19,7 +19,11 @@ import re
 
 from . import lexicon as L
 
+# Settings whose plain name a painter misreads ("lamp room" became a room with a floor lamp).
+SETTING_PHRASES = {"lamp room": "the glass lantern room at the top of a lighthouse"}
+
 ELEMENTS = {
+    "lamp room": ["a great faceted glass lens", "brass fittings", "a ring of storm windows"],
     "drawing room": ["tall windows", "an empty armchair", "a mantelpiece"],
     "library": ["shelves of old books", "a reading lamp", "a writing desk"],
     "bedroom": ["a curtained bed", "a washstand", "a small window"],
@@ -68,7 +72,7 @@ class KeywordDescriber:
         h = int(hashlib.sha1(window_text.encode("utf-8")).hexdigest()[:8], 16)
         focus = {"x": round(0.35 + (h % 31) / 100, 2), "y": round(0.38 + ((h >> 5) % 21) / 100, 2)}
         return sanitize({
-            "setting": setting or ("an interior" if interior else "an open landscape"),
+            "setting": SETTING_PHRASES.get(setting, setting) or ("an interior" if interior else "an open landscape"),
             "era": profile.get("era"),
             "timeOfDay": time,
             "weather": weather if weather != "clear" else None,
