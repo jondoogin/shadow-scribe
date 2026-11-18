@@ -168,3 +168,16 @@ def test_every_painting_can_appear_before_its_scene_ends():
         scene_segs = [s for p in pars[sc.start.index:sc.end_par] for s in p.segments]
         assert sc.window[-1] is not scene_segs[-1], sc.id
         assert sc.visible_after["segmentId"] != last["id"] or sc.visible_after["sectionId"] != last["sectionId"]
+
+
+def test_mflux_is_found_beside_the_venv_python(tmp_path, monkeypatch):
+    from lantern_narrator.visuals import painters
+    exe = tmp_path / "bin" / "python"
+    exe.parent.mkdir()
+    exe.write_text("")
+    cmd = exe.parent / painters.MFLUX_CMD
+    cmd.write_text("#!/bin/sh\n")
+    cmd.chmod(0o755)
+    monkeypatch.setenv("PATH", "/nonexistent")
+    monkeypatch.setattr(painters.sys, "executable", str(exe))
+    assert painters.find_mflux() == str(cmd)

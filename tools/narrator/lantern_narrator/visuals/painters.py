@@ -13,7 +13,9 @@ from __future__ import annotations
 
 import hashlib
 import math
+import os
 import shutil
+import sys
 import subprocess
 import tempfile
 from pathlib import Path
@@ -151,6 +153,18 @@ def _ellipse(x, y, rx, ry, ang, n=14):
             for t in (2 * math.pi * i / n for i in range(n))]
 
 
+MFLUX_CMD = "mflux-generate-flux2"
+
+
+def find_mflux() -> str | None:
+    """mflux's command, on PATH or beside this Python (a venv used without activating it)."""
+    found = shutil.which(MFLUX_CMD)
+    if found:
+        return found
+    beside = Path(sys.executable).parent / MFLUX_CMD
+    return str(beside) if beside.is_file() and os.access(beside, os.X_OK) else None
+
+
 class FluxKleinPainter:
     """FLUX.2 [klein] 4B via mflux's command line. Apple Silicon only."""
     id = "flux2-klein-4b"
@@ -165,7 +179,7 @@ class FluxKleinPainter:
         if repo:
             self.repo = repo
         isolate_caches()   # model downloads stay inside the narrator folder
-        self.cmd = shutil.which("mflux-generate-flux2")
+        self.cmd = find_mflux()
         if not self.cmd:
             raise RuntimeError("FLUX.2 klein needs mflux 0.16 or later: pip install -e '.[visuals]' (Apple Silicon only).")
 

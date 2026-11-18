@@ -377,11 +377,11 @@ def cmd_visuals_generate(args) -> int:
 
 def cmd_visuals_doctor(args) -> int:
     import importlib.util as iu
-    import shutil as sh
+    from .visuals.painters import find_mflux
     from .visuals.validate import vision_available
     r = report()
     print(f"{'memory':>14}: {r.get('memory_gb')} GB · Apple Silicon: {r.get('apple_silicon')}")
-    print(f"{'mflux':>14}: {'yes' if sh.which('mflux-generate-flux2') else 'no (pip install -e .[visuals])'}")
+    print(f"{'mflux':>14}: {'yes' if find_mflux() else 'no (pip install -e .[visuals])'}")
     print(f"{'mlx-lm':>14}: {'yes' if iu.find_spec('mlx_lm') else 'no (keyword describer only)'}")
     print(f"{'Apple Vision':>14}: {'yes' if vision_available() else 'no (face and text checks skipped)'}")
     mem = r.get("memory_gb") or 0
