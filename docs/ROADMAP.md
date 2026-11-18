@@ -31,7 +31,7 @@ Design: `docs/TRANSCRIPT.md` (§12: as built).
 - [x] Phase 3: word tokens in the script, wav2vec2 CTC aligner, `generate --words`, sidecars (Session 168)
 - [x] Phase 4: word ink-fill in the Text view, device-voice word boundaries (Session 168; no sync-offset setting, no coverage label)
 - [x] Phase 5 (reduced): the Reader tints the sentence being narrated (Session 168)
-- [ ] Phase 2: run the aligner on real speech on the M5 Pro (coverage, boundaries); tune or try Qwen3-ForcedAligner
+- [x] Phase 2: aligner on real speech on the M5 Pro, 69/69 sentences aligned (2026-11-18); two bugs fixed
 - [ ] iPhone check of the Text view (scrolling, light pool, word fill, lock and wake, AirPods drift)
 - [ ] Later: `--retry-misreads`; re-aligning a package outside its job folder
 

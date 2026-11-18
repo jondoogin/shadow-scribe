@@ -16,7 +16,8 @@ Reverse-chronological log of what was built, fixed, and decided in each working 
 **VERIFIED**
 - Vitest 99 pass; narrator pytest 67 pass; build passes; no new lint errors in changed files.
 - Headless Chromium at 390×844: Text view light and dark, word ink with fixture word times, device-voice words with a fake speech engine, the Reader's sentence tint.
-- Not verified: the aligner on real speech (Hugging Face is blocked from the cloud container), iPhone Safari.
+- Later the same day on the M5 Pro: the aligner timed 69/69 sentences of P&P chapters I–II (Qwen3 1.7B, Aiden), about 250× realtime. Two bugs found there and fixed with regression tests (TRANSCRIPT.md §13).
+- Not verified: iPhone Safari.
 
 ---
 

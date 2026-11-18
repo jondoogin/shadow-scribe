@@ -29,7 +29,7 @@ PACKAGE_FORMAT = "lantern-audiobook"
 PACKAGE_VERSION = 1
 
 
-def build_manifest(script: dict, state: dict, include_text: bool = True) -> dict:
+def build_manifest(script: dict, state: dict, include_text: bool = True, include_words: bool = True) -> dict:
     book = script["book"]
     sections = []
     for s in narrated_sections(script):
@@ -46,7 +46,7 @@ def build_manifest(script: dict, state: dict, include_text: bool = True) -> dict
             if include_text:
                 entry["text"] = src.get("text")
             segs.append(entry)
-        entry_words = st.get("words")
+        entry_words = st.get("words") if include_words else None
         sections.append({
             "id": s["id"],
             "order": s.get("order"),
@@ -101,8 +101,8 @@ def build_manifest(script: dict, state: dict, include_text: bool = True) -> dict
 
 
 def write_package(script: dict, state: dict, job_dir: Path, out_path: Path | None = None,
-                  include_text: bool = True) -> Path:
-    manifest = build_manifest(script, state, include_text)
+                  include_text: bool = True, include_words: bool = True) -> Path:
+    manifest = build_manifest(script, state, include_text, include_words)
     if not manifest["sections"]:
         raise ValueError("No finished chapters to package yet.")
     book = script["book"]

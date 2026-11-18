@@ -193,3 +193,41 @@ def test_scripts_without_words_are_left_alone(tmp_path):
     state = G.Generator(script, FakeEngine(), "tone", job_dir=tmp_path / "job", aligner=AL.Aligner(PlannedEmitter())).run()
     assert "words" not in state["sections"]["ch1"]
     assert "timings" not in build_manifest(script, state)
+
+
+# ── regressions found on the first real run (M5 Pro, 2026-11-18) ────────────
+def test_forced_align_handles_sentences_longer_than_int8():
+    # 150 letters: backtrace state indices go past 127 (NumPy 2 kept them int8 and overflowed)
+    targets = [(i % 4) + 1 for i in range(150)]
+    path = [0]
+    for tok in targets:
+        path += [tok, 0]
+    spans = AL.forced_align(planned_log_probs(path, 6), targets)
+    assert spans is not None and spans.shape == (150, 2)
+    assert spans[:, 0].tolist() == list(range(1, 2 * 150, 2))
+
+
+def test_real_emitter_loads_its_vocabulary_before_tokenising():
+    class Lazy(AL.Wav2Vec2Emitter):
+        loads = 0
+
+        def load(self):
+            if self._model is None:
+                Lazy.loads += 1
+                self._model = object()
+                self.vocab = {"a": 7, "'": 27}
+                self.blank = 0
+
+    e = Lazy()
+    assert e.tokens("a a'") == [7, 7, 27]  # called before emissions(), as Aligner does
+    assert Lazy.loads == 1
+
+
+def test_words_off_leaves_timings_out_of_the_package(tmp_path):
+    script = worded_script()
+    state = G.Generator(script, FakeEngine(), "tone", job_dir=tmp_path / "job", aligner=AL.Aligner(PlannedEmitter())).run()
+    m = build_manifest(script, state, include_words=False)
+    assert "timings" not in m and "wordTimings" not in m["sections"][0]
+    pkg = write_package(script, state, tmp_path / "job", tmp_path / "plain.lantern-audio", include_words=False)
+    with zipfile.ZipFile(pkg) as z:
+        assert not [n for n in z.namelist() if n.startswith("timings/")]

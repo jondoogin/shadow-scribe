@@ -198,11 +198,11 @@ def cmd_generate(args) -> int:
         stop.uninstall()
     print()
     out = write_package(script, state, gen.job_dir, Path(args.output) if args.output else None,
-                        include_text=not args.no_text)
+                        include_text=not args.no_text, include_words=getattr(args, "words", "auto") != "off")
     total = sum(s.get("durationSec", 0) for s in state["sections"].values() if s.get("status") == "done")
     print(f"✓ Package: {out}  ({out.stat().st_size / 1e6:.1f} MB, {_fmt_dur(total)} of narration)")
     worded = [st["words"] for st in state["sections"].values() if st.get("words")]
-    if worded:
+    if worded and getattr(args, "words", "auto") != "off":
         ok, tot = sum(w["aligned"] for w in worded), sum(w["total"] for w in worded)
         print(f"  Word timings: {ok}/{tot} sentences ({ok / max(tot, 1):.0%}); the rest follow by sentence.")
     print("  Import it in Lantern: open the book → Listen → Import narration.")

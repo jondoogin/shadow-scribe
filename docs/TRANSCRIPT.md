@@ -1,6 +1,6 @@
 # Lantern — Follow-Along Transcript (design)
 
-**Status (Session 168, 2026-11-18):** design approved by John (decisions in §10). **Built: sentence follow-along (Phase 1), word tokens and the narrator's word aligner (Phase 3), word animation in Lantern including the device voice (Phase 4), and the Reader's narrated sentence (Phase 5, reduced scope).** Restyled for Catalogue III. Tested in Node, pytest and headless Chromium at phone size, with fixture word times. **Not yet done:** the aligner has never run on real speech (the cloud container can't reach Hugging Face), so Phase 2 (run it on the M5 Pro and check pass rate and boundaries) is still open, and nothing has been tried on an iPhone. §12 lists where the build differs from the design below. Branch: on top of Catalogue III (PR #4), which is on the neural narration branch (PR #1); none of them is merged.
+**Status (Session 168, 2026-11-18):** design approved by John (decisions in §10). **Built: sentence follow-along (Phase 1), word tokens and the narrator's word aligner (Phase 3), word animation in Lantern including the device voice (Phase 4), and the Reader's narrated sentence (Phase 5, reduced scope).** Restyled for Catalogue III. Tested in Node, pytest and headless Chromium at phone size, with fixture word times. **Phase 2 ran on the M5 Pro on 2026-11-18 (§13): 69 of 69 sentences aligned.** Not yet done: an iPhone check, and a listen to one suspect sentence. §12 lists where the build differs from the design below. Branch: on top of Catalogue III (PR #4), which is on the neural narration branch (PR #1); none of them is merged.
 
 **What John asked for:** while narration plays, show the book's text on screen and animate it as each sentence, or even each word, is spoken. Like Spotify's lyrics view, but more intelligent and more beautifully animated.
 
@@ -361,3 +361,18 @@ No open questions remain for Phase 1. The aligner choice (Phase 2) is settled by
 **Tests.** Vitest: words, script words, sidecar parsing and import, word runs, the conductor's word states, speech boundaries. Pytest (`tests/test_align.py`): verbalising, the Viterbi on planned emissions, confidence rejection, sidecars in the generator and the package, aligning earlier chapters without re-synthesis. Headless Chromium at 390×844: Text view in light and dark, word inking with fixture times, device-voice words with a fake speech engine, the Reader's sentence.
 
 **Phase 2, what to run on the M5 Pro:** `pip install -e ".[align]"`, then `lantern-narrate generate <epub> --sections 1 --words on` with Qwen3 1.7B (Aiden). Check the printed coverage, listen to a few sentences in the Text view, and look at `words.misses` in `job.json`. If coverage is under about 90% or boundaries look late, tune `MIN_MEAN_PROB` or try Qwen3-ForcedAligner.
+
+
+---
+
+## 13. First real run (Phase 2, M5 Pro 48 GB, 2026-11-18)
+
+Pride and Prejudice chapters I–II (Standard Ebooks edition), Qwen3 1.7B, voice Aiden, `generate --sections 1-2 --words on`.
+
+- **Coverage:** chapter I 37/37 sentences, chapter II 32/32. No misses.
+- **Speed:** synthesis + alignment about 250 s for 608 s of audio (about 2.4× realtime, as before). Alignment itself took about 1.2 s per 5-minute chapter (about 250× realtime) on MPS. An alignment-only re-run was 9.7 s, mostly model loading. Peak memory 18.1 GB during synthesis, 6.3 GB alignment only.
+- **Checks:** no word over 1.5 s; starts monotonic in every sentence; pauses fall at commas and full stops (300–600 ms gaps). First word vs sentence start: median 60 ms, max 780 ms. One sentence looks late: ch. II `b2.0` ("I hope Mr. Bingley will like it, Lizzy.", +780 ms), to check by ear at about 0:25 of chapter II.
+- Aligning from the decoded m4a instead of in-memory PCM moved 35 of 1,598 boundaries, mostly by one 20 ms frame.
+- **Two bugs found and fixed** (regression tests added): `Wav2Vec2Emitter.tokens()` ran before `load()`, and the Viterbi backtrace overflowed `int8` under NumPy 2 for sentences over about 63 letters.
+- `--words off` now leaves timings out of the package.
+- Kept the wav2vec2 CTC aligner; no need to try Qwen3-ForcedAligner unless the iPhone check shows lag.

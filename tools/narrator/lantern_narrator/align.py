@@ -150,7 +150,7 @@ def forced_align(log_probs: np.ndarray, targets: list[int], blank: int = 0) -> n
     states = np.empty(T, dtype=np.int64)
     for t in range(T - 1, -1, -1):
         states[t] = s
-        s -= back[t, s]
+        s -= int(back[t, s])  # back is int8; NumPy 2 would keep int8 and overflow on long sentences
     spans = np.full((L, 2), -1, dtype=np.int64)
     for t, st in enumerate(states):
         if st % 2 == 1:
@@ -213,6 +213,7 @@ class Wav2Vec2Emitter:
         return log_softmax(logits)
 
     def tokens(self, letters: str) -> list[int] | None:
+        self.load()  # the vocabulary comes with the model
         out = []
         for ch in letters:
             if ch == " ":
