@@ -20,6 +20,7 @@ from . import storage
 from .paths import benchmarks_dir, isolate_caches, models_dir, output_dir
 from .script import ScriptError, narrated_sections, script_from_source
 from .visuals.style import PRESETS as STYLE_PRESETS
+from .curated import DEFAULT_PAINTING_STYLE, curated_voices, default_describer, default_style
 
 DEFAULT_BENCH_COMBOS = [
     ("kokoro", "af_heart"), ("kokoro", "bf_emma"), ("kokoro", "am_michael"),
@@ -101,10 +102,18 @@ def resolve_choice(content_id: str, engine: str | None, voice: str | None, style
     saved = books.get(content_id)
     eng = engine or saved.get("engine") or default_engine(hw if hw is not None else report())
     same = saved.get("engine") == eng
+    chosen_voice = voice if voice else (saved.get("voice", "") if same else "")
+    if style is not None:
+        chosen_style = style
+    elif same and "style" in saved and (not voice or voice == saved.get("voice")):
+        chosen_style = saved.get("style", "")
+    else:
+        # Curated default: Aiden reads in the warm audiobook style (Session 170).
+        chosen_style = default_style(eng, chosen_voice or "Aiden" if eng == "qwen3-1.7b" else chosen_voice)
     return {
         "engine": eng,
-        "voice": voice if voice else (saved.get("voice", "") if same else ""),
-        "style": style if style is not None else (saved.get("style", "") if same else ""),
+        "voice": chosen_voice,
+        "style": chosen_style,
         "speed": speed if speed is not None else (saved.get("speed", 1.0) if same else 1.0),
         "remembered": bool(saved) and not engine and not voice,
     }
@@ -206,7 +215,7 @@ def cmd_generate(args) -> int:
     if worded and getattr(args, "words", "auto") != "off":
         ok, tot = sum(w["aligned"] for w in worded), sum(w["total"] for w in worded)
         print(f"  Word timings: {ok}/{tot} sentences ({ok / max(tot, 1):.0%}); the rest follow by sentence.")
-    print("  Import it in Lantern: open the book → Listen → Import narration.")
+    print("  Open Lantern on this Mac (npm run dev): it picks this up and saves it to your library for every device.")
     if args.m4b:
         m4b = write_m4b(script, state, gen.job_dir, out.with_suffix(".m4b"))
         print(f"✓ M4B: {m4b}")
@@ -237,7 +246,8 @@ def cmd_audition(args) -> int:
         print(f"✗ {engine.label} does not take a style instruction; use qwen3-1.7b or drop --style.")
         return 2
     engine.style = style
-    wanted = [v.strip() for v in args.voices.split(",")] if args.voices else [v.id for v in engine.voices()]
+    wanted = ([v.strip() for v in args.voices.split(",")] if args.voices
+              else curated_voices(engine.id, [v.id for v in engine.voices()]))
     segments = audition_text(script, args.chars)
     if not segments:
         print("✗ No narrated text found in this book.")
@@ -359,7 +369,7 @@ def _visual_script(args):
 
 def cmd_visuals_plan(args) -> int:
     from .visuals.generate import plan_book, plan_summary
-    planned = plan_book(_visual_script(args), args.style_preset, args.describer, args.sections)
+    planned = plan_book(_visual_script(args), args.style_preset, args.describer or default_describer(), args.sections)
     rows = plan_summary(planned)
     if args.json:
         print(json.dumps({"style": planned["profile"], "scenes": rows}, ensure_ascii=False, indent=1))
@@ -386,7 +396,7 @@ def cmd_visuals_generate(args) -> int:
         return 2
     kw = {} if args.model == "fixture" else {"quantize": args.quantize or None}
     try:
-        res = generate(script, painter=args.model, preset=args.style_preset, describer=args.describer,
+        res = generate(script, painter=args.model, preset=args.style_preset, describer=args.describer or default_describer(),
                        selection=args.sections, out_path=Path(args.output) if args.output else None, painter_kw=kw)
     except (RuntimeError, ValueError) as e:
         print(f"✗ {e}", file=sys.stderr)
@@ -395,7 +405,7 @@ def cmd_visuals_generate(args) -> int:
     print(f"✓ {len(m['images'])} paintings in {_fmt_dur(res['seconds'])} → {res['path']}")
     if m["generator"]["codeDrawn"]:
         print("  (drawn by code with the fixture painter: for testing the pipeline, not for reading)")
-    print("  Import it in Lantern: Listen → Paintings → Import paintings.")
+    print("  Open Lantern on this Mac (npm run dev): it picks this up and saves it to your library for every device.")
     return 0
 
 
@@ -420,7 +430,7 @@ def cmd_visuals_benchmark(args) -> int:
     from .visuals.generate import generate
     script = _visual_script(args)
     t0 = time.time()
-    res = generate(script, painter=args.model, preset=args.style_preset, describer=args.describer, selection=args.sections or "1",
+    res = generate(script, painter=args.model, preset=args.style_preset, describer=args.describer or default_describer(), selection=args.sections or "1",
                    out_path=benchmarks_dir() / f"visuals-{time.strftime('%Y%m%d-%H%M%S')}.lantern-visuals",
                    painter_kw={} if args.model == "fixture" else {"quantize": args.quantize or None})
     n = len(res["manifest"]["images"])
@@ -433,8 +443,9 @@ def cmd_visuals_benchmark(args) -> int:
 
 def _visual_args(s, with_model=True):
     s.add_argument("book", help="EPUB, TXT, or a narration script .json")
-    s.add_argument("--style-preset", default="gouache", choices=list(STYLE_PRESETS))
-    s.add_argument("--describer", default="keywords", help="keywords (no model), qwen3-4b or qwen3-8b")
+    s.add_argument("--style-preset", default=DEFAULT_PAINTING_STYLE, choices=list(STYLE_PRESETS))
+    s.add_argument("--describer", default=None,
+                   help="keywords (no model), qwen3-4b or qwen3-8b (default: qwen3-4b when mlx-lm is installed)")
     s.add_argument("--sections", help="narrated sections to cover, like 1-3,7")
     if with_model:
         s.add_argument("--model", default="flux2-klein-4b", help="flux2-klein-4b, or fixture (drawn by code, for testing)")
@@ -486,7 +497,7 @@ def main(argv=None) -> int:
     s = sub.add_parser("audition", help="read a book's opening in every voice, to choose one for that book")
     s.add_argument("source", help=".epub, .txt or narration script .json")
     s.add_argument("--engine", choices=ENGINE_IDS, help="default: as for generate")
-    s.add_argument("--voices", help="comma-separated voices (default: all for the engine)")
+    s.add_argument("--voices", help="comma-separated voices (default: the curated ones, see curated.py)")
     s.add_argument("--style", default=None, help="qwen3-1.7b only: delivery instruction to try")
     s.add_argument("--speed", type=float, default=None)
     s.add_argument("--chars", type=int, default=400, help="how much of the opening to read (default 400 characters)")

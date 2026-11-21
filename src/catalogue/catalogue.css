@@ -379,3 +379,48 @@ html.dark .reader-page.has-backdrop .c2-page { background: color-mix(in srgb, va
 
 /* Reader read-along: inside the narrated paragraph, the sentence being read */
 .c2-prose .c2-now-sent { background: color-mix(in srgb, var(--red) 10%, transparent); border-radius: 3px; box-decoration-break: clone; -webkit-box-decoration-break: clone; padding: 0 1px; }
+
+/* ── Listen: Narrator and Paintings dropdowns (Session 170) ───────────────── */
+.c3-pickers { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 14px; }
+.c3-picker { flex: 1 1 140px; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.c3-picker--wide { flex-basis: 100%; }
+.c3-picker select { min-height: 48px; padding: 0 36px 0 12px; border: 1.5px solid var(--line); border-radius: var(--r); background: var(--card) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%23888' stroke-width='1.6'/%3E%3C/svg%3E") no-repeat right 14px center; color: var(--ink); font: 600 15px var(--mono); appearance: none; -webkit-appearance: none; text-overflow: ellipsis; }
+.c3-picker select:disabled { opacity: .6; }
+.c3-picker select:focus-visible { outline: 2px solid var(--red); outline-offset: 2px; }
+.c3-picker-note { flex-basis: 100%; margin: 0; font-size: 14px; line-height: 1.5; color: var(--ink-3); }
+
+/* the expand mark on the plate */
+.c3-plate-expand { position: absolute; left: 8px; bottom: 8px; display: grid; place-items: center; width: 28px; height: 28px; border-radius: 3px; background: color-mix(in srgb, var(--card) 82%, transparent); color: var(--ink-2); opacity: .0; transition: opacity .4s ease; }
+.c3-plate-frame:hover .c3-plate-expand, .c3-plate-frame:focus-visible .c3-plate-expand { opacity: 1; }
+@media (hover: none) { .c3-plate-expand { opacity: .85; } }
+
+/* files kept out of the way */
+.c3-files { margin-top: 30px; }
+.c3-files > summary { list-style: none; cursor: pointer; }
+.c3-files > summary::-webkit-details-marker { display: none; }
+.c3-files > summary::before { content: "▸ "; }
+.c3-files[open] > summary::before { content: "▾ "; }
+.c3-files .listen-panel { margin-top: 8px; }
+
+/* ── Full-screen listening: painting + the line being read ───────────────── */
+.c3-theatre { position: fixed; inset: 0; z-index: 80; background: #0d0c0b; color: #f3eee6; animation: c3TheatreIn .6s ease both; }
+.c3-theatre-stage { position: absolute; inset: 0; width: 100%; height: 100%; }
+.c3-theatre-shade { position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(to bottom, rgba(10,9,8,.42) 0, rgba(10,9,8,0) 16%, rgba(10,9,8,0) 52%, rgba(10,9,8,.74) 100%); }
+.c3-theatre-wait { position: absolute; inset: 0; display: grid; place-items: center; padding: 0 14%; margin: 0; text-align: center; font-family: var(--title); font-style: italic; font-size: 19px; color: rgba(243,238,230,.7); }
+.c3-theatre-top { position: absolute; top: 0; left: 0; right: 0; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: max(14px, env(safe-area-inset-top)) 16px 0; }
+.c3-theatre-meta { font: 500 13px var(--mono); letter-spacing: .04em; color: rgba(243,238,230,.78); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.c3-theatre-ic { display: grid; place-items: center; width: 44px; height: 44px; border-radius: 50%; color: #f3eee6 !important; background: rgba(13,12,11,.35) !important; }
+.c3-theatre-foot { position: absolute; left: 0; right: 0; bottom: 0; display: flex; align-items: flex-end; gap: 18px; padding: 0 20px max(22px, env(safe-area-inset-bottom)); }
+.c3-theatre-lines { position: relative; flex: 1; min-height: 6.4em; max-width: 40em; font-family: var(--title); font-size: clamp(19px, 2.4vw, 26px); line-height: 1.45; text-shadow: 0 1px 12px rgba(0,0,0,.45); }
+.c3-theatre-lines p { position: absolute; left: 0; right: 0; bottom: 0; margin: 0; transition: opacity 1.1s ease, transform 1.1s ease, filter 1.1s ease; }
+.c3-theatre-lines p.is-in { animation: c3LineIn 1.1s ease both; }
+.c3-theatre-lines p.is-out { opacity: 0; transform: translateY(-10px); filter: blur(2px); }
+.c3-theatre-play { flex: none; display: grid; place-items: center; width: 64px; height: 64px; border-radius: 50%; background: #f3eee6 !important; color: #141210 !important; box-shadow: 0 6px 24px rgba(0,0,0,.35); }
+.c3-theatre-play:disabled { opacity: .5; }
+@keyframes c3TheatreIn { from { opacity: 0 } to { opacity: 1 } }
+@keyframes c3LineIn { from { opacity: 0; transform: translateY(10px); filter: blur(2px) } to { opacity: 1; transform: none; filter: none } }
+@media (prefers-reduced-motion: reduce) {
+  .c3-theatre, .c3-theatre-lines p.is-in { animation: none; }
+  .c3-theatre-lines p { transition: opacity .3s ease; transform: none !important; filter: none !important; }
+}

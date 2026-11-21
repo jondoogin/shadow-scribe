@@ -7,6 +7,14 @@
 
 ---
 
+## SESSION 170 (2026-11-21): Seamless Listen
+
+John found the narration and paintings workflow painful (hand imports, AirDrop, "different edition" errors). Now the Mac narrator's finished files flow into Lantern and the encrypted library on their own, and every device picks a narrator and a painting set from two dropdowns; the right EPUB comes along automatically. Voices and painting styles were cut to a curated few (Aiden warm, Margaret, Walter, Niamh; ink and gouache, ink and wash). Paintings now bloom in gently, rest when narration pauses, and can go full screen with the line being read. Not merged. Details: `docs/LIBRARY.md`, "Seamless Listen".
+
+## SESSION 169 (2026-11-21): Encrypted cloud library
+
+John no longer wants to re-import books on every device. Lantern now keeps the original EPUB, narration and painting files in its Supabase project, encrypted in the browser with a passphrase only John knows (the server can't read them), plus per-book narration and painting presets. Settings → Your library sets it up; on a new device, a book shows "Get from library". Draft PR, not merged; the database setup (`docs/SUPABASE_LIBRARY.sql`) still needs applying. Details: `docs/LIBRARY.md`.
+
 ## SESSION 168 (2026-11-18): Visual journey built, waiting on the Mac
 
 The visual journey now works end to end in code: the Mac CLI (`lantern-narrate visuals generate book.epub`) plans scenes where the story's place, time, weather or light changes, paints them, and writes a `.lantern-visuals` file; Lantern imports it (Listen → Paintings) and shows each painting as a plate on Listen, and optionally behind the Reader page. A painting only appears after the reader has passed the passage it was made from. Fitted to Catalogue III. PR #2 (on top of PR #4), not merged. Next: run FLUX.2 klein on the M5 Pro, benchmark it, and let John judge real paintings and pick a style preset.

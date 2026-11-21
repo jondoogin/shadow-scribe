@@ -20,6 +20,8 @@
  */
 
 import { supabase, isCloudEnabled } from '../lib/supabase.js'
+import { supabaseLibraryBackend } from '../library/libraryBackend.js'
+import { forgetDeviceKeys } from '../library/deviceKeys.js'
 export { liveItems } from './live.js'
 
 const PUSH_DEBOUNCE_MS = 1500
@@ -257,6 +259,13 @@ export async function deleteCloudData(userId) {
   if (pushTimers.settings) { clearTimeout(pushTimers.settings); pushTimers.settings = null }
   pushQueues.books = null
   pushQueues.settings = null
+  // The encrypted cloud library goes too (files, presets, wrapped key).
+  try {
+    await supabaseLibraryBackend(supabase, userId).removeAll()
+    await forgetDeviceKeys(userId)
+  } catch (e) {
+    if (!/isn’t set up on the server/.test(e?.message || '')) return { ok: false, error: e?.message || String(e) }
+  }
   const [booksRes, settingsRes] = await Promise.all([
     supabase.from('lantern_books').delete().eq('user_id', userId),
     supabase.from('lantern_settings').delete().eq('user_id', userId),

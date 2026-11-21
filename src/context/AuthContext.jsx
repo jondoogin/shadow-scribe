@@ -18,6 +18,7 @@
 
 import { createContext, useContext, useEffect, useState, useCallback } from 'react'
 import { supabase, isCloudEnabled } from '../lib/supabase.js'
+import { attachUser } from '../library/libraryStore.js'
 
 const AuthContext = createContext(null)
 
@@ -54,6 +55,13 @@ export function AuthProvider({ children }) {
       listener?.subscription?.unsubscribe?.()
     }
   }, [])
+
+  // The encrypted cloud library follows the signed-in user.
+  const userId = session?.user?.id || null
+  useEffect(() => {
+    if (status === 'loading') return
+    attachUser(userId ? { id: userId } : null)
+  }, [userId, status])
 
   // ── Magic link ───────────────────────────────────────────────────────────────
   const sendMagicLink = useCallback(async (email) => {

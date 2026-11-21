@@ -16,6 +16,7 @@ import ListenPage from './pages/ListenPage.jsx'
 import ReaderPage from './pages/ReaderPage.jsx'
 import VisualPreviewPage from './pages/VisualPreviewPage.jsx'
 import { PlaybackProvider } from './context/PlaybackContext.jsx'
+import ShelfSync from './library/ShelfSync.jsx'
 import MiniPlayer from './components/listen/MiniPlayer.jsx'
 import { logError } from './utils/logger.js'
 
@@ -312,6 +313,7 @@ function AppShell() {
         </Routes>
       </div>
       <MiniPlayer />
+      <ShelfSync />
     </div>
   )
 }

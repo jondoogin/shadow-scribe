@@ -1,6 +1,8 @@
 import { useRef, useState } from 'react'
 import { parseEpub } from '../../utils/epubParser.js'
 import { saveContent, requestPersistentStorage } from '../../content/contentRepository.js'
+import { rememberEpubFile, backupEpub } from '../../library/restore.js'
+import FromLibrary from '../../library/FromLibrary.jsx'
 
 const norm = s => (s || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
 
@@ -14,10 +16,12 @@ export default function LinkEpub({ book, onLinked, onUpdateBook, compact = false
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState(null)
   const [pending, setPending] = useState(null) // parsed content awaiting confirmation
+  const [inLibrary, setInLibrary] = useState(false) // the cloud library offers this book: that becomes the main action
 
   const commit = async (content) => {
     await saveContent(content)
     await requestPersistentStorage()
+    backupEpub(content)
     onUpdateBook({ contentId: content.contentId })
     setPending(null)
     setMessage(null)
@@ -31,6 +35,7 @@ export default function LinkEpub({ book, onLinked, onUpdateBook, compact = false
     try {
       const data = await parseEpub(file)
       if (!data.content) throw new Error(data.warnings?.find(w => /DRM|text could not/.test(w)) || 'No readable text was found in this EPUB.')
+      rememberEpubFile(data.content.contentId, file)
       const matches = norm(data.title) === norm(book.title)
       if (matches) await commit(data.content)
       else setPending({ content: data.content, title: data.title, author: data.author })
@@ -51,10 +56,11 @@ export default function LinkEpub({ book, onLinked, onUpdateBook, compact = false
           </p>
           <p style={{ fontSize: 13, color: 'var(--color-text-secondary)', lineHeight: 1.6, marginBottom: 14 }}>
             Link the DRM-free EPUB to read and listen here. Your notes, characters and progress stay exactly as they are.
-            The text is kept only in this browser and is never uploaded.
+            The text is kept in this browser, and in your encrypted library if you’ve turned it on in Settings.
           </p>
         </>
       )}
+      {!compact && <FromLibrary book={book} onUpdateBook={onUpdateBook} onRestored={() => onLinked?.(book.contentId)} onAvailable={setInLibrary} style={{ marginBottom: 14 }} />}
       <input ref={input} type="file" accept=".epub,application/epub+zip" hidden onChange={e => handleFile(e.target.files?.[0])} />
       {pending ? (
         <div role="alertdialog" aria-label="Confirm EPUB" style={{ fontSize: 13, color: 'var(--color-text-secondary)', lineHeight: 1.6 }}>
@@ -68,7 +74,7 @@ export default function LinkEpub({ book, onLinked, onUpdateBook, compact = false
           </div>
         </div>
       ) : (
-        <button className={compact ? 'c2-btn' : 'c2-btn c2-btn--primary'} style={{ padding: '0 22px' }} disabled={busy} onClick={() => input.current?.click()}>
+        <button className={compact || inLibrary ? 'c2-btn' : 'c2-btn c2-btn--primary'} style={{ padding: '0 22px' }} disabled={busy} onClick={() => input.current?.click()}>
           {busy ? 'Reading EPUB…' : compact ? 'Link a different EPUB' : 'Link EPUB'}
         </button>
       )}

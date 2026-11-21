@@ -22,5 +22,5 @@ export async function importVisualPackage(file, book, meta, onProgress) {
     const thumb = img.thumb ? await pkg.getBlob(img.thumb) : null
     return { blob, strokes, thumb }
   }, onProgress)
-  return { id: pkg.id, count: pkg.images.length, totalBytes: res.totalBytes, warnings: pkg.warnings }
+  return { id: pkg.id, count: pkg.images.length, totalBytes: res.totalBytes, warnings: pkg.warnings, manifest: pkg.manifest }
 }

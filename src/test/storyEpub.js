@@ -6,6 +6,10 @@
 
 import { zipSync, strToU8 } from 'fflate'
 
+// A fixed zip timestamp, so the same text always builds byte-identical EPUBs
+// (Lantern identifies an edition by the file's hash).
+const FIXED_MTIME = new Date('2026-01-01T00:00:00Z')
+
 export const STORY_TITLE = 'The Lamp at Gull Point'
 export const STORY_AUTHOR = 'Lantern Test Press'
 
@@ -115,5 +119,5 @@ export function buildStoryEpub() {
 <body><nav epub:type="toc"><ol>${chapters.map(c => `<li><a href="${c.id}.xhtml">${esc(c.title)}</a></li>`).join('')}</ol></nav></body></html>`),
   }
   for (const c of chapters) files[c.file] = strToU8(xhtml(c.title, c.body))
-  return zipSync(files, { level: 0 })
+  return zipSync(files, { level: 0, mtime: FIXED_MTIME })
 }

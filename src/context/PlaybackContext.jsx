@@ -6,6 +6,8 @@ import {
   loadListenState, saveListenState, bookRecord, withBookRecord, latestLocator, findSegmentIndex,
 } from '../narration/listenState.js'
 import { AmbientEngine } from '../atmosphere/ambientEngine.js'
+import { subscribeLibrary, getLibrarySnapshot, syncLibraryPresets } from '../library/libraryStore.js'
+import { presetsFromListenState, applyPresets } from '../library/presets.js'
 import { getAudiobook, getAudioBlob, getContentMeta, getSectionBlocks, listAudiobooks } from '../content/contentRepository.js'
 
 // ── One listening session for the whole app ──────────────────────────────────
@@ -43,6 +45,29 @@ export function PlaybackProvider({ children }) {
       return next
     })
   }, [])
+
+  // ── Presets in the encrypted cloud library (docs/LIBRARY.md) ───────────
+  // Per-book narration and painting choices plus the app-wide Listen prefs.
+  // Synced when the library unlocks, when the app goes to the background, and
+  // every few minutes while open. Positions are not synced here.
+  useEffect(() => {
+    const sync = () => syncLibraryPresets(
+      () => presetsFromListenState(stateRef.current),
+      merged => updateListen(st => applyPresets(st, merged)),
+    )
+    let wasUnlocked = false
+    const onLibrary = () => {
+      const unlocked = getLibrarySnapshot().status === 'unlocked'
+      if (unlocked && !wasUnlocked) sync()
+      wasUnlocked = unlocked
+    }
+    onLibrary()
+    const unsub = subscribeLibrary(onLibrary)
+    const onHide = () => { if (document.visibilityState === 'hidden') sync() }
+    document.addEventListener('visibilitychange', onHide)
+    const id = setInterval(sync, 5 * 60_000)
+    return () => { unsub(); document.removeEventListener('visibilitychange', onHide); clearInterval(id) }
+  }, [updateListen])
 
   const getAmbient = useCallback(() => {
     if (!ambientRef.current) {
@@ -130,8 +155,8 @@ export function PlaybackProvider({ children }) {
     const contentId = book.contentId || null
     const record = bookRecord(stateRef.current, book.id)
     const audiobooks = contentId ? await listAudiobooks(contentId) : []
-    let chosen = source || record.listen?.source || null
-    if (chosen?.type === 'audio' && !audiobooks.find(a => a.id === chosen.audiobookId)) chosen = null
+    let chosen = source || record.listen?.source || record.prefs?.source || null
+    if (chosen?.type === 'audio' && !audiobooks.find(a => a.id === chosen.audiobookId) && !(await getAudiobook(chosen.audiobookId))) chosen = null
     if (!chosen) chosen = audiobooks[0] ? { type: 'audio', audiobookId: audiobooks[0].id } : { type: 'speech' }
 
     const same = sessionRef.current && sessionRef.current.book.id === book.id &&
@@ -265,6 +290,10 @@ export function PlaybackProvider({ children }) {
     setSleep: (optionId) => {
       timerRef.current?.set(optionId)
       if (timerRef.current) setSleep(timerRef.current.state())
+    },
+    /** Per-book narration choice ({ source }), synced through the library presets. */
+    setBookPrefs: (bookId, patch) => {
+      updateListen(st => withBookRecord(st, bookId, { prefs: { ...(st.books[bookId]?.prefs || {}), ...patch } }))
     },
     /** Per-book painting preferences (visual journey), kept in lantern_listen. */
     setBookVisuals: (bookId, patch) => {

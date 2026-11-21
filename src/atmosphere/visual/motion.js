@@ -2,8 +2,10 @@
 // Mirrors the atmosphere tokens in docs/DESIGN_SYSTEM.md / VISUAL_JOURNEY.md §7.3.
 
 export const VISUAL_MOTION = {
-  paintInMs: 14_000,          // --visual-paint-in
-  backdropPaintInMs: 20_000,  // Reader backdrop: slower, reads as the page colour changing
+  paintInMs: 7_500,           // --visual-paint-in: the ink bloom (Session 170; was a 14 s stroke-by-stroke paint-in)
+  backdropPaintInMs: 12_000,  // Reader backdrop: slower, reads as the page colour changing
+  toPaperMs: 3_000,           // fading back to bare paper
+  easeMs: 1_200,              // drift eases to rest on pause, and back on play
   reducedFadeMs: 1_000,       // Reduced Motion: plain opacity fade
   minOnScreenMs: 90_000,      // --visual-min-on-screen (no maximum)
   driftFrom: 1.03,            // --visual-drift-scale
