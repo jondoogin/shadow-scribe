@@ -23,7 +23,7 @@ Reverse-chronological log of what was built, fixed, and decided in each working 
 - Folded in PR #7 (deterministic test EPUB) and PR #8 (encrypted library).
 
 **VERIFIED**
-- Vitest 18 files / 160+ tests, narrator pytest 87, build. Playwright on the dev server with the in-memory library: shelf took in an EPUB, two narrations and two painting sets and uploaded all five; a wiped "second device" opened Listen and got the book, a narrator and paintings with no clicks; switching both dropdowns downloaded the others; the plate bloomed and full screen showed the narrated sentence.
+- Vitest 18 files / 156 tests, narrator pytest 87, build. Playwright on the dev server with the in-memory library: shelf took in an EPUB, two narrations and two painting sets and uploaded all five; a wiped "second device" opened Listen and got the book, a narrator and paintings with no clicks; switching both dropdowns downloaded the others; the plate bloomed and full screen showed the narrated sentence.
 
 **NOT VERIFIED**
 - Real Supabase upload and download (needs John's sign-in and passphrase), iPhone Safari, real FLUX paintings under the new bloom.
