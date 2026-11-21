@@ -73,6 +73,16 @@ novel at 64 kbps; EPUBs are a few MB; a painting set is tens of MB.
 - In development, `window.__lanternLibrary.useBackend()` swaps in the in-memory
   backend so a browser test can run the whole flow without Supabase.
 
+## Trying it on a Vercel preview
+
+Only the `shadow-scribe-gi6k` project has the Supabase variables. Production has
+them; for this branch's preview they were added as branch-scoped Preview
+variables (`VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, the public anon key).
+The `shadow-scribe` project has none, so its previews show "Cloud sync isn't
+configured". Email-link and Google sign-in return to the preview only if its
+domain is in Supabase → Authentication → URL Configuration; password sign-in
+works without that.
+
 ## Not built yet
 
 - `lantern-narrate` uploading straight from the Mac (it would need a sign-in and
