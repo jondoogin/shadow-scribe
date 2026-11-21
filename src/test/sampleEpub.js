@@ -3,6 +3,10 @@
 
 import { zipSync, strToU8 } from 'fflate'
 
+// A fixed zip timestamp, so the same text always builds byte-identical EPUBs
+// (Lantern identifies an edition by the file's hash).
+const FIXED_MTIME = new Date('2026-01-01T00:00:00Z')
+
 const xhtml = (title, body, bodyType = 'bodymatter chapter') => `<?xml version="1.0" encoding="utf-8"?>
 <!DOCTYPE html>
 <html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops" lang="en">
@@ -88,5 +92,5 @@ export function buildSampleEpub({ encryptText = false, obfuscatedFont = false, e
   <enc:EncryptedData><enc:CipherData><enc:CipherReference URI="${uri}"/></enc:CipherData></enc:EncryptedData>
 </encryption>`)
   }
-  return zipSync(files, { level: 0 })
+  return zipSync(files, { level: 0, mtime: FIXED_MTIME })
 }
