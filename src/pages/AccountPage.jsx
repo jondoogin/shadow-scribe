@@ -414,7 +414,7 @@ export default function AccountPage() {
               className="italic leading-relaxed mb-4"
               style={{ fontSize: 12, color: 'var(--color-ink-600)' }}
             >
-              This wipes every book and setting stored in the cloud for{' '}
+              This wipes every book, setting and library file (EPUBs, narration, paintings) stored in the cloud for{' '}
               <span style={{ fontStyle: 'normal', fontWeight: 500 }}>{user?.email}</span>{' '}
               and signs you out. Your local library on this device is untouched.
             </p>

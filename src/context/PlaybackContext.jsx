@@ -6,6 +6,8 @@ import {
   loadListenState, saveListenState, bookRecord, withBookRecord, latestLocator, findSegmentIndex,
 } from '../narration/listenState.js'
 import { AmbientEngine } from '../atmosphere/ambientEngine.js'
+import { subscribeLibrary, getLibrarySnapshot, syncLibraryPresets } from '../library/libraryStore.js'
+import { presetsFromListenState, applyPresets } from '../library/presets.js'
 import { getAudiobook, getAudioBlob, getContentMeta, getSectionBlocks, listAudiobooks } from '../content/contentRepository.js'
 
 // ── One listening session for the whole app ──────────────────────────────────
@@ -43,6 +45,29 @@ export function PlaybackProvider({ children }) {
       return next
     })
   }, [])
+
+  // ── Presets in the encrypted cloud library (docs/LIBRARY.md) ───────────
+  // Per-book narration and painting choices plus the app-wide Listen prefs.
+  // Synced when the library unlocks, when the app goes to the background, and
+  // every few minutes while open. Positions are not synced here.
+  useEffect(() => {
+    const sync = () => syncLibraryPresets(
+      () => presetsFromListenState(stateRef.current),
+      merged => updateListen(st => applyPresets(st, merged)),
+    )
+    let wasUnlocked = false
+    const onLibrary = () => {
+      const unlocked = getLibrarySnapshot().status === 'unlocked'
+      if (unlocked && !wasUnlocked) sync()
+      wasUnlocked = unlocked
+    }
+    onLibrary()
+    const unsub = subscribeLibrary(onLibrary)
+    const onHide = () => { if (document.visibilityState === 'hidden') sync() }
+    document.addEventListener('visibilitychange', onHide)
+    const id = setInterval(sync, 5 * 60_000)
+    return () => { unsub(); document.removeEventListener('visibilitychange', onHide); clearInterval(id) }
+  }, [updateListen])
 
   const getAmbient = useCallback(() => {
     if (!ambientRef.current) {

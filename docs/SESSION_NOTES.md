@@ -3,6 +3,25 @@ Reverse-chronological log of what was built, fixed, and decided in each working 
 
 ---
 
+## Session 169 — 2026-11-21
+**Theme:** Encrypted cloud library for EPUBs, narration, paintings and presets (draft PR, not merged)
+
+**DECISION**
+- John chose to keep his library in Lantern's Supabase project (Pro plan, 100 GB included), encrypted on the device before upload, over a Mac-hosted folder or Dropbox. This relaxes the old "never sync book text or audio to Supabase" rule to "only as ciphertext through the library".
+
+**CHANGES**
+- `src/library/`: Web Crypto encryption (PBKDF2 passphrase, wrapped secret, HKDF keys, 8 MiB AES-GCM chunks bound to item/index/count), Supabase backend adapter, runtime store, Settings → Your library, "Get from library" on Listen/Reader, preset three-way merge.
+- Imports of EPUBs, `.lantern-audio` and `.lantern-visuals` save the original file to the library in the background; restores go through the normal importers.
+- `docs/SUPABASE_LIBRARY.sql` (tables + private bucket + owner-only RLS). Delete cloud data now also removes the library.
+
+**VERIFIED**
+- Vitest (library crypto, tamper detection, dedupe, interrupted upload, preset merge), build, lint unchanged per file. Playwright on the dev app with the in-memory backend: created a library, imported the Pride and Prejudice sample EPUB and narration (both uploaded), deleted them from IndexedDB, then restored both with "Get from library".
+
+**NOT VERIFIED**
+- Against the real Supabase project: the SQL hasn't been applied yet (needs John's OK). iPhone Safari with large (300 MB) narration downloads.
+
+---
+
 ## Session 168 — 2026-11-18
 **Theme:** Visual journey built end to end and fitted to Catalogue III (PR #2, rebased onto PR #4's branch `claude/project-thread-q1khuh`; not merged)
 

@@ -10,6 +10,7 @@ import { aiExtractNarrative } from '../../utils/aiExtractor.js'
 import { useBooks } from '../../context/BooksContext.jsx'
 import { fetchCoverUrl } from '../../utils/coverLookup.js'
 import { saveContent, requestPersistentStorage } from '../../content/contentRepository.js'
+import { backupEpub } from '../../library/restore.js'
 
 // Keep the EPUB's text (IndexedDB only) so the companion can Read and Listen.
 // Failure here never blocks creating the companion; it can be linked later.
@@ -19,6 +20,7 @@ async function retainContent(book, content) {
     await saveContent(content)
     book.contentId = content.contentId
     requestPersistentStorage()
+    backupEpub(content)
   } catch (err) {
     console.warn('[lantern] could not retain EPUB text:', err)
   }

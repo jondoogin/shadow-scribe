@@ -225,7 +225,7 @@ export default function SignInPanel({ onDeleteCloudData }) {
             style={{ borderTop: '1px solid color-mix(in srgb, var(--color-ember, #9B2335) 25%, transparent)' }}
           >
             <p className="italic mb-3 leading-relaxed" style={{ fontSize: 12, color: 'var(--color-ink-600)' }}>
-              This wipes every book and setting stored in the cloud for{' '}
+              This wipes every book, setting and library file (EPUBs, narration, paintings) stored in the cloud for{' '}
               <span style={{ fontStyle: 'normal', fontWeight: 500 }}>{user?.email}</span>
               {' '}and signs you out. Your local library on this device is untouched — you can re-upload it by signing back in.
             </p>

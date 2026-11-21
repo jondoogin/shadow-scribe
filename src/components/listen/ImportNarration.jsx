@@ -2,6 +2,7 @@ import { useRef, useState } from 'react'
 import { openAudiobookPackage } from '../../narration/audiobookPackage.js'
 import { saveAudiobook, requestPersistentStorage } from '../../content/contentRepository.js'
 import { formatBytes, formatDuration } from '../../narration/sectionLabels.js'
+import { backupNarration } from '../../library/restore.js'
 
 /**
  * Import a `.lantern-audio` package produced by the Mac narrator. Works the
@@ -20,12 +21,13 @@ export default function ImportNarration({ book, onUpdateBook, onImported }) {
   const [pending, setPending] = useState(null)  // { pkg, reason }
   const [message, setMessage] = useState(null)
 
-  const run = async (pkg) => {
+  const run = async (pkg, file) => {
     setPending(null)
     setBusy({ done: 0, total: pkg.manifest.sections.length, bytes: 0 })
     try {
       await saveAudiobook(pkg.id, pkg.manifest, pkg.getBlob, p => setBusy(p), pkg.getWordTimings)
       await requestPersistentStorage()
+      backupNarration(file, pkg.manifest, pkg.id)
       if (book.contentId !== pkg.manifest.book.contentId) onUpdateBook({ contentId: pkg.manifest.book.contentId })
       setMessage(null)
       onImported?.(pkg.id)
@@ -43,11 +45,11 @@ export default function ImportNarration({ book, onUpdateBook, onImported }) {
       const pkg = await openAudiobookPackage(file)
       const m = pkg.manifest
       if (!book.contentId) {
-        setPending({ pkg, reason: `This narration is for “${m.book.title}”. Attach it to this companion?` })
+        setPending({ pkg, file, reason: `This narration is for “${m.book.title}”. Attach it to this companion?` })
       } else if (book.contentId !== m.book.contentId) {
-        setPending({ pkg, reason: `This narration was generated from a different EPUB file (“${m.book.title}”). Positions may not line up with the text you linked. Use it anyway?` })
+        setPending({ pkg, file, reason: `This narration was generated from a different EPUB file (“${m.book.title}”). Positions may not line up with the text you linked. Use it anyway?` })
       } else {
-        await run(pkg)
+        await run(pkg, file)
       }
     } catch (err) {
       setMessage(err?.message || 'That file is not a Lantern narration package.')
@@ -70,7 +72,7 @@ export default function ImportNarration({ book, onUpdateBook, onImported }) {
             {pending.pkg.manifest.narration?.engineLabel} · {String(pending.pkg.manifest.narration?.voice || '').replace(/_/g, ' ')}{pending.pkg.manifest.narration?.style ? ` (“${pending.pkg.manifest.narration.style}”)` : ''} · {formatDuration(pending.pkg.manifest.totalDurationSec)}
           </p>
           <div className="flex gap-3">
-            <button className="listen-btn" onClick={() => run(pending.pkg)}>Import</button>
+            <button className="listen-btn" onClick={() => run(pending.pkg, pending.file)}>Import</button>
             <button className="listen-link" onClick={() => setPending(null)}>Cancel</button>
           </div>
         </div>

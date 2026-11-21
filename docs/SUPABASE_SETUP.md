@@ -14,7 +14,7 @@ This document is the **complete setup checklist** for enabling cross-device libr
 
 ## 2. Run the schema
 
-In the Supabase dashboard, open **SQL Editor → New query** and paste the contents of `docs/SUPABASE_SCHEMA.sql` (in this repo). Run it.
+In the Supabase dashboard, open **SQL Editor → New query** and paste the contents of `docs/SUPABASE_SCHEMA.sql` (in this repo). Run it. For the encrypted cloud library (EPUBs, narration, paintings; `docs/LIBRARY.md`), run `docs/SUPABASE_LIBRARY.sql` the same way.
 
 This creates two tables (`lantern_books`, `lantern_settings`) and Row Level Security policies that ensure each user can only read and write their own data.
 

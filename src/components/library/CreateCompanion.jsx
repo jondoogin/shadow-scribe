@@ -9,6 +9,7 @@ import { parseEpub } from '../../utils/epubParser.js'
 import EpubImportReview from './EpubImportReview.jsx'
 import { track } from '../../utils/analytics.js'
 import { fetchCoverUrl } from '../../utils/coverLookup.js'
+import { rememberEpubFile } from '../../library/restore.js'
 
 const MOOD_COLORS = {
   sage:   '#3A6647',
@@ -47,6 +48,7 @@ export default function CreateCompanion({ onCreate, onCancel }) {
     setDuplicateWarning(null)
     try {
       const data = await parseEpub(file)
+      rememberEpubFile(data.content?.contentId, file)
       // Warn if a companion with this title+author already exists
       const norm = s => (s || '').toLowerCase().trim()
       const existing = books.find(b =>
