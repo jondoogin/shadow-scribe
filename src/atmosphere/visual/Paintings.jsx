@@ -6,6 +6,7 @@ import { useVisualJourney, usePrefersReducedMotion } from './useVisualJourney.js
 import { usePaintingSources, useThumbs } from './useBookVisuals.js'
 import { eligibleImages, isEligible } from './eligibility.js'
 import { importVisualPackage } from './visualImport.js'
+import { backupPaintings } from '../../library/restore.js'
 import { deleteVisualSet, requestPersistentStorage } from '../../content/contentRepository.js'
 import { formatBytes } from '../../narration/sectionLabels.js'
 
@@ -92,6 +93,7 @@ export function PaintingsPanel({ book, meta, visuals, prefs, onPrefs, position, 
     try {
       const r = await importVisualPackage(file, book, meta, p => setBusy(p))
       await requestPersistentStorage()
+      backupPaintings(file, r, book)
       setNote({ ok: true, text: `${r.count} paintings imported · ${formatBytes(r.totalBytes)}.${r.warnings.length ? ' ' + r.warnings.join(' ') : ''}` })
       if (prefs.mode === 'off') onPrefs({ mode: 'listen' })
       reload()

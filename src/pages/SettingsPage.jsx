@@ -10,6 +10,7 @@ import { deleteCloudData } from '../utils/syncEngine.js'
 import SignInPanel from '../components/auth/SignInPanel.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
 import { track } from '../utils/analytics.js'
+import LibrarySettings from '../library/LibrarySettings.jsx'
 
 // Sections carry a heading only; the rows explain themselves.
 function SettingsSection({ title, children }) {
@@ -333,6 +334,9 @@ export default function SettingsPage() {
           </div>
         </div>
       </SettingsSection>
+
+      {/* ── Encrypted cloud library ── */}
+      <LibrarySettings Section={SettingsSection} Row={SettingsRow} Toggle={Toggle} books={books} />
 
       {/* ── Data ── */}
       <SettingsSection title="Data & Privacy" description="Your reading data lives only on this device.">

@@ -6,6 +6,7 @@ import { useBookContent } from '../hooks/useBookContent.js'
 import { Ico } from '../components/shared/icons.jsx'
 import LinkEpub from '../components/listen/LinkEpub.jsx'
 import ImportNarration from '../components/listen/ImportNarration.jsx'
+import FromLibrary from '../library/FromLibrary.jsx'
 import { callNumber, Holes, LitLabel, Mark, Tabs } from '../catalogue/parts.jsx'
 import TranscriptView from '../components/transcript/TranscriptView.jsx'
 import ChapterUpdateModal from '../components/modals/ChapterUpdateModal.jsx'
@@ -362,6 +363,7 @@ export default function ListenPage() {
               </li>
             )}
           </ul>
+          {meta && <FromLibrary book={book} onUpdateBook={onUpdateBook} onRestored={() => { reload(); visuals.reload?.() }} style={{ marginTop: 12 }} />}
           <div className="flex flex-wrap gap-x-6 gap-y-2" style={{ marginTop: 12 }}>
             <ImportNarration book={book} onUpdateBook={onUpdateBook} onImported={async (id) => {
               reload()
