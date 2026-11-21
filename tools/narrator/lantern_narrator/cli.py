@@ -215,7 +215,7 @@ def cmd_generate(args) -> int:
     if worded and getattr(args, "words", "auto") != "off":
         ok, tot = sum(w["aligned"] for w in worded), sum(w["total"] for w in worded)
         print(f"  Word timings: {ok}/{tot} sentences ({ok / max(tot, 1):.0%}); the rest follow by sentence.")
-    print("  Import it in Lantern: open the book → Listen → Import narration.")
+    print("  Open Lantern on this Mac (npm run dev): it picks this up and saves it to your library for every device.")
     if args.m4b:
         m4b = write_m4b(script, state, gen.job_dir, out.with_suffix(".m4b"))
         print(f"✓ M4B: {m4b}")
@@ -405,7 +405,7 @@ def cmd_visuals_generate(args) -> int:
     print(f"✓ {len(m['images'])} paintings in {_fmt_dur(res['seconds'])} → {res['path']}")
     if m["generator"]["codeDrawn"]:
         print("  (drawn by code with the fixture painter: for testing the pipeline, not for reading)")
-    print("  Import it in Lantern: Listen → Paintings → Import paintings.")
+    print("  Open Lantern on this Mac (npm run dev): it picks this up and saves it to your library for every device.")
     return 0
 
 

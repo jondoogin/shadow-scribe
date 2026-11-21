@@ -3,6 +3,33 @@ Reverse-chronological log of what was built, fixed, and decided in each working 
 
 ---
 
+## Session 170 — 2026-11-21
+**Theme:** Seamless Listen: assets in the library, dropdowns, no import or edition hurdles, calmer paintings
+
+**DECISIONS (made for John, who asked for executive calls)**
+- Curated narrators: Aiden (warm style), Margaret, Walter, Niamh. Plain Aiden retired (moved to `output/archive/` on the Mac, not deleted).
+- Curated paintings: ink and gouache (default), ink and wash, both with the Qwen3 4B describer. The six older sets moved to `output/archive/`.
+- Paintings bloom in over 7.5 s instead of painting stroke by stroke over 14 s; drift eases to a stop on pause.
+- Production is the `shadow-scribe-gi6k` Vercel project (it has the Supabase settings). Its Preview variables now apply to every branch.
+
+**CHANGES**
+- Narrator and Paintings dropdowns on Listen (`AssetPickers.jsx`, `src/library/bookAssets.js`, `useBookAssets.js`).
+- Picking an asset from another copy of the book fetches that EPUB and re-links the companion, replacing the "different edition" error.
+- First open on a new device fetches the EPUB, narrator and paintings automatically.
+- Mac dev server narrator shelf (`scripts/narrator-shelf.mjs`, `src/library/shelf.js`, `ShelfSync.jsx`): the narrator's finished files flow into the app and the encrypted library.
+- Full-screen listening (`Theatre.jsx`): painting plus the sentence being read.
+- File imports folded into one "Add a file" under "On this device".
+- CLI: `curated.py`; auditions offer the curated voices; Aiden defaults to the warm style; visuals default to ink-and-gouache with qwen3-4b when available.
+- Folded in PR #7 (deterministic test EPUB) and PR #8 (encrypted library).
+
+**VERIFIED**
+- Vitest 18 files / 160+ tests, narrator pytest 87, build. Playwright on the dev server with the in-memory library: shelf took in an EPUB, two narrations and two painting sets and uploaded all five; a wiped "second device" opened Listen and got the book, a narrator and paintings with no clicks; switching both dropdowns downloaded the others; the plate bloomed and full screen showed the narrated sentence.
+
+**NOT VERIFIED**
+- Real Supabase upload and download (needs John's sign-in and passphrase), iPhone Safari, real FLUX paintings under the new bloom.
+
+---
+
 ## Session 169 — 2026-11-21
 **Theme:** Encrypted cloud library for EPUBs, narration, paintings and presets (draft PR, not merged)
 

@@ -83,6 +83,35 @@ configured". Email-link and Google sign-in return to the preview only if its
 domain is in Supabase → Authentication → URL Configuration; password sign-in
 works without that.
 
+## Seamless Listen (Session 170)
+
+John (2026-11-21): "make this process extremely easy". What changed:
+
+- **Narrator shelf (Mac, dev server only).** `scripts/narrator-shelf.mjs` is a
+  Vite dev plugin serving `GET /__lantern/shelf` (listing) and
+  `/__lantern/shelf/<name>` for `*.epub` at the top of the narrator home and
+  `*.lantern-audio` / `*.lantern-visuals` at the top of `<home>/output/`.
+  Sub-folders are never served: **retire a set by moving it to
+  `output/archive/`.** `src/library/shelf.js` (run by `ShelfSync` on start,
+  on unlock and every minute) imports each file on the device (EPUBs first)
+  and uploads it encrypted. Home: `$LANTERN_NARRATOR_HOME`, else
+  `../narrator-data` beside the repo, else `~/.lantern-narrator`.
+- **Dropdowns.** Listen has two selects, Narrator and Paintings
+  (`src/components/listen/AssetPickers.jsx`), fed by `src/library/bookAssets.js`,
+  which merges device and library items for the same work (same `contentId`,
+  or same title for another copy). Picking one that isn't here downloads it.
+- **No edition errors.** `bringToDevice` fetches the EPUB an asset was made
+  from (if the library has it) and re-links the companion to it
+  (`book.contentId`), the same thing a narration import always did. Spoiler
+  checks are unchanged: paintings still import against that EPUB's sections.
+- **Automatic first open.** On a device with nothing, Listen fetches the
+  EPUB, the preferred narrator (if under 80 MB) and the preferred painting
+  set by itself. Choices sync as presets: `books[id].prefs.source` and
+  `books[id].visuals.setId`.
+- File imports moved into "On this device" (`AddFiles.jsx`, one picker for
+  EPUB, narration or paintings). `ImportNarration.jsx` / `FromLibrary.jsx`
+  remain for the Reader empty state and older paths.
+
 ## Not built yet
 
 - `lantern-narrate` uploading straight from the Mac (it would need a sign-in and

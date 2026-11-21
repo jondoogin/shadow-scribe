@@ -140,6 +140,8 @@ export class PaintRenderer {
     this.raf = 0
     this.disposed = false
     this._init()
+    this.needsDraw = true       // bare paper until the first painting arrives
+    this._wake()
   }
 
   _init() {

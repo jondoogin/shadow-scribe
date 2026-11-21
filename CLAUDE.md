@@ -83,6 +83,9 @@ There is no CI in `.github/`. Vercel builds with `npm run build`.
 - Server: `docs/SUPABASE_LIBRARY.sql` (tables `lantern_library_keys|items|presets`, private bucket `lantern-library`, owner-only RLS on `<user_id>/…`). Additive only.
 - Code in `src/library/`. Imports call `backupEpub` / `backupNarration` / `backupPaintings`, which never block or fail the import. Restores run the normal importers. Remembered keys live in IndexedDB `lantern_library_device`; device prefs in localStorage `lantern_library`.
 - Presets = `lantern_listen` per-book `prefs` + `visuals` and the global Listen prefs; reading positions are not synced by the library.
+- **Seamless Listen (Session 170, John's ask: no manual import, AirDrop or edition errors).** Listen offers Narrator and Paintings dropdowns built from device + library (`src/library/bookAssets.js`); picking downloads and re-links the book to the asset's EPUB. A device with nothing fetches the book, the preferred narrator (<80 MB) and painting set on its own. On the Mac, the dev server's narrator shelf (`scripts/narrator-shelf.mjs`, never in production) feeds finished files into the app and the library; retire a file by moving it to `<narrator home>/output/archive/`.
+- **Curated set (Session 170, decided for John):** narrators Aiden (Qwen3 1.7B, style "warm, unhurried audiobook narration"), Margaret, Walter, Niamh (designed); Kokoro af_heart / bm_george on small Macs. Paintings: ink-and-gouache (default) and ink-and-wash, Qwen3 4B describer when mlx-lm is installed. Lives in `tools/narrator/lantern_narrator/curated.py` and the JS `NARRATOR_ORDER` / `PAINTING_ORDER`.
+- **Paintings motion (Session 170):** the 14 s stroke-by-stroke paint-in became a 7.5 s ink bloom from the focus point; drift eases to rest on pause. Tap the plate for full screen (`Theatre.jsx`): painting plus the line being read.
 
 ## Design lab (Session 166, demo only)
 
