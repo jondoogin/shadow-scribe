@@ -8,7 +8,7 @@ const REVOKE_DELAY_MS = 30_000
  * The paintings installed for a book (the newest set if there are several),
  * and the book's section order for the spoiler gate.
  */
-export function useBookVisuals(book, meta) {
+export function useBookVisuals(book, meta, setId = null) {
   const contentId = book?.contentId || null
   const [state, setState] = useState({ loading: true, set: null, sets: [] })
   const [version, setVersion] = useState(0)
@@ -19,13 +19,13 @@ export function useBookVisuals(book, meta) {
       try {
         const sets = contentId ? await listVisualSets(contentId) : []
         sets.sort((a, b) => (b.importedAt || '').localeCompare(a.importedAt || ''))
-        if (!cancelled) setState({ loading: false, set: sets[0] || null, sets })
+        if (!cancelled) setState({ loading: false, set: sets.find(s => s.id === setId) || sets[0] || null, sets })
       } catch {
         if (!cancelled) setState({ loading: false, set: null, sets: [] })
       }
     })()
     return () => { cancelled = true }
-  }, [contentId, version])
+  }, [contentId, version, setId])
 
   const sectionOrder = useMemo(() => {
     const secs = [...(meta?.sections || [])].sort((a, b) => (a.order ?? 0) - (b.order ?? 0))

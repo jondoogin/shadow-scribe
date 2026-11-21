@@ -22,31 +22,36 @@ export function backupEpub(content) {
   const file = epubFiles.get(content?.contentId)
   if (!file) return
   epubFiles.delete(content.contentId)
+  return backupEpubFile(content, file)
+}
+
+export function backupEpubFile(content, file, opts) {
   return backupToLibrary({
     kind: 'epub', naturalId: content.contentId, contentId: content.contentId, file,
     meta: { naturalId: content.contentId, title: content.title, author: content.author, filename: file.name || 'book.epub' },
-  })
+  }, opts)
 }
 
 /** After a .lantern-audio package is imported. */
-export function backupNarration(file, manifest, id) {
+export function backupNarration(file, manifest, id, opts) {
   const n = manifest.narration || {}
   return backupToLibrary({
     kind: 'audio', naturalId: id, contentId: manifest.book.contentId, file,
     meta: {
       naturalId: id, title: manifest.book.title, author: manifest.book.author, filename: file.name || 'narration.lantern-audio',
       label: [n.engineLabel || n.engine, String(n.voice || '').replace(/_/g, ' '), n.style ? `“${n.style}”` : ''].filter(Boolean).join(' · '),
+      voice: n.voice || null, style: n.style || '', engine: n.engineLabel || n.engine || '', durationSec: manifest.totalDurationSec || null,
     },
-  })
+  }, opts)
 }
 
 /** After a .lantern-visuals package is imported. */
-export function backupPaintings(file, result, book) {
+export function backupPaintings(file, result, book, opts) {
   const st = result.manifest?.style || {}
   return backupToLibrary({
     kind: 'visuals', naturalId: result.id, contentId: book.contentId, file,
-    meta: { naturalId: result.id, title: book.title, author: book.author, filename: file.name || 'paintings.lantern-visuals', label: `${result.count} paintings${st.preset ? ` · ${st.preset}` : ''}` },
-  })
+    meta: { naturalId: result.id, title: book.title, author: book.author, filename: file.name || 'paintings.lantern-visuals', label: `${result.count} paintings${st.preset ? ` · ${st.preset}` : ''}`, preset: st.preset || null, count: result.count },
+  }, opts)
 }
 
 /**

@@ -155,8 +155,8 @@ export function PlaybackProvider({ children }) {
     const contentId = book.contentId || null
     const record = bookRecord(stateRef.current, book.id)
     const audiobooks = contentId ? await listAudiobooks(contentId) : []
-    let chosen = source || record.listen?.source || null
-    if (chosen?.type === 'audio' && !audiobooks.find(a => a.id === chosen.audiobookId)) chosen = null
+    let chosen = source || record.listen?.source || record.prefs?.source || null
+    if (chosen?.type === 'audio' && !audiobooks.find(a => a.id === chosen.audiobookId) && !(await getAudiobook(chosen.audiobookId))) chosen = null
     if (!chosen) chosen = audiobooks[0] ? { type: 'audio', audiobookId: audiobooks[0].id } : { type: 'speech' }
 
     const same = sessionRef.current && sessionRef.current.book.id === book.id &&
@@ -290,6 +290,10 @@ export function PlaybackProvider({ children }) {
     setSleep: (optionId) => {
       timerRef.current?.set(optionId)
       if (timerRef.current) setSleep(timerRef.current.state())
+    },
+    /** Per-book narration choice ({ source }), synced through the library presets. */
+    setBookPrefs: (bookId, patch) => {
+      updateListen(st => withBookRecord(st, bookId, { prefs: { ...(st.books[bookId]?.prefs || {}), ...patch } }))
     },
     /** Per-book painting preferences (visual journey), kept in lantern_listen. */
     setBookVisuals: (bookId, patch) => {

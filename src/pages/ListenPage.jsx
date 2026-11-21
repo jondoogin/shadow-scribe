@@ -1,12 +1,15 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, Navigate, useParams } from 'react-router-dom'
 import { useBooks } from '../context/BooksContext.jsx'
 import { usePlayback } from '../context/PlaybackContext.jsx'
 import { useBookContent } from '../hooks/useBookContent.js'
 import { Ico } from '../components/shared/icons.jsx'
 import LinkEpub from '../components/listen/LinkEpub.jsx'
-import ImportNarration from '../components/listen/ImportNarration.jsx'
-import FromLibrary from '../library/FromLibrary.jsx'
+import AddFiles from '../components/listen/AddFiles.jsx'
+import AssetPickers from '../components/listen/AssetPickers.jsx'
+import Theatre from '../components/listen/Theatre.jsx'
+import { useBookAssets } from '../library/useBookAssets.js'
+import { AUTO_FETCH_BYTES, preferredOption, pickDeviceVoices } from '../library/bookAssets.js'
 import { callNumber, Holes, LitLabel, Mark, Tabs } from '../catalogue/parts.jsx'
 import TranscriptView from '../components/transcript/TranscriptView.jsx'
 import ChapterUpdateModal from '../components/modals/ChapterUpdateModal.jsx'
@@ -14,7 +17,7 @@ import { AMBIENT_CATALOG } from '../atmosphere/ambientEngine.js'
 import { SLEEP_OPTIONS } from '../narration/sleepTimer.js'
 import { listSpeechVoices } from '../narration/players.js'
 import { buildNarrationScript, scriptStats } from '../narration/narrationScript.js'
-import { getFullContent, deleteAudiobook, getSectionBlocks, storageEstimate } from '../content/contentRepository.js'
+import { getFullContent, deleteAudiobook, deleteVisualSet, getContentMeta, getSectionBlocks, storageEstimate } from '../content/contentRepository.js'
 import { segmentBlocks } from '../narration/segmenter.js'
 import { sectionLabel, sectionNumber, chapterReached, formatClock, formatDuration, formatBytes } from '../narration/sectionLabels.js'
 import { bookRecord, latestLocator, visualPrefs } from '../narration/listenState.js'
@@ -44,19 +47,23 @@ export default function ListenPage() {
   const [showUpdate, setShowUpdate] = useState(false)
   const [exportNote, setExportNote] = useState(null)
   const [storage, setStorage] = useState(null)
-  const visuals = useBookVisuals(book, meta)
+  const record = bookRecord(pb.listenState, bookId)
+  const vPrefs = visualPrefs(record)
+  const visuals = useBookVisuals(book, meta, vPrefs.setId)
   const [pinned, setPinned] = useState(null)
+  const [theatre, setTheatre] = useState(false)
 
-  const onUpdateBook = changes => updateBook(bookId, changes)
+  const onUpdateBook = useCallback(changes => updateBook(bookId, changes), [updateBook, bookId])
+  const reloadVisuals = visuals.reload
+  const onAssetsChanged = useCallback(() => { reload(); reloadVisuals() }, [reload, reloadVisuals])
+  const assets = useBookAssets(book, { onUpdateBook, onChanged: onAssetsChanged })
 
   useEffect(() => {
     if (book?.title) document.title = `Listen · ${book.title} — Lantern`
   }, [book?.title])
 
   useEffect(() => {
-    listSpeechVoices().then(vs => setVoices(
-      vs.filter(v => /^en\b|^en-/i.test(v.lang)).sort((a, b) => Number(b.localService) - Number(a.localService))
-    ))
+    listSpeechVoices().then(vs => setVoices(pickDeviceVoices(vs)))
   }, [])
 
   // Narration audio is large; show how much this device holds (refreshes when narrations change).
@@ -79,8 +86,6 @@ export default function ListenPage() {
   const view = pb.prefs.listenView === 'text' ? 'text' : 'now'
 
   // Paintings follow the spoken position; before playback starts, the saved one.
-  const record = bookRecord(pb.listenState, bookId)
-  const vPrefs = visualPrefs(record)
   const saved = latestLocator(record)
   const position = useMemo(() => (ps?.sectionId
     ? { sectionId: ps.sectionId, blockId: ps.blockId, segmentId: ps.segmentId }
@@ -110,6 +115,41 @@ export default function ListenPage() {
     return () => { cancelled = true }
   }, [ps?.sectionIndex, ps?.segmentIndex, isAudio]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // ── Seamless start: bring the book, its narrator and its paintings down ──
+  // from the library without being asked. Each step runs once per book; a
+  // large narration (over AUTO_FETCH_BYTES) waits for the reader to pick it.
+  const autoDone = useRef({})
+  useEffect(() => {
+    if (!book || loading || !assets.ready || assets.status || assets.error) return
+    const done = autoDone.current[bookId] || (autoDone.current[bookId] = {})
+    const src = record.prefs?.source || record.listen?.source || null
+    ;(async () => {
+      if (!meta && assets.epubs.size && !done.text) {
+        done.text = true
+        await assets.bringText()
+        return
+      }
+      if (!assets.narrators.some(o => o.onDevice) && !done.audio && src?.type !== 'speech') {
+        done.audio = true
+        const want = preferredOption(assets.narrators, src?.audiobookId)
+        if (want && want.bytes <= AUTO_FETCH_BYTES) {
+          const r = await assets.bring(want)
+          if (r) {
+            pb.setBookPrefs(bookId, { source: { type: 'audio', audiobookId: r.id } })
+            await pb.openSession({ ...book, contentId: r.contentId }, { source: { type: 'audio', audiobookId: r.id } }).catch(() => {})
+          }
+        }
+        return
+      }
+      if (vPrefs.mode !== 'off' && !visuals.loading && !visuals.set && !done.paintings && assets.paintings.length) {
+        done.paintings = true
+        const want = preferredOption(assets.paintings, vPrefs.setId)
+        const r = want && await assets.bring(want)
+        if (r) pb.setBookVisuals(bookId, { setId: r.id })
+      }
+    })()
+  }, [bookId, loading, meta, assets.ready, assets.status, assets.error, assets.narrators, assets.paintings, assets.epubs, visuals.loading, visuals.set, vPrefs.mode]) // eslint-disable-line react-hooks/exhaustive-deps
+
   if (!book) return <Navigate to="/library" replace />
 
   const currentSource = pb.session?.source
@@ -117,8 +157,40 @@ export default function ListenPage() {
   const playing = ps?.status === 'playing'
   const busy = ps?.status === 'loading'
 
-  const chooseSource = async (source) => {
-    await pb.openSession(book, { source, at: ps?.sectionId ? { sectionId: ps.sectionId, blockId: ps.blockId } : undefined })
+  const at = ps?.sectionId ? { sectionId: ps.sectionId, blockId: ps.blockId } : undefined
+  const chooseSource = async (source, forBook = book) => {
+    pb.setBookPrefs(bookId, { source })
+    await pb.openSession(forBook, { source, at })
+  }
+
+  // Narrator dropdown: an option id, or 'speech' for the device voice.
+  const narratorValue = currentSource?.type === 'audio' ? currentSource.audiobookId
+    : currentSource?.type === 'speech' ? 'speech'
+      : record.prefs?.source?.type === 'speech' ? 'speech' : record.prefs?.source?.audiobookId || null
+  const onNarrator = async (value) => {
+    if (value === 'speech') return chooseSource({ type: 'speech' })
+    const opt = assets.narrators.find(o => o.id === value)
+    if (!opt) return
+    const r = await assets.bring(opt)
+    if (!r) return
+    await chooseSource({ type: 'audio', audiobookId: r.id }, { ...book, contentId: (await getContentMeta(r.contentId)) ? r.contentId : book.contentId })
+  }
+
+  // Paintings dropdown: a set id, or 'off'.
+  const paintingsValue = vPrefs.mode === 'off' ? 'off' : visuals.set?.id || vPrefs.setId || 'off'
+  const onPaintings = async (value) => {
+    if (value === 'off') return pb.setBookVisuals(bookId, { mode: 'off' })
+    const opt = assets.paintings.find(o => o.id === value)
+    if (!opt) return
+    const r = await assets.bring(opt)
+    if (r) pb.setBookVisuals(bookId, { setId: r.id, mode: vPrefs.mode === 'off' ? 'listen' : vPrefs.mode })
+  }
+
+  const removePaintings = async () => {
+    if (!visuals.set || !window.confirm('Remove these paintings from this device? They stay in your library.')) return
+    await deleteVisualSet(visuals.set.id)
+    onAssetsChanged()
+    assets.refresh()
   }
 
   const exportScript = async () => {
@@ -132,18 +204,28 @@ export default function ListenPage() {
   }
 
   const removeNarration = async (id) => {
-    if (!window.confirm('Remove this narration from this device? You can import the package again later.')) return
+    if (!window.confirm('Remove this narration from this device? It stays in your library.')) return
     if (currentSource?.audiobookId === id) pb.closeSession()
     await deleteAudiobook(id)
     reload()
+    assets.refresh()
   }
 
   const remaining = isAudio && ps ? Math.max(0, ps.duration - ps.time) : 0
   const pct = !ps ? 0 : isAudio
     ? (ps.duration ? (ps.time / ps.duration) * 100 : 0)
     : (ps.duration ? ((Math.max(0, ps.segmentIndex) + 1) / ps.duration) * 100 : 0)
-  const n = currentSource?.type === 'audio' ? audiobooks.find(ab => ab.id === currentSource.audiobookId)?.manifest.narration : null
-  const voiceName = n ? String(n.voice || 'Narration').replace(/_/g, ' ') : currentSource?.type === 'speech' ? 'Device voice' : null
+  const voiceName = currentSource?.type === 'audio'
+    ? assets.narrators.find(o => o.id === currentSource.audiobookId)?.label || 'Narration'
+    : currentSource?.type === 'speech' ? 'Device voice' : null
+  const line = (isAudio ? caption : speechCaption) || null
+  const pickers = (
+    <AssetPickers assets={assets} hasText={!!meta}
+      narratorValue={narratorValue} onNarrator={onNarrator}
+      paintingsValue={paintingsValue} onPaintings={onPaintings}
+      deviceVoices={voices} deviceVoiceURI={currentSource?.voiceURI}
+      onDeviceVoice={uri => chooseSource({ type: 'speech', voiceURI: uri })} />
+  )
   const sleepMin = pb.sleep.mode === 'minutes' ? Math.ceil((pb.sleep.remainingMs || 0) / 60000) : 0
   const wickOn = pb.sleep.mode === 'minutes' ? (SLEEP_OPTIONS.find(o => o.minutes && o.minutes >= sleepMin)?.id || '60') : pb.sleep.mode
   const wickPct = pb.sleep.mode === 'minutes' ? Math.min(100, ((pb.sleep.remainingMs || 0) / 3_600_000) * 100) : pb.sleep.mode === 'chapter' ? 100 : 0
@@ -170,7 +252,16 @@ export default function ListenPage() {
           <div className="c2-card-head"><span className="c2-call">{callNumber(book)}</span><span className="c2-label">Listen</span></div>
           <h1 className="c2-title">{book.title}</h1>
           <p className="c2-by">{book.author}</p>
-          <div style={{ marginTop: 16 }}><LinkEpub book={book} onUpdateBook={onUpdateBook} onLinked={reload} /></div>
+          {assets.status || (assets.epubs.size > 0 && !assets.error) ? (
+            <p role="status" className="c2-fine" style={{ marginTop: 16 }}>{assets.status || 'Getting the book from your library…'}</p>
+          ) : assets.narrators.length > 0 ? (
+            <div style={{ marginTop: 16 }}>{pickers}</div>
+          ) : (
+            <div style={{ marginTop: 16 }}>
+              <LinkEpub book={book} onUpdateBook={onUpdateBook} onLinked={onAssetsChanged} />
+              {assets.libraryStatus !== 'unlocked' && assets.libraryStatus !== 'disabled' && pickers}
+            </div>
+          )}
         </article>
       )}
 
@@ -184,7 +275,7 @@ export default function ListenPage() {
             <TranscriptView book={book} session={pb.session} playerState={ps} pb={pb} />
           ) : (
           <article className={`c2-card c2-card--slip${showPlate ? ' has-plate' : ''}`} aria-label="Now playing">
-            {showPlate && <ListenPlate plate={plate} motion={vPrefs.motion} playing={playing} total={visuals.images.length} />}
+            {showPlate && <ListenPlate plate={plate} motion={vPrefs.motion} playing={playing} total={visuals.images.length} onOpen={() => setTheatre(true)} />}
             <div className="c2-card-head">
               <span className="c2-call">{callNumber(book)} · {sectionNumber(section, ps.sectionIndex)}</span>
               <LitLabel lit={playing}>{sectionLabel(section, ps.sectionIndex, book)}</LitLabel>
@@ -232,6 +323,8 @@ export default function ListenPage() {
             <Link className="c2-btn" to={`/book/${bookId}/read`}>Read along</Link>
           </div>
 
+          {pickers}
+
           {showChapters && (
             <section className="c3-box" aria-label="Chapters" style={{ marginTop: 18 }}>
               <header className="c3-box-head"><h2>Chapters</h2><span className="c2-label">{sections.length}</span></header>
@@ -277,7 +370,7 @@ export default function ListenPage() {
           </section>
 
           {view === 'now' && <section className="c2-transcript" aria-live="polite">
-            <p className="is-now">{(isAudio ? caption : speechCaption) || (busy ? 'Loading…' : ' ')}</p>
+            <p className="is-now">{line || (busy ? 'Loading…' : ' ')}</p>
           </section>}
         </>
       )}
@@ -319,74 +412,46 @@ export default function ListenPage() {
 
       {/* ── Paintings (visual journey) ── */}
       {meta && (
-        <PaintingsPanel book={book} meta={meta} visuals={visuals} prefs={vPrefs} position={position}
+        <PaintingsPanel visuals={visuals} prefs={vPrefs} position={position}
           onPrefs={patch => pb.setBookVisuals(bookId, patch)}
           onPin={id => setPinned({ id, base: plate.chosen?.id ?? null })} shownId={showPlate ? plate.shown?.id : null} />
       )}
 
-      {/* ── Narration source ── */}
+      {/* ── Files on this device (rarely needed: the library brings them) ── */}
       {(meta || audiobooks.length > 0) && (
-        <section aria-label="Narration">
-          <div className="c2-sec"><h2>Narration</h2></div>
+        <details className="c3-files">
+          <summary className="c2-link">On this device</summary>
           <div className="c2-card listen-panel">
-          <ul className="listen-sources">
-            {audiobooks.map(ab => {
-              const n = ab.manifest.narration || {}
-              const active = currentSource?.type === 'audio' && currentSource.audiobookId === ab.id
-              return (
-                <li key={ab.id} className={active ? 'active' : ''}>
-                  <button onClick={() => chooseSource({ type: 'audio', audiobookId: ab.id })} aria-pressed={active}>
-                    <span className="font-serif">{String(n.voice || '').replace(/_/g, ' ')} · {n.engineLabel || n.engine}</span>
-                    {n.style && <span className="listen-dim">“{n.style}”</span>}
-                    <span className="listen-dim">
-                      Neural · {formatDuration(ab.manifest.totalDurationSec)} · {ab.manifest.sections.length} chapters · {formatBytes(ab.totalBytes)}
-                      {!ab.manifest.complete && ' · partial'}
-                    </span>
-                  </button>
-                  <button className="listen-link" onClick={() => removeNarration(ab.id)} aria-label="Remove narration">Remove</button>
-                </li>
-              )
-            })}
-            {meta && (
-              <li className={currentSource?.type === 'speech' ? 'active' : ''}>
-                <button onClick={() => chooseSource({ type: 'speech', voiceURI: currentSource?.voiceURI })} aria-pressed={currentSource?.type === 'speech'}>
-                  <span className="font-serif">Device voice</span>
-                  <span className="listen-dim">Built-in browser speech · live, no download · quality varies by device</span>
-                </button>
-                {currentSource?.type === 'speech' && voices.length > 0 && (
-                  <select aria-label="Device voice" value={currentSource.voiceURI || ''}
-                    onChange={e => chooseSource({ type: 'speech', voiceURI: e.target.value || undefined })}>
-                    <option value="">Default voice</option>
-                    {voices.map(v => <option key={v.voiceURI} value={v.voiceURI}>{v.name}{v.localService ? '' : ' (online)'}</option>)}
-                  </select>
-                )}
-              </li>
+            {currentSource?.type === 'audio' && (
+              <p className="c2-fine" style={{ marginTop: 0 }}>
+                {voiceName} · {formatDuration(audiobooks.find(a => a.id === currentSource.audiobookId)?.manifest.totalDurationSec)} · {formatBytes(audiobooks.find(a => a.id === currentSource.audiobookId)?.totalBytes)}
+              </p>
             )}
-          </ul>
-          {meta && <FromLibrary book={book} onUpdateBook={onUpdateBook} onRestored={() => { reload(); visuals.reload?.() }} style={{ marginTop: 12 }} />}
-          <div className="flex flex-wrap gap-x-6 gap-y-2" style={{ marginTop: 12 }}>
-            <ImportNarration book={book} onUpdateBook={onUpdateBook} onImported={async (id) => {
-              reload()
-              await pb.openSession({ ...book, contentId: book.contentId }, { source: { type: 'audio', audiobookId: id } })
-            }} />
-            {meta && <button className="listen-link" onClick={exportScript}>Export narration script for the Mac narrator</button>}
+            {visuals.set && (
+              <p className="c2-fine" style={{ marginTop: 0 }}>{visuals.images.length} paintings · {formatBytes(visuals.set.totalBytes)}</p>
+            )}
+            <div className="c2-links">
+              <AddFiles book={book} onUpdateBook={onUpdateBook} onAdded={() => { onAssetsChanged(); assets.refresh() }} />
+              {currentSource?.type === 'audio' && <button type="button" className="c2-link" onClick={() => removeNarration(currentSource.audiobookId)}>Remove this narration</button>}
+              {visuals.set && <button type="button" className="c2-link" onClick={removePaintings}>Remove these paintings</button>}
+              {meta && <button type="button" className="c2-link" onClick={exportScript}>Export narration script</button>}
+            </div>
+            {exportNote && <p className="c2-fine">{exportNote}</p>}
+            {storage?.quota > 0 && (
+              <p className="c2-fine">
+                Lantern uses {formatBytes(storage.usage)} of {formatBytes(storage.quota)} on this device
+                {storage.persisted ? '.' : '. On iPhone, Add to Home Screen so it isn’t cleared.'}
+              </p>
+            )}
+            {meta && <LinkEpub book={book} onUpdateBook={onUpdateBook} onLinked={onAssetsChanged} compact />}
           </div>
-          {exportNote && <p className="listen-dim" style={{ fontSize: 12, marginTop: 8 }}>{exportNote}</p>}
-          {storage?.quota > 0 && (
-            <p className="listen-dim" style={{ fontSize: 12, marginTop: 8 }}>
-              Lantern uses {formatBytes(storage.usage)} of {formatBytes(storage.quota)} available on this device
-              {storage.persisted ? '.' : ' · storage may be cleared if unused (on iPhone, Add to Home Screen to keep it).'}
-            </p>
-          )}
-          {!audiobooks.length && meta && (
-            <p className="listen-dim" style={{ fontSize: 12, marginTop: 10, lineHeight: 1.6 }}>
-              For natural neural narration, generate it on your Mac (free, offline) with <code>lantern-narrate</code>,
-              then import the <code>.lantern-audio</code> file here or on your iPhone.
-            </p>
-          )}
-          {meta && <div style={{ marginTop: 12 }}><LinkEpub book={book} onUpdateBook={onUpdateBook} onLinked={reload} compact /></div>}
-          </div>
-        </section>
+        </details>
+      )}
+
+      {theatre && (
+        <Theatre plate={plate} motion={vPrefs.motion} playing={playing} busy={busy} line={line}
+          title={book.title} chapter={section ? sectionLabel(section, ps.sectionIndex, book) : null}
+          onToggle={pb.toggle} onClose={() => setTheatre(false)} />
       )}
 
       {showUpdate && <ChapterUpdateModal book={book} onClose={() => setShowUpdate(false)} onUpdateBook={onUpdateBook} />}

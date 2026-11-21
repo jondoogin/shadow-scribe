@@ -28,7 +28,7 @@ PRESETS = {
                         "texture": "sparse fine pen line, a few flat areas of vivid opaque gouache, simplified dreamlike shapes, lots of bare paper",
                         "vivid": True},
 }
-DEFAULT_PRESET = "gouache"
+DEFAULT_PRESET = "ink-and-gouache"  # Session 170: John's taste (ink and wash simplicity, gouache colour)
 
 
 def opening_text(script: dict, limit: int = PROFILE_WORDS) -> str:

@@ -101,3 +101,17 @@ def test_clean_can_forget_saved_choices(narrator_home):
     assert (narrator_home / "books.json").exists()
     storage.clean(["choices"])
     assert not (narrator_home / "books.json").exists()
+
+
+def test_curated_defaults(narrator_home, monkeypatch):
+    from lantern_narrator import curated
+    # Aiden reads in the warm style unless the book or a flag says otherwise.
+    c = cli.resolve_choice("sha256:new", "qwen3-1.7b", None, None, None, hw=hw(48))
+    assert c["style"] == curated.AIDEN_STYLE
+    assert cli.resolve_choice("sha256:new", "qwen3-1.7b", "Ryan", None, None, hw=hw(48))["style"] == ""
+    assert cli.resolve_choice("sha256:new", "qwen3-1.7b", None, "", None, hw=hw(48))["style"] == ""
+    assert cli.resolve_choice("sha256:new", "kokoro", None, None, None, hw=hw(16))["style"] == ""
+    # Auditions offer the short list where the engine has it, else everything.
+    assert curated.curated_voices("qwen3-1.7b", ["Ryan", "Aiden", "Vivian"]) == ["Aiden"]
+    assert curated.curated_voices("pocket", ["alba", "charles"]) == ["alba", "charles"]
+    assert curated.DEFAULT_PAINTING_STYLE == "ink-and-gouache"

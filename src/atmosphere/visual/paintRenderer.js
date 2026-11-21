@@ -1,14 +1,17 @@
 // WebGL painterly stage (docs/VISUAL_JOURNEY.md §7).
 //
-//  1. Paint-in: the incoming image appears stroke by stroke over the old one,
-//     in the order its stroke map gives (washes first, detail last), with a
-//     brief darker "wet edge" as each stroke settles.
-//  2. Living paint: a slow drift and zoom plus a faint shimmer.
+//  1. Ink bloom (Session 170): the incoming painting spreads out from its
+//     focus like ink taking in damp paper, through a soft, uneven front
+//     (low-frequency noise plus the stroke map, so washes lead and detail
+//     follows). The outgoing painting lifts a little towards paper as it goes.
+//     No dark edge, no visible stroke-by-stroke stepping.
+//  2. Living paint: a slow drift and zoom plus a faint shimmer. Motion eases
+//     to rest when narration pauses and eases back when it resumes.
 //  3. Paper: a procedural grain over everything.
 //
 // No React here. VisualStage.jsx owns the DOM and the fallback.
 
-import { VISUAL_MOTION, driftTransform } from './motion.js'
+import { VISUAL_MOTION, driftTransform, seeded } from './motion.js'
 
 const VERT = `
 attribute vec2 aPos;
@@ -21,8 +24,8 @@ precision mediump float;
 varying vec2 vUv;
 uniform sampler2D uFrom, uTo, uStroke;
 uniform vec4 uFromX, uToX;
-uniform float uProgress, uTime, uShimmer, uGrain, uHasFrom, uFade;
-uniform vec2 uRes;
+uniform float uProgress, uTime, uShimmer, uGrain, uHasFrom, uFade, uSeed;
+uniform vec2 uRes, uFocus;
 uniform vec3 uPaper;
 
 float hash(vec2 p) { p = fract(p * vec2(123.34, 456.21)); p += dot(p, p + 45.32); return fract(p.x * p.y); }
@@ -30,6 +33,11 @@ float noise(vec2 p) {
   vec2 i = floor(p), f = fract(p);
   vec2 u = f * f * (3.0 - 2.0 * f);
   return mix(mix(hash(i), hash(i + vec2(1.0, 0.0)), u.x), mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), u.x), u.y);
+}
+float fbm(vec2 p) {
+  float v = 0.0, a = 0.5;
+  for (int i = 0; i < 4; i++) { v += a * noise(p); p = p * 2.03 + 17.0; a *= 0.5; }
+  return v;
 }
 
 void main() {
@@ -41,17 +49,22 @@ void main() {
   vec3 from = uHasFrom > 0.5 ? texture2D(uFrom, fu).rgb : uPaper;
   vec3 to = texture2D(uTo, tu).rgb;
 
+  float p = uProgress * uProgress * (3.0 - 2.0 * uProgress);
   float a;
-  float wet = 0.0;
+  float front = 0.0;
   if (uFade > 0.5) {
-    a = uProgress;
+    a = p;
   } else {
-    float s = texture2D(uStroke, tu).r + (noise(tu * vec2(64.0, 40.0)) - 0.5) * 0.09;
-    float w = 0.16;
-    a = clamp((uProgress * (1.0 + w) - s) / w, 0.0, 1.0);
-    wet = smoothstep(0.0, 0.45, a) * (1.0 - smoothstep(0.45, 1.0, a));
+    vec2 asp = vec2(uRes.x / max(uRes.y, 1.0), 1.0);
+    float dist = length((vUv - uFocus) * asp) / length(asp);
+    float field = 0.58 * dist + 0.30 * fbm(vUv * 2.6 + uSeed) + 0.12 * texture2D(uStroke, tu).r;
+    float w = 0.22;
+    a = smoothstep(field - w, field + w, p * (1.0 + 2.0 * w) - w * 0.5);
+    front = a * (1.0 - a) * 4.0;
   }
-  vec3 col = mix(from, to * (1.0 - 0.24 * wet), a);
+  from = mix(from, uPaper, 0.14 * p * uHasFrom);
+  vec3 col = mix(from, to, a);
+  col = mix(col, uPaper, 0.10 * front);
 
   float g = noise(gl_FragCoord.xy * 0.85) * 0.55 + noise(gl_FragCoord.xy * 0.21) * 0.3 + noise(gl_FragCoord.xy * 0.035) * 0.15;
   col *= 1.0 + (g - 0.5) * uGrain * 2.0;
@@ -120,7 +133,8 @@ export class PaintRenderer {
     this.transition = null      // { start, duration, fade }
     this.pending = null
     this.loadSeq = 0
-    this.motionMs = 0           // motion clock: stops while paused
+    this.motionMs = 0           // motion clock: eases to rest while paused
+    this.speed = 1              // 0..1, follows settings.paused with a soft ease
     this.lastTick = now()
     this.lastDraw = 0
     this.raf = 0
@@ -144,7 +158,7 @@ export class PaintRenderer {
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW)
     const loc = gl.getAttribLocation(p, 'aPos'); gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0)
     this.u = {}
-    for (const n of ['uFrom', 'uTo', 'uStroke', 'uFromX', 'uToX', 'uProgress', 'uTime', 'uShimmer', 'uGrain', 'uHasFrom', 'uFade', 'uRes', 'uPaper']) this.u[n] = gl.getUniformLocation(p, n)
+    for (const n of ['uFrom', 'uTo', 'uStroke', 'uFromX', 'uToX', 'uProgress', 'uTime', 'uShimmer', 'uGrain', 'uHasFrom', 'uFade', 'uRes', 'uPaper', 'uFocus', 'uSeed']) this.u[n] = gl.getUniformLocation(p, n)
     gl.uniform1i(this.u.uFrom, 0); gl.uniform1i(this.u.uTo, 1); gl.uniform1i(this.u.uStroke, 2)
     this.blank = this._texture(null)
   }
@@ -209,7 +223,7 @@ export class PaintRenderer {
     this.to = layer.id === null ? null : layer
     if (this.to) this.to.motionStart = this.motionMs
     const fade = this.settings.reduced || !this.to
-    this.transition = { start: now(), duration: this.settings.reduced ? VISUAL_MOTION.reducedFadeMs : fade ? 2_000 : this.settings.paintInMs, fade }
+    this.transition = { start: now(), duration: this.settings.reduced ? VISUAL_MOTION.reducedFadeMs : fade ? VISUAL_MOTION.toPaperMs : this.settings.paintInMs, fade }
     this.opts.onChange?.(this.to?.id ?? null)
     this._wake()
   }
@@ -222,14 +236,17 @@ export class PaintRenderer {
     const t = now()
     const dt = Math.min(250, t - this.lastTick); this.lastTick = t
     const s = this.settings
-    if (!s.paused) this.motionMs += dt
+    const target = s.paused ? 0 : 1
+    this.speed += (target - this.speed) * (1 - Math.exp(-dt / VISUAL_MOTION.easeMs))
+    if (Math.abs(target - this.speed) < 0.002) this.speed = target
+    this.motionMs += dt * this.speed
 
     let progress = 1
     if (this.transition) {
       progress = Math.min(1, (t - this.transition.start) / this.transition.duration)
     }
     const animating = !!this.transition
-    const living = !s.paused && !s.reduced && (s.drift || s.shimmer) && (this.to || this.from)
+    const living = (this.speed > 0) && !s.reduced && (s.drift || s.shimmer) && (this.to || this.from)
     const frameGap = 1000 / VISUAL_MOTION.idleFps
     if (animating || t - this.lastDraw >= frameGap || this.needsDraw) {
       this._draw(progress)
@@ -285,6 +302,8 @@ export class PaintRenderer {
     gl.uniform1f(u.uGrain, s.grain)
     gl.uniform2f(u.uRes, this.canvas.width, this.canvas.height)
     gl.uniform3fv(u.uPaper, this.paper)
+    gl.uniform2fv(u.uFocus, this._screenFocus(toLayer))
+    gl.uniform1f(u.uSeed, toLayer ? seeded(toLayer.id, 3) * 40 : 0)
     if (!toLayer && fromLayer) {
       // Fading back to paper: draw the old image as the "to" layer, fading out.
       gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, fromLayer.tex)
@@ -294,6 +313,14 @@ export class PaintRenderer {
       gl.uniform1f(u.uProgress, 1 - progress)
     }
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4)
+  }
+
+  /** The image's focus point in screen uv, where the bloom starts. */
+  _screenFocus(layer) {
+    if (!layer) return [0.5, 0.5]
+    const [sx, sy, ox, oy] = this._xform(layer)
+    const fx = ((layer.focus?.x ?? 0.5) - ox) / sx, fy = ((layer.focus?.y ?? 0.5) - oy) / sy
+    return [Math.min(0.85, Math.max(0.15, fx)), Math.min(0.85, Math.max(0.15, fy))]
   }
 
   get currentId() { return this.to?.id ?? null }

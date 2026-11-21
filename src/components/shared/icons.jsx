@@ -30,6 +30,7 @@ export const Ico = {
   Forward:  (p) => <svg {...sp} strokeWidth="1.8" className="w-5 h-5" {...p}><path d="M21 12a9 9 0 11-9-9 9.75 9.75 0 016.74 2.74L21 8"/><polyline points="21 3 21 8 16 8"/></svg>,
   SkipBack: (p) => <svg {...sp} strokeWidth="1.8" className="w-5 h-5" {...p}><polygon points="19 20 9 12 19 4 19 20" fill="currentColor" stroke="none"/><line x1="5" y1="19" x2="5" y2="5" strokeWidth="2"/></svg>,
   SkipFwd:  (p) => <svg {...sp} strokeWidth="1.8" className="w-5 h-5" {...p}><polygon points="5 4 15 12 5 20 5 4" fill="currentColor" stroke="none"/><line x1="19" y1="5" x2="19" y2="19" strokeWidth="2"/></svg>,
+  Expand:   (p) => <svg {...sp} strokeWidth="1.8" className="w-4 h-4" {...p}><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>,
   Moon:     (p) => <svg {...sp} strokeWidth="1.8" className="w-4 h-4" {...p}><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>,
   Open:     (p) => <svg {...sp} strokeWidth="1.8" className="w-4 h-4" {...p}><path d="M2 3h6a4 4 0 014 4v14a3 3 0 00-3-3H2z"/><path d="M22 3h-6a4 4 0 00-4 4v14a3 3 0 013-3h7z"/></svg>,
 }

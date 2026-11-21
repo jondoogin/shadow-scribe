@@ -41,7 +41,7 @@ export default function ReaderPage() {
   const visibleBlock = useRef(null)
   const [topBlock, setTopBlock] = useState(null)   // live, for the painting gate
   const [clearPage, setClearPage] = useState(false)
-  const visuals = useBookVisuals(book, meta)
+  const visuals = useBookVisuals(book, meta, bookRecord(pb.listenState, bookId).visuals?.setId)
   const reduced = usePrefersReducedMotion()
 
   const sections = useMemo(() => (meta?.sections || []).filter(s => s.blockCount > 0 && s.skipReason !== 'nonlinear'), [meta])
